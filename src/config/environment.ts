@@ -4,6 +4,7 @@ interface EnvironmentConfig {
     apiKey: string;
     clientId: string;
     clientSecret: string;
+    spreadsheetId: string;
   };
   app: {
     version: string;
@@ -17,25 +18,30 @@ interface EnvironmentConfig {
   };
 }
 
-// Default configuration
-const defaultConfig: EnvironmentConfig = {
+// Get environment variables with fallbacks
+const getEnvVar = (key: string, fallback: string = ''): string => {
+  return import.meta.env[key] || fallback;
+};
+
+// Configuration using environment variables
+const config: EnvironmentConfig = {
   googleSheets: {
-    apiKey: '',
-    clientId: '',
-    clientSecret: '',
+    apiKey: getEnvVar('VITE_GOOGLE_SHEETS_API_KEY'),
+    clientId: getEnvVar('VITE_GOOGLE_SHEETS_CLIENT_ID'),
+    clientSecret: getEnvVar('VITE_GOOGLE_SHEETS_CLIENT_SECRET'),
+    spreadsheetId: getEnvVar('VITE_GOOGLE_SHEETS_SPREADSHEET_ID'),
   },
   app: {
-    version: '1.0.0-beta',
+    version: getEnvVar('VITE_APP_VERSION', '1.0.0-beta'),
     environment: (import.meta.env.MODE as 'development' | 'production') || 'development',
-    logLevel: import.meta.env.VITE_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error' || 'info',
+    logLevel: getEnvVar('VITE_LOG_LEVEL', 'info') as 'debug' | 'info' | 'warn' | 'error',
   },
   features: {
-    autoBackup: import.meta.env.VITE_ENABLE_AUTO_BACKUP !== 'false',
-    googleSheetsSync: true,
-    errorReporting: import.meta.env.VITE_ENABLE_ERROR_REPORTING === 'true',
+    autoBackup: getEnvVar('VITE_ENABLE_AUTO_BACKUP', 'true') !== 'false',
+    googleSheetsSync: getEnvVar('VITE_ENABLE_GOOGLE_SHEETS', 'true') !== 'false',
+    errorReporting: getEnvVar('VITE_ENABLE_ERROR_REPORTING', 'false') === 'true',
   },
 };
 
-
-export const config = defaultConfig;
+export { config };
 export default config;
