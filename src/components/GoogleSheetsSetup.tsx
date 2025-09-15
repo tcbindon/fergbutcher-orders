@@ -10,6 +10,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useGoogleSheets } from '../hooks/useGoogleSheets';
+import { config } from '../config/environment';
 
 interface GoogleSheetsSetupProps {
   onClose: () => void;
@@ -19,10 +20,10 @@ const GoogleSheetsSetup: React.FC<GoogleSheetsSetupProps> = ({ onClose }) => {
   const { connect, isLoading, error, isConnected } = useGoogleSheets();
   const [step, setStep] = useState(1);
   const [config, setConfig] = useState({
-    apiKey: '',
-    spreadsheetId: '',
-    clientId: '',
-    clientSecret: ''
+    apiKey: config.googleSheets.apiKey || '',
+    spreadsheetId: config.googleSheets.spreadsheetId || '',
+    clientId: config.googleSheets.clientId || '',
+    clientSecret: config.googleSheets.clientSecret || ''
   });
   const [showSecrets, setShowSecrets] = useState({
     apiKey: false,
@@ -336,7 +337,28 @@ const GoogleSheetsSetup: React.FC<GoogleSheetsSetupProps> = ({ onClose }) => {
                 </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-6">
+                {(config.googleSheets.apiKey && config.googleSheets.clientId && config.googleSheets.clientSecret && config.googleSheets.spreadsheetId) ? (
+                  <div className="mb-6 p-4 bg-fergbutcher-green-100 border border-fergbutcher-green-300 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="h-5 w-5 text-fergbutcher-green-600" />
+                      <p className="text-fergbutcher-green-800 font-medium">
+                        Environment variables detected! Your credentials are pre-filled from Netlify.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-6 p-4 bg-fergbutcher-yellow-50 border border-fergbutcher-yellow-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="h-5 w-5 text-fergbutcher-yellow-600" />
+                      <p className="text-fergbutcher-yellow-800 font-medium">
+                        No environment variables found. You'll need to enter credentials manually or set them up in Netlify.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
                     Spreadsheet ID *
@@ -406,6 +428,7 @@ const GoogleSheetsSetup: React.FC<GoogleSheetsSetupProps> = ({ onClose }) => {
                     </button>
                   </div>
                 </div>
+              </div>
               </div>
 
               {error && (
