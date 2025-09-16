@@ -345,6 +345,7 @@ const GoogleSheetsSetup: React.FC<GoogleSheetsSetupProps> = ({ onClose }) => {
                 </button>
               </div>
             </div>
+          )}
         </div>
       </div>
     </div>
