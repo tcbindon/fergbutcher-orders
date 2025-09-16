@@ -54,6 +54,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
         unit: item.unit
       })));
     }
+  }, [order, initialData]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
