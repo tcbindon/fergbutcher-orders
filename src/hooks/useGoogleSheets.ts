@@ -1,13 +1,5 @@
 import { useState, useEffect } from 'react';
-import { googleSheetsService } from '../services/googleSheets';
 import { Customer, Order } from '../types';
-
-export interface GoogleSheetsConfig {
-  apiKey: string;
-  spreadsheetId: string;
-  clientId: string;
-  clientSecret: string;
-}
 
 export const useGoogleSheets = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -17,37 +9,35 @@ export const useGoogleSheets = () => {
 
   // Check connection status on mount
   useEffect(() => {
-    const status = googleSheetsService.getStatus();
-    setIsConnected(status.connected);
-    setLastSync(status.lastSync || null);
+    // Check if environment variables are configured
+    const hasConfig = !!(
+      import.meta.env.VITE_GOOGLE_SHEETS_SPREADSHEET_ID &&
+      import.meta.env.VITE_GOOGLE_SHEETS_SERVICE_EMAIL &&
+      import.meta.env.VITE_GOOGLE_SHEETS_SERVICE_KEY
+    );
+    setIsConnected(hasConfig);
   }, []);
 
-  const connect = async (config: GoogleSheetsConfig): Promise<boolean> => {
+  const connect = async (): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      await googleSheetsService.initialize(config);
-      
-      // Try different authentication methods in order of preference
-      try {
-        await googleSheetsService.authenticate();
-      } catch (authError) {
-        console.log('Standard OAuth failed, trying direct flow:', authError);
-        try {
-          // Try direct redirect flow
-          await googleSheetsService.authenticateDirect();
-          return true; // This won't actually return since we're redirecting
-        } catch (directError) {
-          console.log('Direct OAuth failed, trying implicit flow:', directError);
-          // If direct OAuth fails, try implicit flow
-          await googleSheetsService.authenticateImplicit();
-        }
-      }
-      
-      const structureCreated = await googleSheetsService.createSheetsStructure();
-      if (!structureCreated) {
-        throw new Error('Failed to create sheets structure');
+      // Test the Netlify function endpoint
+      const response = await fetch('/.netlify/functions/sync-google-sheets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customers: [],
+          orders: [],
+          type: 'test'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to connect to Google Sheets service');
       }
       
       setIsConnected(true);
@@ -74,20 +64,21 @@ export const useGoogleSheets = () => {
     setError(null);
 
     try {
-      const customersSync = await googleSheetsService.syncCustomers(customers);
-      if (!customersSync) {
-        throw new Error('Failed to sync customers');
-      }
+      const response = await fetch('/.netlify/functions/sync-google-sheets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customers,
+          orders,
+          type: 'all'
+        })
+      });
 
-      const ordersSync = await googleSheetsService.syncOrders(orders, customers);
-      if (!ordersSync) {
-        throw new Error('Failed to sync orders');
-      }
-
-      const today = new Date().toISOString().split('T')[0];
-      const collectionsSync = await googleSheetsService.syncDailyCollections(orders, customers, today);
-      if (!collectionsSync) {
-        throw new Error('Failed to sync daily collections');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Sync failed');
       }
 
       setLastSync(new Date());
@@ -111,11 +102,25 @@ export const useGoogleSheets = () => {
     setError(null);
 
     try {
-      const success = await googleSheetsService.syncCustomers(customers);
-      if (success) {
-        setLastSync(new Date());
+      const response = await fetch('/.netlify/functions/sync-google-sheets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customers,
+          orders: [],
+          type: 'customers'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Customer sync failed');
       }
-      return success;
+
+      setLastSync(new Date());
+      return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Customer sync failed';
       setError(errorMessage);
@@ -135,11 +140,25 @@ export const useGoogleSheets = () => {
     setError(null);
 
     try {
-      const success = await googleSheetsService.syncOrders(orders, customers);
-      if (success) {
-        setLastSync(new Date());
+      const response = await fetch('/.netlify/functions/sync-google-sheets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customers,
+          orders,
+          type: 'orders'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Orders sync failed');
       }
-      return success;
+
+      setLastSync(new Date());
+      return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Orders sync failed';
       setError(errorMessage);
@@ -150,7 +169,6 @@ export const useGoogleSheets = () => {
   };
 
   const disconnect = () => {
-    googleSheetsService.disconnect();
     setIsConnected(false);
     setLastSync(null);
     setError(null);
