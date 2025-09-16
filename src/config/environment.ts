@@ -1,10 +1,9 @@
 // Environment configuration for production deployment
 interface EnvironmentConfig {
   googleSheets: {
-    apiKey: string;
-    clientId: string;
-    clientSecret: string;
     spreadsheetId: string;
+    serviceEmail: string;
+    serviceKey: string;
   };
   app: {
     version: string;
@@ -26,10 +25,9 @@ const getEnvVar = (key: string, fallback: string = ''): string => {
 // Configuration using environment variables
 const config: EnvironmentConfig = {
   googleSheets: {
-    apiKey: getEnvVar('VITE_GOOGLE_SHEETS_API_KEY'),
-    clientId: getEnvVar('VITE_GOOGLE_SHEETS_CLIENT_ID'),
-    clientSecret: getEnvVar('VITE_GOOGLE_SHEETS_CLIENT_SECRET'),
     spreadsheetId: getEnvVar('VITE_GOOGLE_SHEETS_SPREADSHEET_ID'),
+    serviceEmail: getEnvVar('VITE_GOOGLE_SHEETS_SERVICE_EMAIL'),
+    serviceKey: getEnvVar('VITE_GOOGLE_SHEETS_SERVICE_KEY'),
   },
   app: {
     version: getEnvVar('VITE_APP_VERSION', '1.0.0-beta'),

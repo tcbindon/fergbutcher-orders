@@ -75,20 +75,15 @@ Before we start, make sure you have:
 4. Click "Restrict Key" and select "Google Sheets API"
 
 ### Step 4: Create OAuth Credentials
-1. Still in "Credentials", click "Create Credentials" → "OAuth client ID"
-2. If prompted, configure OAuth consent screen:
-   - Choose "External"
-   - App name: "Fergbutcher Orders"
-   - User support email: your email
-   - Developer contact: your email
-   - Save and continue through all steps
-3. Choose "Web application"
-4. Name: "Fergbutcher Web App"
-5. Add your site URL to "Authorized redirect URIs":
-   - `https://your-site-url.netlify.app` (replace with your actual URL)
-   - `http://localhost:5173` (for local testing)
-6. Click "Create"
-7. Copy both Client ID and Client Secret
+1. Still in "Credentials", click "Create Credentials" → "Service Account"
+2. Name it "fergbutcher-sheets-service"
+3. Click "Create and Continue"
+4. Skip role assignment (click "Continue")
+5. Skip user access (click "Done")
+6. Click on the created service account
+7. Go to "Keys" tab → "Add Key" → "Create New Key" → "JSON"
+8. Download the JSON file and keep it secure
+9. Copy the `client_email` and `private_key` values from the JSON
 
 ### Step 5: Create Your Spreadsheet
 1. Go to [Google Sheets](https://sheets.google.com)

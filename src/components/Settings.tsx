@@ -6,11 +6,9 @@ import { useOrders } from '../hooks/useOrders';
 import keyboardShortcuts, { KeyboardShortcutsService } from '../services/keyboardShortcuts';
 import backupService from '../services/backupService';
 import errorLogger from '../services/errorLogger';
-import GoogleSheetsSetup from './GoogleSheetsSetup';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('email');
-  const [showGoogleSheetsSetup, setShowGoogleSheetsSetup] = useState(false);
   
   const { isConnected, isLoading, error, lastSync, syncAll, disconnect } = useGoogleSheets();
   const { customers } = useCustomers();
@@ -294,8 +292,8 @@ Fergbutcher Team`}
                       </h4>
                       <p className="text-sm text-fergbutcher-brown-600">
                         {isConnected 
-                          ? `Last sync: ${lastSync ? lastSync.toLocaleString('en-NZ') : 'Never'}`
-                          : 'Set up Google Sheets integration to sync your data'
+                          ? `Service Account authentication active`
+                          : 'Configure environment variables in Netlify to enable sync'
                         }
                       </p>
                     </div>
@@ -311,21 +309,11 @@ Fergbutcher Team`}
                           <Sync className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                           <span>{isLoading ? 'Syncing...' : 'Sync Now'}</span>
                         </button>
-                        <button
-                          onClick={disconnect}
-                          className="bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
-                        >
-                          Disconnect
-                        </button>
                       </>
                     ) : (
-                      <button
-                        onClick={() => setShowGoogleSheetsSetup(true)}
-                        className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2"
-                      >
-                        <SettingsIcon className="h-4 w-4" />
-                        <span>Setup Integration</span>
-                      </button>
+                      <div className="text-sm text-fergbutcher-brown-600">
+                        Configure in Netlify Environment Variables
+                      </div>
                     )}
                   </div>
                 </div>
@@ -348,10 +336,10 @@ Fergbutcher Team`}
                     <span>Data Synchronization</span>
                   </h4>
                   <ul className="text-sm text-fergbutcher-brown-600 space-y-2">
-                    <li>• Automatic customer data sync</li>
-                    <li>• Real-time order updates</li>
-                    <li>• Daily collection schedules</li>
-                    <li>• Bidirectional data flow</li>
+                    <li>• Automatic customer data sync via Netlify Functions</li>
+                    <li>• Order updates synced to Google Sheets</li>
+                    <li>• Daily collection schedules generated</li>
+                    <li>• Service Account authentication (no user interaction needed)</li>
                   </ul>
                 </div>
 
@@ -617,11 +605,6 @@ Fergbutcher Team`}
           )}
         </div>
       </div>
-
-      {/* Google Sheets Setup Modal */}
-      {showGoogleSheetsSetup && (
-        <GoogleSheetsSetup onClose={() => setShowGoogleSheetsSetup(false)} />
-      )}
     </div>
   );
 };
