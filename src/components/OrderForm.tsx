@@ -8,6 +8,7 @@ interface OrderFormProps {
   onSubmit: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  initialData?: any; // For pre-populating when duplicating
 }
 
 const OrderForm: React.FC<OrderFormProps> = ({
@@ -15,7 +16,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
   customers,
   onSubmit,
   onCancel,
-  isLoading = false
+  isLoading = false,
+  initialData
 }) => {
   const [formData, setFormData] = useState({
     customerId: '',
@@ -37,21 +39,21 @@ const OrderForm: React.FC<OrderFormProps> = ({
   ];
 
   useEffect(() => {
-    if (order) {
+    if (order || initialData) {
+      const sourceData = order || initialData;
       setFormData({
-        customerId: order.customerId,
-        collectionDate: order.collectionDate,
-        collectionTime: order.collectionTime || '',
-        additionalNotes: order.additionalNotes || '',
-        status: order.status
+        customerId: sourceData.customerId,
+        collectionDate: sourceData.collectionDate,
+        collectionTime: sourceData.collectionTime || '',
+        additionalNotes: sourceData.additionalNotes || '',
+        status: sourceData.status || 'pending'
       });
-      setItems(order.items.map(item => ({
+      setItems(sourceData.items.map((item: any) => ({
         description: item.description,
         quantity: item.quantity,
         unit: item.unit
       })));
     }
-  }, [order]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

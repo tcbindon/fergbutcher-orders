@@ -28,7 +28,7 @@ const Orders: React.FC = () => {
     addOrder, 
     updateOrder, 
     deleteOrder,
-    duplicateOrder,
+    getDuplicateOrderData,
     searchOrders 
   } = useOrders();
   
@@ -40,6 +40,7 @@ const Orders: React.FC = () => {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [deletingOrder, setDeletingOrder] = useState<Order | null>(null);
+  const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sort orders by collection date (earliest first), then by status priority
@@ -106,13 +107,12 @@ const Orders: React.FC = () => {
   };
 
   const handleDuplicateOrder = (orderId: string) => {
-    const duplicatedOrder = duplicateOrder(orderId);
-    if (duplicatedOrder) {
-      alert(`Order duplicated successfully! New order #${duplicatedOrder.id} created.`);
-      // Close the detail view to show the updated orders list
-      setViewingOrder(null);
+    const duplicateData = getDuplicateOrderData(orderId);
+    if (duplicateData) {
+      setDuplicatingOrder(duplicateData);
+      setViewingOrder(null); // Close detail view
     } else {
-      alert('Failed to duplicate order. Please try again.');
+      alert('Failed to prepare duplicate order. Please try again.');
     }
   };
 
@@ -441,6 +441,33 @@ const Orders: React.FC = () => {
                   Delete Order
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Order Modal */}
+      {duplicatingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
+              <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
+            </div>
+            <div className="p-6">
+              <OrderForm
+                customers={customers}
+                onSubmit={(orderData) => {
+                  const newOrder = addOrder(orderData);
+                  if (newOrder) {
+                    setDuplicatingOrder(null);
+                    alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                  }
+                }}
+                onCancel={() => setDuplicatingOrder(null)}
+                isLoading={isSubmitting}
+                initialData={duplicatingOrder}
+              />
             </div>
           </div>
         </div>

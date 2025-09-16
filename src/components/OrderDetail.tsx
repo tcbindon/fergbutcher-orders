@@ -105,7 +105,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
               <button
                 onClick={onDuplicate}
                 className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-blue-600 hover:bg-fergbutcher-blue-100 rounded-lg transition-colors"
-                title="Duplicate Order"
+                title="Duplicate Order (Edit Before Creating)"
               >
                 <Copy className="h-5 w-5" />
               </button>

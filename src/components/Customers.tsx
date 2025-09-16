@@ -32,13 +32,14 @@ const Customers: React.FC = () => {
   
   const { orders, getOrdersByCustomerId, addOrder } = useOrders();
 
-  const { duplicateOrder } = useOrders();
+  const { getDuplicateOrderData } = useOrders();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
   const [viewingOrderHistory, setViewingOrderHistory] = useState<Customer | null>(null);
+  const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredCustomers = searchCustomers(searchTerm);
@@ -104,11 +105,12 @@ const Customers: React.FC = () => {
   };
 
   const handleDuplicateOrder = (orderId: string) => {
-    const duplicatedOrder = duplicateOrder(orderId);
-    if (duplicatedOrder) {
-      alert(`Order duplicated successfully! New order #${duplicatedOrder.id} created.`);
+    const duplicateData = getDuplicateOrderData(orderId);
+    if (duplicateData) {
+      setDuplicatingOrder(duplicateData);
+      setViewingOrderHistory(null); // Close order history modal
     } else {
-      alert('Failed to duplicate order. Please try again.');
+      alert('Failed to prepare duplicate order. Please try again.');
     }
   };
 
@@ -337,7 +339,7 @@ const Customers: React.FC = () => {
                           <button
                             onClick={() => handleDuplicateOrder(order.id)}
                             className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
-                            title="Duplicate Order"
+                            title="Duplicate Order (Edit Before Creating)"
                           >
                             <Copy className="h-4 w-4" />
                           </button>
@@ -456,6 +458,33 @@ const Customers: React.FC = () => {
                   Delete Customer
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Order Modal */}
+      {duplicatingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
+              <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
+            </div>
+            <div className="p-6">
+              <OrderForm
+                customers={customers}
+                onSubmit={(orderData) => {
+                  const newOrder = addOrder(orderData);
+                  if (newOrder) {
+                    setDuplicatingOrder(null);
+                    alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                  }
+                }}
+                onCancel={() => setDuplicatingOrder(null)}
+                isLoading={isSubmitting}
+                initialData={duplicatingOrder}
+              />
             </div>
           </div>
         </div>

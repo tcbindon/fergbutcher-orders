@@ -248,13 +248,13 @@ export const useOrders = () => {
     addOrder,
     updateOrder,
     deleteOrder,
-    duplicateOrder: (orderId: string) => {
+    getDuplicateOrderData: (orderId: string) => {
       try {
         const originalOrder = orders.find(o => o.id === orderId);
         if (!originalOrder) return null;
         
-        // Create a new order based on the original
-        const duplicatedOrderData = {
+        // Return order data for pre-populating the form
+        return {
           customerId: originalOrder.customerId,
           items: originalOrder.items.map(item => ({
             description: item.description,
@@ -262,16 +262,14 @@ export const useOrders = () => {
             unit: item.unit
           })),
           collectionDate: new Date().toISOString().split('T')[0], // Default to today
-          collectionTime: originalOrder.collectionTime,
-          additionalNotes: originalOrder.additionalNotes,
+          collectionTime: originalOrder.collectionTime || '',
+          additionalNotes: originalOrder.additionalNotes || '',
           status: 'pending' as Order['status']
         };
-        
-        return addOrder(duplicatedOrderData);
       } catch (err) {
-        console.error('Error duplicating order:', err);
-        errorLogger.error('Failed to duplicate order', err);
-        setError('Failed to duplicate order');
+        console.error('Error preparing duplicate order data:', err);
+        errorLogger.error('Failed to prepare duplicate order data', err);
+        setError('Failed to prepare duplicate order data');
         return null;
       }
     },
