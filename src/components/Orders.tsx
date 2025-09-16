@@ -28,6 +28,7 @@ const Orders: React.FC = () => {
     addOrder, 
     updateOrder, 
     deleteOrder,
+    duplicateOrder,
     searchOrders 
   } = useOrders();
   
@@ -101,6 +102,17 @@ const Orders: React.FC = () => {
       if (viewingOrder?.id === deletingOrder.id) {
         setViewingOrder(null);
       }
+    }
+  };
+
+  const handleDuplicateOrder = (orderId: string) => {
+    const duplicatedOrder = duplicateOrder(orderId);
+    if (duplicatedOrder) {
+      alert(`Order duplicated successfully! New order #${duplicatedOrder.id} created.`);
+      // Close the detail view to show the updated orders list
+      setViewingOrder(null);
+    } else {
+      alert('Failed to duplicate order. Please try again.');
     }
   };
 
@@ -347,6 +359,7 @@ const Orders: React.FC = () => {
                   setDeletingOrder(viewingOrder);
                   setViewingOrder(null);
                 }}
+                onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
                 onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
               />
             </div>

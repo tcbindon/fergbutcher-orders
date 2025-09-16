@@ -9,7 +9,9 @@ import {
   Building,
   User,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Copy,
+  Package
 } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
@@ -30,6 +32,7 @@ const Customers: React.FC = () => {
   
   const { orders, getOrdersByCustomerId, addOrder } = useOrders();
 
+  const { duplicateOrder } = useOrders();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -97,6 +100,15 @@ const Customers: React.FC = () => {
     const success = deleteCustomer(deletingCustomer.id);
     if (success) {
       setDeletingCustomer(null);
+    }
+  };
+
+  const handleDuplicateOrder = (orderId: string) => {
+    const duplicatedOrder = duplicateOrder(orderId);
+    if (duplicatedOrder) {
+      alert(`Order duplicated successfully! New order #${duplicatedOrder.id} created.`);
+    } else {
+      alert('Failed to duplicate order. Please try again.');
     }
   };
 
@@ -322,6 +334,13 @@ const Customers: React.FC = () => {
                               </p>
                             )}
                           </div>
+                          <button
+                            onClick={() => handleDuplicateOrder(order.id)}
+                            className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
+                            title="Duplicate Order"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(order.status)}`}>
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </span>
@@ -353,7 +372,7 @@ const Customers: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <ShoppingCart className="h-16 w-16 text-fergbutcher-brown-300 mx-auto mb-4" />
+                  <Package className="h-16 w-16 text-fergbutcher-brown-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-fergbutcher-black-900 mb-2">No Orders Yet</h3>
                   <p className="text-fergbutcher-brown-600">
                     This customer hasn't placed any orders yet.

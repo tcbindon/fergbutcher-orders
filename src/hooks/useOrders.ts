@@ -248,6 +248,33 @@ export const useOrders = () => {
     addOrder,
     updateOrder,
     deleteOrder,
+    duplicateOrder: (orderId: string) => {
+      try {
+        const originalOrder = orders.find(o => o.id === orderId);
+        if (!originalOrder) return null;
+        
+        // Create a new order based on the original
+        const duplicatedOrderData = {
+          customerId: originalOrder.customerId,
+          items: originalOrder.items.map(item => ({
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit
+          })),
+          collectionDate: new Date().toISOString().split('T')[0], // Default to today
+          collectionTime: originalOrder.collectionTime,
+          additionalNotes: originalOrder.additionalNotes,
+          status: 'pending' as Order['status']
+        };
+        
+        return addOrder(duplicatedOrderData);
+      } catch (err) {
+        console.error('Error duplicating order:', err);
+        errorLogger.error('Failed to duplicate order', err);
+        setError('Failed to duplicate order');
+        return null;
+      }
+    },
     getOrderById,
     getOrdersByCustomerId,
     getOrdersByStatus,

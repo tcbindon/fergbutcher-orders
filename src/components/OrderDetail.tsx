@@ -9,7 +9,8 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  Copy
 } from 'lucide-react';
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
@@ -19,6 +20,7 @@ interface OrderDetailProps {
   customer?: Customer;
   onEdit: () => void;
   onDelete: () => void;
+  onDuplicate?: () => void;
   onStatusChange: (status: Order['status']) => void;
 }
 
@@ -27,6 +29,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   customer,
   onEdit,
   onDelete,
+  onDuplicate,
   onStatusChange
 }) => {
   const getStatusIcon = (status: string) => {
@@ -98,6 +101,15 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
             >
               <Edit className="h-5 w-5" />
             </button>
+            {onDuplicate && (
+              <button
+                onClick={onDuplicate}
+                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-blue-600 hover:bg-fergbutcher-blue-100 rounded-lg transition-colors"
+                title="Duplicate Order"
+              >
+                <Copy className="h-5 w-5" />
+              </button>
+            )}
             <button
               onClick={onDelete}
               className="p-2 text-fergbutcher-brown-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
