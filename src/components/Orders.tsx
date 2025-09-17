@@ -277,8 +277,26 @@ const Orders: React.FC = () => {
                                   <Calendar className="h-4 w-4" />
                                   <span>{new Date(order.collectionDate).toLocaleDateString('en-NZ')}</span>
                                 </div>
-                              )}
-                              )}
+                                {/* Comment Indicator */}
+                                {getNotesForOrder(order.id).length > 0 && (
+                                  <div className="relative">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowingComments(showingComments === order.id ? null : order.id);
+                                      }}
+                                      className="p-1 text-fergbutcher-green-600 hover:text-fergbutcher-green-700 hover:bg-fergbutcher-green-100 rounded-full transition-colors"
+                                      title={`${getNotesForOrder(order.id).length} staff comment${getNotesForOrder(order.id).length !== 1 ? 's' : ''}`}
+                                    >
+                                      <MessageSquare className="h-4 w-4" />
+                                      <span className="absolute -top-1 -right-1 bg-fergbutcher-green-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                                        {getNotesForOrder(order.id).length}
+                                      </span>
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            )}
                                 {order.collectionTime && (
                                   <div className="flex items-center space-x-1">
                                     <Clock className="h-4 w-4" />
