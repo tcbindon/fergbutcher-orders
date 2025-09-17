@@ -277,6 +277,7 @@ const Orders: React.FC = () => {
                                   <Calendar className="h-4 w-4" />
                                   <span>{new Date(order.collectionDate).toLocaleDateString('en-NZ')}</span>
                                 </div>
+                              )}
                                 {order.collectionTime && (
                                   <div className="flex items-center space-x-1">
                                     <Clock className="h-4 w-4" />
