@@ -11,10 +11,12 @@ import {
   Trash2,
   AlertTriangle,
   Copy,
-  Package
+  Package,
+  MessageSquare
 } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
+import { useStaffNotes } from '../hooks/useStaffNotes';
 import CustomerForm from './CustomerForm';
 import CustomerDetail from './CustomerDetail';
 import { Customer, Order } from '../types';
@@ -31,6 +33,7 @@ const Customers: React.FC = () => {
   } = useCustomers();
   
   const { orders, getOrdersByCustomerId, addOrder } = useOrders();
+  const { getNotesForOrder } = useStaffNotes();
 
   const { getDuplicateOrderData } = useOrders();
   const [searchTerm, setSearchTerm] = useState('');
@@ -336,6 +339,13 @@ const Customers: React.FC = () => {
                               </p>
                             )}
                           </div>
+                          {/* Comment Indicator */}
+                          {getNotesForOrder(order.id).length > 0 && (
+                            <div className="flex items-center space-x-1 text-fergbutcher-green-600" title={`${getNotesForOrder(order.id).length} staff comment${getNotesForOrder(order.id).length !== 1 ? 's' : ''}`}>
+                              <MessageSquare className="h-4 w-4" />
+                              <span className="text-xs font-medium">{getNotesForOrder(order.id).length}</span>
+                            </div>
+                          )}
                           <button
                             onClick={() => handleDuplicateOrder(order.id)}
                             className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"

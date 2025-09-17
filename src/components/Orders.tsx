@@ -12,10 +12,12 @@ import {
   Package,
   User,
   AlertTriangle,
-  ChevronDown
+  ChevronDown,
+  MessageSquare
 } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
+import { useStaffNotes } from '../hooks/useStaffNotes';
 import OrderForm from './OrderForm';
 import OrderDetail from './OrderDetail';
 import { Order } from '../types';
@@ -33,6 +35,7 @@ const Orders: React.FC = () => {
   } = useOrders();
   
   const { customers, loading: customersLoading, addCustomer } = useCustomers();
+  const { getNotesForOrder } = useStaffNotes();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -41,6 +44,7 @@ const Orders: React.FC = () => {
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [deletingOrder, setDeletingOrder] = useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
+  const [showingComments, setShowingComments] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sort orders by collection date (earliest first), then by status priority
@@ -278,6 +282,24 @@ const Orders: React.FC = () => {
                                     <Clock className="h-4 w-4" />
                                     <span>{order.collectionTime}</span>
                                   </div>
+                                  {/* Comment Indicator */}
+                                  {getNotesForOrder(order.id).length > 0 && (
+                                    <div className="relative">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setShowingComments(showingComments === order.id ? null : order.id);
+                                        }}
+                                        className="p-1 text-fergbutcher-green-600 hover:text-fergbutcher-green-700 hover:bg-fergbutcher-green-100 rounded-full transition-colors"
+                                        title={`${getNotesForOrder(order.id).length} staff comment${getNotesForOrder(order.id).length !== 1 ? 's' : ''}`}
+                                      >
+                                        <MessageSquare className="h-4 w-4" />
+                                        <span className="absolute -top-1 -right-1 bg-fergbutcher-green-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                                          {getNotesForOrder(order.id).length}
+                                        </span>
+                                      </button>
+                                    </div>
+                                  )}
                                 )}
                               </div>
                               
@@ -310,6 +332,59 @@ const Orders: React.FC = () => {
                           </button>
                         </div>
                       </div>
+                      
+                      {/* Quick Comments Preview */}
+                      {showingComments === order.id && (
+                        <div className="mt-4 p-4 bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium text-fergbutcher-black-900 flex items-center space-x-2">
+                              <MessageSquare className="h-4 w-4 text-fergbutcher-green-600" />
+                              <span>Staff Comments ({getNotesForOrder(order.id).length})</span>
+                            </h4>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowingComments(null);
+                              }}
+                              className="text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {getNotesForOrder(order.id).slice(0, 3).map((note) => (
+                              <div key={note.id} className="bg-white border border-fergbutcher-brown-200 rounded p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium text-fergbutcher-black-900 text-sm">{note.staffName}</span>
+                                  <span className="text-xs text-fergbutcher-brown-500">
+                                    {new Date(note.timestamp).toLocaleDateString('en-NZ', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                </div>
+                                <p className="text-fergbutcher-brown-700 text-sm">{note.content}</p>
+                              </div>
+                            ))}
+                            {getNotesForOrder(order.id).length > 3 && (
+                              <div className="text-center">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewingOrder(order);
+                                    setShowingComments(null);
+                                  }}
+                                  className="text-sm text-fergbutcher-green-600 hover:text-fergbutcher-green-700 font-medium"
+                                >
+                                  View all {getNotesForOrder(order.id).length} comments →
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })
