@@ -32,7 +32,7 @@ const Orders: React.FC = () => {
     searchOrders 
   } = useOrders();
   
-  const { customers, loading: customersLoading } = useCustomers();
+  const { customers, loading: customersLoading, addCustomer } = useCustomers();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -377,6 +377,7 @@ const Orders: React.FC = () => {
             <div className="p-6">
               <OrderForm
                 customers={customers}
+                onAddCustomer={addCustomer}
                 onSubmit={handleAddOrder}
                 onCancel={() => setShowCreateModal(false)}
                 isLoading={isSubmitting}
@@ -397,6 +398,7 @@ const Orders: React.FC = () => {
               <OrderForm
                 order={editingOrder}
                 customers={customers}
+                onAddCustomer={addCustomer}
                 onSubmit={handleUpdateOrder}
                 onCancel={() => setEditingOrder(null)}
                 isLoading={isSubmitting}
@@ -457,6 +459,7 @@ const Orders: React.FC = () => {
             <div className="p-6">
               <OrderForm
                 customers={customers}
+                onAddCustomer={addCustomer}
                 onSubmit={(orderData) => {
                   const newOrder = addOrder(orderData);
                   if (newOrder) {

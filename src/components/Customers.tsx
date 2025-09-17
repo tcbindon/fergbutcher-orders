@@ -474,6 +474,7 @@ const Customers: React.FC = () => {
             <div className="p-6">
               <OrderForm
                 customers={customers}
+                onAddCustomer={addCustomer}
                 onSubmit={(orderData) => {
                   const newOrder = addOrder(orderData);
                   if (newOrder) {

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, UserPlus } from 'lucide-react';
 import { Order, OrderItem, Customer } from '../types';
 
 interface OrderFormProps {
   order?: Order;
   customers: Customer[];
+  onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
   onSubmit: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
   isLoading?: boolean;
@@ -14,6 +15,7 @@ interface OrderFormProps {
 const OrderForm: React.FC<OrderFormProps> = ({
   order,
   customers,
+  onAddCustomer,
   onSubmit,
   onCancel,
   isLoading = false,
@@ -30,6 +32,15 @@ const OrderForm: React.FC<OrderFormProps> = ({
   const [items, setItems] = useState<Omit<OrderItem, 'id'>[]>([
     { description: '', quantity: 0, unit: '' }
   ]);
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [newCustomerData, setNewCustomerData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    company: ''
+  });
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -157,6 +168,60 @@ const OrderForm: React.FC<OrderFormProps> = ({
     return today.toISOString().split('T')[0];
   };
 
+  const handleAddNewCustomer = async () => {
+    if (!onAddCustomer) return;
+    
+    // Validate new customer data
+    if (!newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.email.trim()) {
+      alert('Please fill in first name, last name, and email for the new customer.');
+      return;
+    }
+
+    // Check email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCustomerData.email)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
+    // Check if customer already exists
+    const existingCustomer = customers.find(c => 
+      c.email.toLowerCase() === newCustomerData.email.toLowerCase()
+    );
+    if (existingCustomer) {
+      alert('A customer with this email already exists.');
+      return;
+    }
+
+    setIsAddingCustomer(true);
+    try {
+      const newCustomer = await onAddCustomer({
+        firstName: newCustomerData.firstName.trim(),
+        lastName: newCustomerData.lastName.trim(),
+        email: newCustomerData.email.trim().toLowerCase(),
+        phone: newCustomerData.phone.trim() || undefined,
+        company: newCustomerData.company.trim() || undefined
+      });
+
+      if (newCustomer) {
+        // Select the new customer and close the form
+        setFormData(prev => ({ ...prev, customerId: newCustomer.id }));
+        setShowNewCustomerForm(false);
+        setNewCustomerData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          company: ''
+        });
+        // Clear customer selection error if it exists
+        if (errors.customerId) {
+          setErrors(prev => ({ ...prev, customerId: '' }));
+        }
+      }
+    } finally {
+      setIsAddingCustomer(false);
+    }
+  };
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Customer Selection */}
@@ -164,21 +229,138 @@ const OrderForm: React.FC<OrderFormProps> = ({
         <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
           Customer *
         </label>
-        <select
-          value={formData.customerId}
-          onChange={(e) => handleChange('customerId', e.target.value)}
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
-            errors.customerId ? 'border-red-500' : 'border-fergbutcher-brown-300'
-          }`}
-          disabled={isLoading}
-        >
-          <option value="">Select a customer</option>
-          {customers.map(customer => (
-            <option key={customer.id} value={customer.id}>
-              {customer.firstName} {customer.lastName} ({customer.email})
-            </option>
-          ))}
-        </select>
+        <div className="space-y-3">
+          <div className="flex space-x-2">
+            <select
+              value={formData.customerId}
+              onChange={(e) => handleChange('customerId', e.target.value)}
+              className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
+                errors.customerId ? 'border-red-500' : 'border-fergbutcher-brown-300'
+              }`}
+              disabled={isLoading}
+            >
+              <option value="">Select a customer</option>
+              {customers.map(customer => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.firstName} {customer.lastName} ({customer.email})
+                </option>
+              ))}
+            </select>
+            {onAddCustomer && (
+              <button
+                type="button"
+                onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
+                className="px-3 py-2 bg-fergbutcher-green-100 text-fergbutcher-green-700 rounded-lg hover:bg-fergbutcher-green-200 transition-colors flex items-center space-x-1"
+                disabled={isLoading}
+                title="Add New Customer"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span className="hidden sm:inline">New</span>
+              </button>
+            )}
+          </div>
+          
+          {/* New Customer Form */}
+          {showNewCustomerForm && (
+            <div className="border border-fergbutcher-green-200 rounded-lg p-4 bg-fergbutcher-green-50">
+              <h4 className="font-medium text-fergbutcher-black-900 mb-3">Add New Customer</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerData.firstName}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="First name"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerData.lastName}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="Last name"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={newCustomerData.email}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="Email address"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={newCustomerData.phone}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="Phone number"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    Company
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerData.company}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, company: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="Company name"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewCustomerForm(false);
+                    setNewCustomerData({
+                      firstName: '',
+                      lastName: '',
+                      email: '',
+                      phone: '',
+                      company: ''
+                    });
+                  }}
+                  className="px-3 py-1 text-xs text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
+                  disabled={isLoading || isAddingCustomer}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddNewCustomer}
+                  className="px-3 py-1 text-xs bg-fergbutcher-green-600 text-white rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
+                  disabled={isLoading || isAddingCustomer || !newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.email.trim()}
+                >
+                  {isAddingCustomer ? 'Adding...' : 'Add Customer'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         {errors.customerId && (
           <p className="text-red-500 text-xs mt-1">{errors.customerId}</p>
         )}
