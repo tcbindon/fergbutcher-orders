@@ -45,8 +45,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const unitOptions = [
-    'kg', 'g', 'pieces', 'steaks', 'chops', 'portions', 
-    'whole', 'half', 'quarter', 'fillets', 'rashers'
+    'Kilos', 'Grams', 'Packets', 'Pieces', 'ml', 'Litre'
   ];
 
   useEffect(() => {
