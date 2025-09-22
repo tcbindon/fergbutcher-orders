@@ -102,9 +102,17 @@ export const useCustomers = () => {
 
   const addCustomer = (customerData: Omit<Customer, 'id' | 'createdAt'>) => {
     try {
+      // Generate a shorter, sequential customer ID starting from 1
+      const allCustomers = [...customers, ...initialCustomers];
+      const maxCustomerNumber = allCustomers.reduce((max, customer) => {
+        const customerNum = parseInt(customer.id);
+        return isNaN(customerNum) ? max : Math.max(max, customerNum);
+      }, 0); // Start from 0 so first customer is #1
+      const newCustomerId = (maxCustomerNumber + 1).toString();
+      
       const newCustomer: Customer = {
         ...customerData,
-        id: Date.now().toString(),
+        id: newCustomerId,
         createdAt: new Date().toISOString()
       };
       
