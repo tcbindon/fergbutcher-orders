@@ -1,60 +1,104 @@
 const { GoogleSpreadsheet } = require('google-spreadsheet');
+const { JWT } = require('google-auth-library');
 
 exports.handler = async (event, context) => {
+  // Set CORS headers
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+  };
+
+  // Handle preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
+  }
+
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return { 
       statusCode: 405, 
-      body: JSON.stringify({ error: 'Method Not Allowed' }),
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      }
+      headers,
+      body: JSON.stringify({ error: 'Method Not Allowed' })
     };
   }
 
   try {
+    // Check if environment variables are set
+    if (!process.env.VITE_GOOGLE_SHEETS_SPREADSHEET_ID || 
+        !process.env.VITE_GOOGLE_SHEETS_SERVICE_EMAIL || 
+        !process.env.VITE_GOOGLE_SHEETS_SERVICE_KEY) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ 
+          error: 'Google Sheets environment variables not configured',
+          details: 'Please set VITE_GOOGLE_SHEETS_SPREADSHEET_ID, VITE_GOOGLE_SHEETS_SERVICE_EMAIL, and VITE_GOOGLE_SHEETS_SERVICE_KEY in Netlify environment variables'
+        })
+      };
+    }
+
     // Parse the incoming data
     const { customers, orders, type } = JSON.parse(event.body);
 
-    // Initialize Google Sheets document
-    const doc = new GoogleSpreadsheet(process.env.VITE_GOOGLE_SHEETS_SPREADSHEET_ID);
-    
-    // Authenticate using service account
-    await doc.useServiceAccountAuth({
-      client_email: process.env.VITE_GOOGLE_SHEETS_SERVICE_EMAIL,
-      private_key: process.env.VITE_GOOGLE_SHEETS_SERVICE_KEY.replace(/\\n/gm, '\n'),
+    // Create JWT auth
+    const serviceAccountAuth = new JWT({
+      email: process.env.VITE_GOOGLE_SHEETS_SERVICE_EMAIL,
+      key: process.env.VITE_GOOGLE_SHEETS_SERVICE_KEY.replace(/\\n/gm, '\n'),
+      scopes: [
+        'https://www.googleapis.com/auth/spreadsheets',
+      ],
     });
 
+    // Initialize Google Sheets document
+    const doc = new GoogleSpreadsheet(process.env.VITE_GOOGLE_SHEETS_SPREADSHEET_ID, serviceAccountAuth);
+    
+    // Load document info
     await doc.loadInfo();
 
     // Ensure required sheets exist
     await ensureSheetsExist(doc);
 
     // Sync data based on type
+    if (type === 'test') {
+      // Just test the connection
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ 
+          success: true, 
+          message: 'Google Sheets connection test successful',
+          spreadsheetTitle: doc.title
+        })
+      };
+    }
+
     if (type === 'customers' || type === 'all') {
-      await syncCustomers(doc, customers);
+      await syncCustomers(doc, customers || []);
     }
 
     if (type === 'orders' || type === 'all') {
-      await syncOrders(doc, orders, customers);
+      await syncOrders(doc, orders || [], customers || []);
     }
 
     if (type === 'daily' || type === 'all') {
       const today = new Date().toISOString().split('T')[0];
-      await syncDailyCollections(doc, orders, customers, today);
+      await syncDailyCollections(doc, orders || [], customers || [], today);
     }
 
     return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({ 
         success: true, 
-        message: `Successfully synced ${type} data to Google Sheets` 
-      }),
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      }
+        message: `Successfully synced ${type} data to Google Sheets`,
+        spreadsheetTitle: doc.title
+      })
     };
 
   } catch (error) {
@@ -62,14 +106,11 @@ exports.handler = async (event, context) => {
     
     return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({ 
         error: 'Failed to sync data to Google Sheets',
         details: error.message 
-      }),
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      }
+      })
     };
   }
 };
