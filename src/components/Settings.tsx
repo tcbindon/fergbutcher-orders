@@ -3,6 +3,7 @@ import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCir
 import { useGoogleSheets } from '../hooks/useGoogleSheets';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
+import { useEmailTemplates } from '../hooks/useEmailTemplates';
 import keyboardShortcuts, { KeyboardShortcutsService } from '../services/keyboardShortcuts';
 import backupService from '../services/backupService';
 import errorLogger from '../services/errorLogger';
@@ -13,6 +14,7 @@ const Settings: React.FC = () => {
   const { isConnected, isLoading, error, lastSync, syncAll, disconnect } = useGoogleSheets();
   const { customers } = useCustomers();
   const { orders } = useOrders();
+  const { templates, updateTemplate, resetToDefaults } = useEmailTemplates();
 
   const tabs = [
     { id: 'email', label: 'Email Templates', icon: Mail },
@@ -102,123 +104,59 @@ const Settings: React.FC = () => {
                 <p className="text-fergbutcher-brown-600 mb-6">
                   Customize email templates sent to customers. Use placeholders like {'{firstName}'}, {'{lastName}'}, {'{orderItems}'} for dynamic content.
                 </p>
+                <div className="mb-4">
+                  <button
+                    onClick={resetToDefaults}
+                    className="text-sm bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-3 py-1 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
+                  >
+                    Reset to Defaults
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-6">
-                {/* Order Request Received Template */}
-                <div className="border border-fergbutcher-brown-200 rounded-lg p-4">
-                  <h4 className="font-medium text-fergbutcher-black-900 mb-3">Order Request Received</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">Subject</label>
-                      <input
-                        type="text"
-                        defaultValue="Order Request Received - Fergbutcher"
-                        className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">Body</label>
-                      <textarea
-                        rows={6}
-                        defaultValue={`Dear {firstName},
-
-Thank you for your order request! We have received your order and will review it shortly.
-
-Order Details:
-{orderItems}
-
-Collection Date: {collectionDate}
-Collection Time: {collectionTime}
-
-We will confirm your order within 24 hours.
-
-Best regards,
-Fergbutcher Team`}
-                        className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-                      />
+                {templates.map((template) => (
+                  <div key={template.id} className="border border-fergbutcher-brown-200 rounded-lg p-4">
+                    <h4 className="font-medium text-fergbutcher-black-900 mb-3">{template.name}</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">Subject</label>
+                        <input
+                          type="text"
+                          value={template.subject}
+                          onChange={(e) => updateTemplate(template.id, { subject: e.target.value })}
+                          className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">Body</label>
+                        <textarea
+                          rows={8}
+                          value={template.body}
+                          onChange={(e) => updateTemplate(template.id, { body: e.target.value })}
+                          className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Order Confirmed Template */}
-                <div className="border border-fergbutcher-brown-200 rounded-lg p-4">
-                  <h4 className="font-medium text-fergbutcher-black-900 mb-3">Order Confirmed</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">Subject</label>
-                      <input
-                        type="text"
-                        defaultValue="Order Confirmed - Ready for Collection"
-                        className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">Body</label>
-                      <textarea
-                        rows={6}
-                        defaultValue={`Dear {firstName},
-
-Great news! Your order has been confirmed and will be ready for collection.
-
-Order Details:
-{orderItems}
-
-Collection Date: {collectionDate}
-Collection Time: {collectionTime}
-
-Please arrive at your scheduled collection time. We look forward to seeing you!
-
-Best regards,
-Fergbutcher Team`}
-                        className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Collection Reminder Template */}
-                <div className="border border-fergbutcher-brown-200 rounded-lg p-4">
-                  <h4 className="font-medium text-fergbutcher-black-900 mb-3">Collection Reminder</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">Subject</label>
-                      <input
-                        type="text"
-                        defaultValue="Reminder: Order Collection Tomorrow"
-                        className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">Body</label>
-                      <textarea
-                        rows={6}
-                        defaultValue={`Dear {firstName},
-
-This is a friendly reminder that your order is ready for collection tomorrow.
-
-Order Details:
-{orderItems}
-
-Collection Date: {collectionDate}
-Collection Time: {collectionTime}
-
-We look forward to seeing you!
-
-Best regards,
-Fergbutcher Team`}
-                        className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
 
-              <div className="flex justify-end">
-                <button className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2">
-                  <Save className="h-4 w-4" />
-                  <span>Save Templates</span>
-                </button>
+              <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-4">
+                <h4 className="font-medium text-fergbutcher-black-900 mb-2">Available Placeholders</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                  <code className="bg-white px-2 py-1 rounded">{'{firstName}'}</code>
+                  <code className="bg-white px-2 py-1 rounded">{'{lastName}'}</code>
+                  <code className="bg-white px-2 py-1 rounded">{'{email}'}</code>
+                  <code className="bg-white px-2 py-1 rounded">{'{orderId}'}</code>
+                  <code className="bg-white px-2 py-1 rounded">{'{orderItems}'}</code>
+                  <code className="bg-white px-2 py-1 rounded">{'{collectionDate}'}</code>
+                  <code className="bg-white px-2 py-1 rounded">{'{collectionTime}'}</code>
+                  <code className="bg-white px-2 py-1 rounded">{'{additionalNotes}'}</code>
+                </div>
+                <p className="text-xs text-fergbutcher-green-700 mt-2">
+                  Templates are automatically saved as you type. Collection time will show "TBC" if not specified.
+                </p>
               </div>
             </div>
           )}

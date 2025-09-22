@@ -10,10 +10,14 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Copy
+  Copy,
+  Mail,
+  Send
 } from 'lucide-react';
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
+import { useEmailTemplates } from '../hooks/useEmailTemplates';
+import { generateEmailData, populateTemplate, openEmailClient } from '../utils/emailUtils';
 
 interface OrderDetailProps {
   order: Order;
@@ -32,6 +36,27 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   onDuplicate,
   onStatusChange
 }) => {
+  const { templates, getTemplate } = useEmailTemplates();
+
+  const handleSendEmail = (templateId: string) => {
+    if (!customer) {
+      alert('Customer information not available');
+      return;
+    }
+
+    const template = getTemplate(templateId);
+    if (!template) {
+      alert('Email template not found');
+      return;
+    }
+
+    const emailData = generateEmailData(order, customer);
+    const populatedSubject = populateTemplate(template.subject, emailData);
+    const populatedBody = populateTemplate(template.body, emailData);
+
+    openEmailClient(customer.email, populatedSubject, populatedBody);
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'confirmed':
@@ -226,6 +251,42 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
             </div>
             <p className="text-fergbutcher-brown-700">{order.additionalNotes}</p>
           </div>
+        </div>
+      )}
+
+      {/* Email Customer */}
+      {customer && (
+        <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+          <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-3 flex items-center space-x-2">
+            <Mail className="h-5 w-5 text-fergbutcher-green-600" />
+            <span>Email Customer</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button
+              onClick={() => handleSendEmail('order-received')}
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-fergbutcher-blue-100 text-fergbutcher-blue-700 rounded-lg hover:bg-fergbutcher-blue-200 transition-colors"
+            >
+              <Send className="h-4 w-4" />
+              <span>Order Received</span>
+            </button>
+            <button
+              onClick={() => handleSendEmail('order-confirmed')}
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-fergbutcher-green-100 text-fergbutcher-green-700 rounded-lg hover:bg-fergbutcher-green-200 transition-colors"
+            >
+              <Send className="h-4 w-4" />
+              <span>Order Confirmed</span>
+            </button>
+            <button
+              onClick={() => handleSendEmail('collection-reminder')}
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-fergbutcher-yellow-100 text-fergbutcher-yellow-700 rounded-lg hover:bg-fergbutcher-yellow-200 transition-colors"
+            >
+              <Send className="h-4 w-4" />
+              <span>Collection Reminder</span>
+            </button>
+          </div>
+          <p className="text-xs text-fergbutcher-brown-500 mt-2">
+            Click a button to open your email client with a pre-filled message to {customer.email}
+          </p>
         </div>
       )}
 
