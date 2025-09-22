@@ -46,13 +46,34 @@ exports.handler = async (event, context) => {
     // Parse the incoming data
     const { customers, orders, type } = JSON.parse(event.body);
 
+    // More robust private key parsing
+    let privateKey = process.env.VITE_GOOGLE_SHEETS_SERVICE_KEY;
+    
+    // Handle different private key formats
+    if (privateKey.includes('\\n')) {
+      // Replace literal \n with actual newlines
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+    
+    // Ensure proper formatting
+    if (!privateKey.includes('\n')) {
+      // If no newlines, try to format it properly
+      privateKey = privateKey
+        .replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n')
+        .replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----\n');
+    }
+    
+    // Remove any quotes that might be wrapping the key
+    privateKey = privateKey.replace(/^["']|["']$/g, '');
+    
+    // Ensure it ends with a newline
+    if (!privateKey.endsWith('\n')) {
+      privateKey += '\n';
+    }
     // Create JWT auth
     const serviceAccountAuth = new JWT({
       email: process.env.VITE_GOOGLE_SHEETS_SERVICE_EMAIL,
-      key: process.env.VITE_GOOGLE_SHEETS_SERVICE_KEY
-        .replace(/\\n/gm, '\n')
-        .replace(/"/g, '')
-        .trim(),
+      key: privateKey,
       scopes: [
         'https://www.googleapis.com/auth/spreadsheets',
       ],
