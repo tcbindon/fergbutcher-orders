@@ -46,29 +46,57 @@ exports.handler = async (event, context) => {
     // Parse the incoming data
     const { customers, orders, type } = JSON.parse(event.body);
 
-    // More robust private key parsing
+    // Enhanced private key parsing with multiple fallback methods
     let privateKey = process.env.VITE_GOOGLE_SHEETS_SERVICE_KEY;
     
-    // Handle different private key formats
-    if (privateKey.includes('\\n')) {
-      // Replace literal \n with actual newlines
-      privateKey = privateKey.replace(/\\n/g, '\n');
-    }
+    console.log('Original private key length:', privateKey ? privateKey.length : 'undefined');
+    console.log('Private key starts with:', privateKey ? privateKey.substring(0, 50) : 'undefined');
     
-    // Ensure proper formatting
-    if (!privateKey.includes('\n')) {
-      // If no newlines, try to format it properly
-      privateKey = privateKey
-        .replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n')
-        .replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----\n');
-    }
-    
-    // Remove any quotes that might be wrapping the key
-    privateKey = privateKey.replace(/^["']|["']$/g, '');
-    
-    // Ensure it ends with a newline
-    if (!privateKey.endsWith('\n')) {
-      privateKey += '\n';
+    try {
+      // Method 1: Handle escaped newlines
+      if (privateKey.includes('\\n')) {
+        privateKey = privateKey.replace(/\\n/g, '\n');
+        console.log('Applied method 1: replaced \\n with newlines');
+      }
+      
+      // Method 2: Remove surrounding quotes if present
+      privateKey = privateKey.replace(/^["']|["']$/g, '');
+      
+      // Method 3: Ensure proper PEM format
+      if (!privateKey.includes('\n')) {
+        // Split the key content and add proper line breaks
+        const keyContent = privateKey
+          .replace('-----BEGIN PRIVATE KEY-----', '')
+          .replace('-----END PRIVATE KEY-----', '')
+          .replace(/\s/g, ''); // Remove any spaces
+        
+        // Reconstruct with proper formatting
+        privateKey = '-----BEGIN PRIVATE KEY-----\n' + 
+                    keyContent.match(/.{1,64}/g).join('\n') + 
+                    '\n-----END PRIVATE KEY-----\n';
+        console.log('Applied method 3: reconstructed PEM format');
+      }
+      
+      // Method 4: Ensure proper line endings
+      if (!privateKey.endsWith('\n')) {
+        privateKey += '\n';
+      }
+      
+      console.log('Final private key format check:');
+      console.log('- Starts with BEGIN:', privateKey.startsWith('-----BEGIN PRIVATE KEY-----'));
+      console.log('- Ends with END:', privateKey.includes('-----END PRIVATE KEY-----'));
+      console.log('- Has newlines:', privateKey.includes('\n'));
+      
+    } catch (keyError) {
+      console.error('Error processing private key:', keyError);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ 
+          error: 'Failed to process private key',
+          details: keyError.message 
+        })
+      };
     }
     // Create JWT auth
     const serviceAccountAuth = new JWT({
