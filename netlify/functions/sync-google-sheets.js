@@ -49,7 +49,10 @@ exports.handler = async (event, context) => {
     // Create JWT auth
     const serviceAccountAuth = new JWT({
       email: process.env.VITE_GOOGLE_SHEETS_SERVICE_EMAIL,
-      key: process.env.VITE_GOOGLE_SHEETS_SERVICE_KEY.replace(/\\n/gm, '\n'),
+      key: process.env.VITE_GOOGLE_SHEETS_SERVICE_KEY
+        .replace(/\\n/gm, '\n')
+        .replace(/"/g, '')
+        .trim(),
       scopes: [
         'https://www.googleapis.com/auth/spreadsheets',
       ],
