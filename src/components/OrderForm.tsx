@@ -26,7 +26,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
     collectionDate: '',
     collectionTime: '',
     additionalNotes: '',
-    status: 'pending' as Order['status']
+    status: 'pending' as Order['status'],
+    orderType: 'standard' as Order['orderType']
   });
 
   const [items, setItems] = useState<Omit<OrderItem, 'id'>[]>([
@@ -56,7 +57,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
         collectionDate: sourceData.collectionDate,
         collectionTime: sourceData.collectionTime || '',
         additionalNotes: sourceData.additionalNotes || '',
-        status: sourceData.status || 'pending'
+        status: sourceData.status || 'pending',
+        orderType: sourceData.orderType || 'standard'
       });
       setItems(sourceData.items.map((item: any) => ({
         description: item.description,
@@ -126,7 +128,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
         collectionDate: formData.collectionDate,
         collectionTime: formData.collectionTime || undefined,
         additionalNotes: formData.additionalNotes || undefined,
-        status: formData.status
+        status: formData.status,
+        orderType: formData.orderType
       });
     }
   };

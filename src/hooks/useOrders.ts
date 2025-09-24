@@ -9,6 +9,7 @@ const initialOrders: Order[] = [
   {
     id: '1',
     customerId: '1',
+    orderType: 'standard',
     items: [
       { id: '1', description: 'Beef Wellington - medium rare, 2cm thick', quantity: 2, unit: 'kg' },
       { id: '2', description: 'French-trimmed Lamb Rack - frenched, cap off', quantity: 1.5, unit: 'kg' }
@@ -22,6 +23,7 @@ const initialOrders: Order[] = [
   {
     id: '2',
     customerId: '2',
+    orderType: 'standard',
     items: [
       { id: '3', description: 'Pork Belly - skin on, scored for crackling', quantity: 1.5, unit: 'kg' },
       { id: '4', description: 'Free-range Chicken Thighs - bone in, skin on', quantity: 8, unit: 'pieces' }
@@ -35,6 +37,7 @@ const initialOrders: Order[] = [
   {
     id: '3',
     customerId: '3',
+    orderType: 'standard',
     items: [
       { id: '5', description: 'Ribeye Steak - 2cm thick, well-marbled', quantity: 4, unit: 'steaks' },
       { id: '6', description: 'Cumberland Sausages - traditional recipe', quantity: 1, unit: 'kg' }
@@ -99,6 +102,7 @@ export const useOrders = () => {
       const newOrder: Order = {
         ...orderData,
         id: newOrderId,
+        orderType: orderData.orderType || 'standard', // Default to standard if not specified
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
