@@ -1,274 +1,143 @@
 import React from 'react';
-import { 
-  Users, 
-  ShoppingCart, 
-  Calendar, 
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  Package,
-  Gift
-} from 'lucide-react';
+import { Users, Package, Calendar, TrendingUp } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
+import { Order } from '../types';
 
 const Dashboard: React.FC = () => {
   const { customers } = useCustomers();
-  const { orders, getOrderStats } = useOrders();
-  
-  const stats = getOrderStats();
-  
-  // Helper function to check if an order contains Christmas items
-  const isChristmasOrder = (order: any) => {
-    const christmasKeywords = ['christmas', 'turkey', 'ham', 'pudding', 'mince', 'cranberry'];
-    return order.items.some((item: any) => 
-      christmasKeywords.some(keyword => 
-        item.description?.toLowerCase().includes(keyword)
-      )
-    );
-  };
+  const { orders } = useOrders();
 
-  // Get today's date
+  // Calculate today's collections
   const today = new Date().toISOString().split('T')[0];
-  const todaysOrders = orders.filter(order => order.collectionDate === today);
-  const christmasOrders = orders.filter(order => isChristmasOrder(order));
+  const todaysCollections = orders.filter(order => 
+    order.collectionDate === today && order.status !== 'cancelled'
+  ).length;
 
-  // Recent orders (last 5)
-  const recentOrders = orders
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5);
+  // Calculate this week's orders
+  const startOfWeek = new Date();
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return 'text-fergbutcher-green-600 bg-fergbutcher-green-100';
-      case 'pending':
-        return 'text-fergbutcher-yellow-600 bg-fergbutcher-yellow-100';
-      case 'collected':
-        return 'text-fergbutcher-brown-600 bg-fergbutcher-brown-100';
-      case 'cancelled':
-        return 'text-fergbutcher-black-600 bg-fergbutcher-black-100';
-      default:
-        return 'text-fergbutcher-brown-600 bg-fergbutcher-brown-100';
-    }
-  };
+  const thisWeeksOrders = orders.filter(order => {
+    const collectionDate = new Date(order.collectionDate);
+    return collectionDate >= startOfWeek && collectionDate <= endOfWeek && order.status !== 'cancelled';
+  });
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'pending':
-        return <Clock className="h-4 w-4" />;
-      case 'collected':
-        return <Package className="h-4 w-4" />;
-      case 'cancelled':
-        return <AlertTriangle className="h-4 w-4" />;
-      default:
-        return <Clock className="h-4 w-4" />;
-    }
-  };
+  const stats = [
+    {
+      name: 'Total Customers',
+      value: customers.length.toString(),
+      icon: Users,
+      color: 'bg-blue-500',
+    },
+    {
+      name: 'Active Orders',
+      value: orders.filter(order => order.status !== 'cancelled').length.toString(),
+      icon: Package,
+      color: 'bg-green-500',
+    },
+    {
+      name: "Today's Collections",
+      value: todaysCollections.toString(),
+      icon: Calendar,
+      color: 'bg-purple-500',
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-fergbutcher-black-900">Dashboard</h1>
-        <p className="text-fergbutcher-brown-600">Welcome to your order management system</p>
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Overview of your butcher shop operations
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Customers */}
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-fergbutcher-brown-600 text-sm font-medium">Total Customers</p>
-              <p className="text-2xl font-bold text-fergbutcher-black-900">{customers.length}</p>
-            </div>
-            <div className="bg-fergbutcher-green-100 p-3 rounded-full">
-              <Users className="h-6 w-6 text-fergbutcher-green-600" />
-            </div>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {stats.map((stat) => (
+          <div
+            key={stat.name}
+            className="relative overflow-hidden rounded-lg bg-white px-4 py-5 shadow sm:px-6 sm:py-6"
+          >
+            <dt>
+              <div className={`absolute rounded-md ${stat.color} p-3`}>
+                <stat.icon className="h-6 w-6 text-white" aria-hidden="true" />
+              </div>
+              <p className="ml-16 truncate text-sm font-medium text-gray-500">
+                {stat.name}
+              </p>
+            </dt>
+            <dd className="ml-16 flex items-baseline">
+              <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+            </dd>
           </div>
-        </div>
-
-        {/* Total Orders */}
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-fergbutcher-brown-600 text-sm font-medium">Total Orders</p>
-              <p className="text-2xl font-bold text-fergbutcher-black-900">{stats.total}</p>
-            </div>
-            <div className="bg-fergbutcher-brown-100 p-3 rounded-full">
-              <ShoppingCart className="h-6 w-6 text-fergbutcher-brown-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Today's Collections */}
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-fergbutcher-brown-600 text-sm font-medium">Today's Collections</p>
-              <p className="text-2xl font-bold text-fergbutcher-black-900">{todaysOrders.length}</p>
-            </div>
-            <div className="bg-fergbutcher-yellow-100 p-3 rounded-full">
-              <Calendar className="h-6 w-6 text-fergbutcher-yellow-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Christmas Orders */}
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-fergbutcher-brown-600 text-sm font-medium">Christmas Orders</p>
-              <p className="text-2xl font-bold text-fergbutcher-black-900">{christmasOrders.length}</p>
-            </div>
-            <div className="bg-red-100 p-3 rounded-full">
-              <Gift className="h-6 w-6 text-red-600" />
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Order Status Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Order Status Breakdown */}
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
-          <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Order Status</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="bg-fergbutcher-yellow-100 p-2 rounded-lg">
-                  <Clock className="h-4 w-4 text-fergbutcher-yellow-600" />
-                </div>
-                <span className="text-fergbutcher-black-900">Pending</span>
-              </div>
-              <span className="font-semibold text-fergbutcher-black-900">{stats.pending}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="bg-fergbutcher-green-100 p-2 rounded-lg">
-                  <CheckCircle className="h-4 w-4 text-fergbutcher-green-600" />
-                </div>
-                <span className="text-fergbutcher-black-900">Confirmed</span>
-              </div>
-              <span className="font-semibold text-fergbutcher-black-900">{stats.confirmed}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="bg-fergbutcher-brown-100 p-2 rounded-lg">
-                  <Package className="h-4 w-4 text-fergbutcher-brown-600" />
-                </div>
-                <span className="text-fergbutcher-black-900">Collected</span>
-              </div>
-              <span className="font-semibold text-fergbutcher-black-900">{stats.collected}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="bg-fergbutcher-black-100 p-2 rounded-lg">
-                  <AlertTriangle className="h-4 w-4 text-fergbutcher-black-600" />
-                </div>
-                <span className="text-fergbutcher-black-900">Cancelled</span>
-              </div>
-              <span className="font-semibold text-fergbutcher-black-900">{stats.cancelled}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Today's Collections */}
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
-          <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Today's Collections</h3>
-          {todaysOrders.length > 0 ? (
+      {/* This Week's Orders */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">This Week's Orders</h3>
+          {thisWeeksOrders.length === 0 ? (
+            <p className="text-gray-500">No orders scheduled for this week.</p>
+          ) : (
             <div className="space-y-3">
-              {todaysOrders.slice(0, 5).map((order) => {
-                const customer = customers.find(c => c.id === order.customerId);
-                return (
-                  <div key={order.id} className="flex items-center justify-between p-3 bg-fergbutcher-green-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      {isChristmasOrder(order) && (
-                        <Gift className="h-4 w-4 text-red-600" />
-                      )}
-                      <div>
-                        <p className="font-medium text-fergbutcher-black-900">
-                          {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
-                        </p>
-                        <p className="text-sm text-fergbutcher-brown-600">
-                          {order.collectionTime || 'No time specified'}
-                        </p>
+              {thisWeeksOrders.slice(0, 5).map((order) => (
+                <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                  <div className="flex items-center space-x-3">
+                    {order.isChristmasOrder ? (
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                          <span className="text-red-600 text-sm">🎁</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {getStatusIcon(order.status)}
-                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                    ) : (
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                          <Users className="w-4 h-4 text-gray-600" />
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Order #{order.orderNumber} - {order.customerName}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Collection: {new Date(order.collectionDate).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-              {todaysOrders.length > 5 && (
-                <p className="text-sm text-fergbutcher-brown-600 text-center">
-                  +{todaysOrders.length - 5} more collections today
+                  <div className="flex items-center space-x-2">
+                    {order.isChristmasOrder && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Christmas
+                      </span>
+                    )}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      order.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                      order.status === 'ready' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {order.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {thisWeeksOrders.length > 5 && (
+                <p className="text-sm text-gray-500 pt-2">
+                  And {thisWeeksOrders.length - 5} more orders...
                 </p>
               )}
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar className="h-12 w-12 text-fergbutcher-brown-300 mx-auto mb-3" />
-              <p className="text-fergbutcher-brown-500">No collections scheduled for today</p>
-            </div>
           )}
         </div>
-      </div>
-
-      {/* Recent Orders */}
-      <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
-        <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Recent Orders</h3>
-        {recentOrders.length > 0 ? (
-          <div className="space-y-3">
-            {recentOrders.map((order) => {
-              const customer = customers.find(c => c.id === order.customerId);
-              return (
-                <div key={order.id} className="flex items-center justify-between p-4 border border-fergbutcher-brown-200 rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className="bg-fergbutcher-green-100 p-2 rounded-full">
-                      <ShoppingCart className="h-4 w-4 text-fergbutcher-green-600" />
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <p className="font-medium text-fergbutcher-black-900">Order #{order.id}</p>
-                        {isChristmasOrder(order) && (
-                          <Gift className="h-4 w-4 text-red-600" title="Christmas Order" />
-                        )}
-                      </div>
-                      <p className="text-sm text-fergbutcher-brown-600">
-                        {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
-                      </p>
-                      <p className="text-sm text-fergbutcher-brown-600">
-                        Collection: {new Date(order.collectionDate).toLocaleDateString('en-NZ')}
-                        {order.collectionTime && ` at ${order.collectionTime}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {getStatusIcon(order.status)}
-                      <span>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
-                    </div>
-                    <p className="text-sm text-fergbutcher-brown-600 mt-1">
-                      {order.items.length} item{order.items.length !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <ShoppingCart className="h-12 w-12 text-fergbutcher-brown-300 mx-auto mb-3" />
-            <p className="text-fergbutcher-brown-500">No orders yet</p>
-          </div>
-        )}
       </div>
     </div>
   );
