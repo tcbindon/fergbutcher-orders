@@ -130,12 +130,44 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // Get Christmas products for syncing
+    const christmasProducts = await getChristmasProducts(doc);
+
+    if (type === 'christmas-products') {
+      // Return Christmas products
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ 
+          success: true, 
+          products: christmasProducts
+        })
+      };
+    }
+
     if (type === 'customers' || type === 'all') {
       await syncCustomers(doc, customers || []);
     }
 
     if (type === 'orders' || type === 'all') {
-      await syncOrders(doc, orders || [], customers || []);
+      // Separate standard and Christmas orders
+      const standardOrders = (orders || []).filter(order => order.orderType !== 'christmas');
+      const christmasOrders = (orders || []).filter(order => order.orderType === 'christmas');
+      
+      // Sync standard orders
+      if (standardOrders.length > 0) {
+        await syncOrders(doc, standardOrders, customers || []);
+      }
+      
+      // Sync Christmas orders
+      if (christmasOrders.length > 0) {
+        await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts);
+      }
+    }
+
+    if (type === 'christmas-orders') {
+      const christmasOrders = (orders || []).filter(order => order.orderType === 'christmas');
+      await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts);
     }
 
     if (type === 'daily' || type === 'all') {
@@ -172,7 +204,9 @@ async function ensureSheetsExist(doc) {
   const requiredSheets = [
     { title: 'Customers', headers: ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Created Date'] },
     { title: 'Orders', headers: ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Created Date', 'Updated Date'] },
-    { title: 'Daily Collections', headers: ['Date', 'Customer Name', 'Phone', 'Items', 'Collection Time', 'Status', 'Notes'] }
+    { title: 'Daily Collections', headers: ['Date', 'Customer Name', 'Phone', 'Items', 'Collection Time', 'Status', 'Notes'] },
+    { title: 'Christmas Products', headers: ['Product Name', 'Unit', 'Description'] },
+    { title: 'Christmas Orders', headers: ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Notes', 'Created Date', 'Updated Date', 'Other Items'] }
   ];
 
   for (const sheetConfig of requiredSheets) {
@@ -186,6 +220,122 @@ async function ensureSheetsExist(doc) {
       await sheet.setHeaderRow(sheetConfig.headers);
     }
   }
+
+  // Initialize Christmas Products sheet with default products if empty
+  await initializeChristmasProducts(doc);
+}
+
+// Initialize Christmas Products sheet with default products
+async function initializeChristmasProducts(doc) {
+  const sheet = doc.sheetsByTitle['Christmas Products'];
+  const rows = await sheet.getRows();
+  
+  // If sheet is empty, add default Christmas products
+  if (rows.length === 0) {
+    const defaultProducts = [
+      { 'Product Name': 'Half Ham', 'Unit': 'kg', 'Description': 'Traditional half ham' },
+      { 'Product Name': 'Whole Ham', 'Unit': 'kg', 'Description': 'Full traditional ham' },
+      { 'Product Name': '4kg Turkey', 'Unit': 'each', 'Description': '4kg fresh turkey' },
+      { 'Product Name': '6kg Turkey', 'Unit': 'each', 'Description': '6kg fresh turkey' },
+      { 'Product Name': 'Dressing service', 'Unit': 'service', 'Description': 'Professional dressing service' },
+      { 'Product Name': 'Gravy', 'Unit': 'portion', 'Description': 'Traditional gravy' },
+      { 'Product Name': 'Stuffing', 'Unit': 'portion', 'Description': 'Traditional stuffing' },
+      { 'Product Name': 'Pigs in Blankets', 'Unit': 'kg', 'Description': 'Sausages wrapped in bacon' }
+    ];
+    
+    await sheet.addRows(defaultProducts);
+    console.log('Initialized Christmas Products sheet with default products');
+  }
+}
+
+// Get Christmas products from Google Sheets
+async function getChristmasProducts(doc) {
+  try {
+    const sheet = doc.sheetsByTitle['Christmas Products'];
+    const rows = await sheet.getRows();
+    
+    return rows.map((row, index) => ({
+      id: (index + 1).toString(),
+      name: row.get('Product Name') || '',
+      unit: row.get('Unit') || '',
+      description: row.get('Description') || ''
+    }));
+  } catch (error) {
+    console.error('Error fetching Christmas products:', error);
+    return [];
+  }
+}
+
+// Sync Christmas orders to Google Sheets
+async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
+  const sheet = doc.sheetsByTitle['Christmas Orders'];
+  
+  // Get current headers to see if we need to add product columns
+  const headerValues = await sheet.getHeaderRow();
+  const existingHeaders = new Set(headerValues);
+  
+  // Build required headers (standard fields + product columns)
+  const standardHeaders = ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Notes', 'Created Date', 'Updated Date'];
+  const productHeaders = christmasProducts.map(product => `${product.name} (${product.unit})`);
+  const requiredHeaders = [...standardHeaders, ...productHeaders, 'Other Items'];
+  
+  // Add missing product columns if needed
+  const missingHeaders = requiredHeaders.filter(header => !existingHeaders.has(header));
+  if (missingHeaders.length > 0) {
+    // Update headers by setting the entire header row
+    await sheet.setHeaderRow(requiredHeaders);
+    console.log('Updated Christmas Orders sheet headers with new product columns');
+  }
+  
+  // Clear existing data (except headers)
+  await sheet.clear('A2:ZZ1000');
+  
+  // Filter for Christmas orders only
+  const christmasOrders = orders.filter(order => order.orderType === 'christmas');
+  
+  // Prepare Christmas order data
+  const orderRows = christmasOrders.map(order => {
+    const customer = customers.find(c => c.id === order.customerId);
+    const customerName = customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown';
+    
+    // Create base row data
+    const rowData = {
+      'Order ID': order.id,
+      'Customer ID': order.customerId,
+      'Customer Name': customerName,
+      'Collection Date': order.collectionDate,
+      'Collection Time': order.collectionTime || '',
+      'Status': order.status,
+      'Notes': order.additionalNotes || '',
+      'Created Date': new Date(order.createdAt).toLocaleDateString('en-NZ'),
+      'Updated Date': new Date(order.updatedAt).toLocaleDateString('en-NZ')
+    };
+    
+    // Add quantities for each Christmas product
+    christmasProducts.forEach(product => {
+      const columnName = `${product.name} (${product.unit})`;
+      const orderItem = order.items.find(item => 
+        item.isChristmasProduct && item.christmasProductId === product.id
+      );
+      rowData[columnName] = orderItem ? orderItem.quantity.toString() : '';
+    });
+    
+    // Add other (non-Christmas) items
+    const otherItems = order.items
+      .filter(item => !item.isChristmasProduct)
+      .map(item => `${item.description} (${item.quantity} ${item.unit})`)
+      .join('; ');
+    rowData['Other Items'] = otherItems;
+    
+    return rowData;
+  });
+  
+  // Add order data
+  if (orderRows.length > 0) {
+    await sheet.addRows(orderRows);
+  }
+  
+  console.log(`Synced ${christmasOrders.length} Christmas orders`);
 }
 
 // Sync customers to Google Sheets

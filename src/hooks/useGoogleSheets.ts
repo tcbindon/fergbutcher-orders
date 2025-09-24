@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Customer, Order } from '../types';
+import { Customer, Order, ChristmasProduct } from '../types';
 
 export const useGoogleSheets = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -168,6 +168,80 @@ export const useGoogleSheets = () => {
     }
   };
 
+  const fetchChristmasProducts = async (): Promise<ChristmasProduct[]> => {
+    if (!isConnected) {
+      setError('Not connected to Google Sheets');
+      return [];
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/.netlify/functions/sync-google-sheets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'christmas-products'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch Christmas products');
+      }
+
+      const data = await response.json();
+      return data.products || [];
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch Christmas products';
+      setError(errorMessage);
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const syncChristmasOrders = async (orders: Order[], customers: Customer[]): Promise<boolean> => {
+    if (!isConnected) {
+      setError('Not connected to Google Sheets');
+      return false;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/.netlify/functions/sync-google-sheets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customers,
+          orders,
+          type: 'christmas-orders'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Christmas orders sync failed');
+      }
+
+      setLastSync(new Date());
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Christmas orders sync failed';
+      setError(errorMessage);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const disconnect = () => {
     setIsConnected(false);
     setLastSync(null);
@@ -183,6 +257,8 @@ export const useGoogleSheets = () => {
     syncAll,
     syncCustomers,
     syncOrders,
+    fetchChristmasProducts,
+    syncChristmasOrders,
     disconnect
   };
 };
