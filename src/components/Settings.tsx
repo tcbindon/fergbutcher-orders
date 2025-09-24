@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Keyboard, Clock, FileText, Trash2 } from 'lucide-react';
+import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Keyboard, Clock, FileText, Trash2, Gift, RefreshCw } from 'lucide-react';
 import { useGoogleSheets } from '../hooks/useGoogleSheets';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
+import { useChristmasProducts } from '../hooks/useChristmasProducts';
 import keyboardShortcuts, { KeyboardShortcutsService } from '../services/keyboardShortcuts';
 import backupService from '../services/backupService';
 import errorLogger from '../services/errorLogger';
@@ -15,9 +16,20 @@ const Settings: React.FC = () => {
   const { customers } = useCustomers();
   const { orders } = useOrders();
   const { templates, updateTemplate, resetToDefaults } = useEmailTemplates();
+  const { 
+    products: christmasProducts, 
+    loading: productsLoading, 
+    error: productsError,
+    lastFetch: productsLastFetch,
+    refreshProducts,
+    clearCache,
+    isCacheExpired,
+    isUsingFallback
+  } = useChristmasProducts();
 
   const tabs = [
     { id: 'email', label: 'Email Templates', icon: Mail },
+    { id: 'christmas', label: 'Christmas Products', icon: Gift },
     { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
     { id: 'sheets', label: 'Google Sheets', icon: ExternalLink },
     { id: 'backup', label: 'Backup & Restore', icon: Database },
@@ -161,6 +173,164 @@ const Settings: React.FC = () => {
             </div>
           )}
 
+          {/* Christmas Products Tab */}
+          {activeTab === 'christmas' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Christmas Products</h3>
+                <p className="text-fergbutcher-brown-600 mb-6">
+                  Manage Christmas products for seasonal orders. Products are synced from Google Sheets or use fallback defaults.
+                </p>
+              </div>
+
+              {/* Products Status */}
+              <div className={`p-4 rounded-lg border ${
+                productsError 
+                  ? 'bg-fergbutcher-yellow-50 border-fergbutcher-yellow-200' 
+                  : isUsingFallback
+                  ? 'bg-fergbutcher-brown-50 border-fergbutcher-brown-200'
+                  : 'bg-fergbutcher-green-50 border-fergbutcher-green-200'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {productsError ? (
+                      <AlertTriangle className="h-6 w-6 text-fergbutcher-yellow-600" />
+                    ) : isUsingFallback ? (
+                      <Database className="h-6 w-6 text-fergbutcher-brown-600" />
+                    ) : (
+                      <CheckCircle className="h-6 w-6 text-fergbutcher-green-600" />
+                    )}
+                    <div>
+                      <h4 className="font-medium text-fergbutcher-black-900">
+                        {productsError 
+                          ? 'Products Error - Using Fallback' 
+                          : isUsingFallback 
+                          ? 'Using Default Products'
+                          : 'Products Loaded from Google Sheets'
+                        }
+                      </h4>
+                      <p className="text-sm text-fergbutcher-brown-600">
+                        {productsError 
+                          ? `Error: ${productsError}. Using built-in default products.`
+                          : isUsingFallback 
+                          ? 'Google Sheets not connected. Using built-in default Christmas products.'
+                          : `${christmasProducts.length} products loaded from Google Sheets`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {isConnected && (
+                      <button
+                        onClick={async () => {
+                          const success = await refreshProducts();
+                          if (success) {
+                            alert('Christmas products refreshed successfully!');
+                          }
+                        }}
+                        disabled={productsLoading}
+                        className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${productsLoading ? 'animate-spin' : ''}`} />
+                        <span>{productsLoading ? 'Refreshing...' : 'Refresh'}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        clearCache();
+                        alert('Christmas products cache cleared. Products will be refreshed on next load.');
+                      }}
+                      className="bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-3 py-2 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors text-sm"
+                    >
+                      Clear Cache
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Products List */}
+              <div className="bg-white border border-fergbutcher-brown-200 rounded-lg">
+                <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+                  <h4 className="font-medium text-fergbutcher-black-900">Available Christmas Products</h4>
+                  <p className="text-sm text-fergbutcher-brown-600 mt-1">
+                    {christmasProducts.length} products available for Christmas orders
+                  </p>
+                </div>
+                <div className="p-6">
+                  {productsLoading ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="h-8 w-8 text-fergbutcher-brown-400 mx-auto mb-2 animate-spin" />
+                      <p className="text-fergbutcher-brown-600">Loading Christmas products...</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {christmasProducts.map((product) => (
+                        <div key={product.id} className="border border-fergbutcher-brown-200 rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <Gift className="h-4 w-4 text-fergbutcher-green-600" />
+                              <h5 className="font-medium text-fergbutcher-black-900">{product.name}</h5>
+                            </div>
+                            <span className="text-xs bg-fergbutcher-green-100 text-fergbutcher-green-700 px-2 py-1 rounded-full">
+                              {product.unit}
+                            </span>
+                          </div>
+                          {product.description && (
+                            <p className="text-sm text-fergbutcher-brown-600">{product.description}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Cache Information */}
+              <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-4">
+                <h4 className="font-medium text-fergbutcher-black-900 mb-3">Cache Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-fergbutcher-brown-600">Cache Status:</span>
+                    <span className="ml-2 font-medium">
+                      {isCacheExpired() ? 'Expired' : 'Valid'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-fergbutcher-brown-600">Last Fetch:</span>
+                    <span className="ml-2 font-medium">
+                      {productsLastFetch 
+                        ? productsLastFetch.toLocaleString('en-NZ')
+                        : 'Never'
+                      }
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-fergbutcher-brown-600">Data Source:</span>
+                    <span className="ml-2 font-medium">
+                      {isUsingFallback ? 'Built-in Defaults' : 'Google Sheets'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="bg-fergbutcher-yellow-50 border border-fergbutcher-yellow-200 rounded-lg p-4">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="h-5 w-5 text-fergbutcher-yellow-600 mt-0.5" />
+                  <div>
+                    <p className="text-fergbutcher-yellow-800 font-medium">Managing Christmas Products</p>
+                    <ul className="text-sm text-fergbutcher-yellow-700 mt-2 space-y-1">
+                      <li>• Products are automatically loaded from the "Christmas Products" sheet in Google Sheets</li>
+                      <li>• To add/edit products, modify the Google Sheets directly and click "Refresh"</li>
+                      <li>• If Google Sheets is unavailable, the system uses built-in default products</li>
+                      <li>• Products are cached for 24 hours to improve performance</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Keyboard Shortcuts Tab */}
           {activeTab === 'shortcuts' && (
             <div className="space-y-6">
@@ -189,6 +359,20 @@ const Settings: React.FC = () => {
                 <div className="flex items-start space-x-2">
                   <AlertTriangle className="h-5 w-5 text-fergbutcher-yellow-600 mt-0.5" />
                   <div>
+                <div className="mt-4 pt-4 border-t border-fergbutcher-green-200">
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <div className="text-lg font-bold text-fergbutcher-green-600">
+                        {orders.filter(o => o.orderType === 'christmas').length}
+                      </div>
+                      <div className="text-sm text-fergbutcher-brown-600">Christmas Orders</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-fergbutcher-green-600">{christmasProducts.length}</div>
+                      <div className="text-sm text-fergbutcher-brown-600">Christmas Products</div>
+                    </div>
+                  </div>
+                </div>
                     <p className="text-fergbutcher-yellow-800 font-medium">Tips:</p>
                     <ul className="text-sm text-fergbutcher-yellow-700 mt-1 space-y-1">
                       <li>• Shortcuts don't work when typing in input fields</li>
