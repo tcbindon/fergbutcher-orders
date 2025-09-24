@@ -9,7 +9,8 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Package
+  Package,
+  Gift
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -176,7 +177,12 @@ const Dashboard: React.FC = () => {
                 <div className="flex items-center space-x-4">
                   {getStatusIcon(order.status)}
                   <div>
-                    <p className="font-medium text-fergbutcher-black-900">{order.customer}</p>
+                    <div className="flex items-center space-x-2">
+                      <p className="font-medium text-fergbutcher-black-900">{order.customer}</p>
+                      {order.fullOrder.orderType === 'christmas' && (
+                        <Gift className="h-4 w-4 text-fergbutcher-green-600" />
+                      )}
+                    </div>
                     <p className="text-sm text-fergbutcher-brown-600">{order.items}</p>
                   </div>
                 </div>
