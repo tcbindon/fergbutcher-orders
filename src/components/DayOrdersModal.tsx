@@ -1,8 +1,8 @@
 import React from 'react';
 import { X, Calendar, Clock, User, Package, CheckCircle, AlertTriangle, XCircle, Edit, MessageSquare } from 'lucide-react';
+import { Gift } from 'lucide-react';
 import { Order, Customer } from '../types';
 import OrderDetail from './OrderDetail';
-import OrderForm from './OrderForm';
 
 interface DayOrdersModalProps {
   date: Date;
@@ -218,12 +218,24 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-4">
                           <div className="bg-fergbutcher-green-100 p-3 rounded-full">
-                            <User className="h-6 w-6 text-fergbutcher-green-600" />
+                            {order.orderType === 'christmas' ? (
+                              <Gift className="h-6 w-6 text-fergbutcher-green-600" />
+                            ) : (
+                              <User className="h-6 w-6 text-fergbutcher-green-600" />
+                            )}
                           </div>
                           <div>
-                            <h3 className="text-lg font-semibold text-fergbutcher-black-900">
-                              {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
-                            </h3>
+                            <div className="flex items-center space-x-3">
+                              <h3 className="text-lg font-semibold text-fergbutcher-black-900">
+                                {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
+                              </h3>
+                              {order.orderType === 'christmas' && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-fergbutcher-green-100 to-fergbutcher-yellow-100 text-fergbutcher-green-800 border border-fergbutcher-green-200">
+                                  <Gift className="h-3 w-3 mr-1" />
+                                  Christmas
+                                </span>
+                              )}
+                            </div>
                             {customer?.phone && (
                               <p className="text-sm text-fergbutcher-brown-600">{customer.phone}</p>
                             )}

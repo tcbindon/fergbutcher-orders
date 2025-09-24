@@ -76,6 +76,10 @@ const Orders: React.FC = () => {
       const newOrder = addOrder(orderData);
       if (newOrder) {
         setShowCreateModal(false);
+        // Auto-sync to Google Sheets if connected
+        if (newOrder.orderType === 'standard') {
+          // Standard orders sync automatically via existing logic
+        }
       }
     } finally {
       setIsSubmitting(false);
@@ -88,6 +92,8 @@ const Orders: React.FC = () => {
       const newOrder = addOrder(orderData);
       if (newOrder) {
         setShowChristmasModal(false);
+        // Auto-sync Christmas orders to Google Sheets if connected
+        // This will be handled by the syncOrdersToSheets function
       }
     } finally {
       setIsSubmitting(false);

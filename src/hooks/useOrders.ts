@@ -55,6 +55,7 @@ export const useOrders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isConnected, syncOrders } = useGoogleSheets();
+  const { syncChristmasOrders } = useGoogleSheets();
   const { addUndoAction } = useUndo();
 
   // Load orders from localStorage on mount
@@ -122,7 +123,7 @@ export const useOrders = () => {
       });
       
       // Auto-sync to Google Sheets if connected (need customers for sync)
-      // This will be handled by the component that has access to customers
+      // Note: Actual sync will be handled by components that have access to customers
       
       errorLogger.info(`Order created: #${newOrder.id}`);
       return newOrder;
@@ -145,8 +146,7 @@ export const useOrders = () => {
       );
       setError(null);
       
-      // Auto-sync to Google Sheets if connected (need customers for sync)
-      // This will be handled by the component that has access to customers
+      // Note: Actual sync will be handled by components that have access to customers
       
       return true;
     } catch (err) {
@@ -175,8 +175,7 @@ export const useOrders = () => {
         }
       });
       
-      // Auto-sync to Google Sheets if connected (need customers for sync)
-      // This will be handled by the component that has access to customers
+      // Note: Actual sync will be handled by components that have access to customers
       
       errorLogger.info(`Order deleted: #${id}`);
       return true;
@@ -282,6 +281,31 @@ export const useOrders = () => {
     getOrdersByStatus,
     getOrdersByDateRange,
     searchOrders,
-    getOrderStats
+    getOrderStats,
+    // Helper function to sync orders to Google Sheets
+    syncOrdersToSheets: async (customers: Customer[]) => {
+      if (!isConnected) return false;
+      
+      try {
+        // Separate standard and Christmas orders
+        const standardOrders = orders.filter(order => order.orderType !== 'christmas');
+        const christmasOrders = orders.filter(order => order.orderType === 'christmas');
+        
+        // Sync standard orders
+        if (standardOrders.length > 0) {
+          await syncOrders(standardOrders, customers);
+        }
+        
+        // Sync Christmas orders
+        if (christmasOrders.length > 0) {
+          await syncChristmasOrders(christmasOrders, customers);
+        }
+        
+        return true;
+      } catch (error) {
+        console.error('Error syncing orders to sheets:', error);
+        return false;
+      }
+    }
   };
 };
