@@ -151,14 +151,25 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
             <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
           </div>
           <div className="p-6">
-            <OrderForm
-              order={editingOrder}
-              customers={customers}
-              onAddCustomer={onAddCustomer}
-              onSubmit={handleUpdateOrder}
-              onCancel={() => setEditingOrder(null)}
-              isLoading={isSubmitting}
-            />
+            {editingOrder.orderType === 'christmas' ? (
+              <ChristmasOrderForm
+                order={editingOrder}
+                customers={customers}
+                onAddCustomer={onAddCustomer}
+                onSubmit={handleUpdateOrder}
+                onCancel={() => setEditingOrder(null)}
+                isLoading={isSubmitting}
+              />
+            ) : (
+              <OrderForm
+                order={editingOrder}
+                customers={customers}
+                onAddCustomer={onAddCustomer}
+                onSubmit={handleUpdateOrder}
+                onCancel={() => setEditingOrder(null)}
+                isLoading={isSubmitting}
+              />
+            )}
           </div>
         </div>
       </div>
