@@ -122,12 +122,23 @@ const PrintSchedule: React.FC<PrintScheduleProps> = ({
                           </h3>
                           {customer?.phone && (
                             <p className="text-sm text-fergbutcher-brown-600 print:text-gray-600">
-                              📞 {customer.phone}
+                        {order.orderType === 'christmas' ? (
+                          <Gift className="h-4 w-4 text-fergbutcher-green-600 print:text-gray-800" />
+                        ) : (
+                          <span className="font-bold text-fergbutcher-green-600 print:text-gray-800">#{order.id}</span>
+                        )}
                             </p>
                           )}
+                        <div className="flex items-center space-x-2">
+                          <h3 className="text-lg font-semibold text-fergbutcher-black-900 print:text-black">
+                            {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
+                          </h3>
+                          {order.orderType === 'christmas' && (
+                            <span className="text-xs bg-fergbutcher-green-100 print:bg-gray-100 text-fergbutcher-green-700 print:text-gray-700 px-2 py-1 rounded-full">
+                              Christmas
+                            </span>
+                          )}
                         </div>
-                      </div>
-                      <div className="text-right">
                         {order.collectionTime && (
                           <div className="text-lg font-bold text-fergbutcher-black-900 print:text-black mb-1">
                             {order.collectionTime}
