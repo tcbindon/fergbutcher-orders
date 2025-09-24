@@ -1,303 +1,548 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, Search, Gift, Calendar, Clock, User, Package, Filter } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  Search, 
+  Plus, 
+  Filter, 
+  Edit, 
+  Eye, 
+  Calendar,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Package,
+  User,
+  AlertTriangle,
+  ChevronDown,
+  MessageSquare
+} from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
-import { Order, OrderStatus } from '../types';
+import { useStaffNotes } from '../hooks/useStaffNotes';
 import OrderForm from './OrderForm';
 import OrderDetail from './OrderDetail';
-import ChristmasOrderForm from './ChristmasOrderForm';
+import { Order } from '../types';
 
 const Orders: React.FC = () => {
-  const { orders, addOrder, updateOrder, deleteOrder } = useOrders();
-  const { customers } = useCustomers();
+  const { 
+    orders, 
+    loading: ordersLoading, 
+    error: ordersError, 
+    addOrder, 
+    updateOrder, 
+    deleteOrder,
+    getDuplicateOrderData,
+    searchOrders 
+  } = useOrders();
+  
+  const { customers, loading: customersLoading, addCustomer } = useCustomers();
+  const { getNotesForOrder } = useStaffNotes();
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
-  const [showOrderForm, setShowOrderForm] = useState(false);
-  const [showChristmasForm, setShowChristmasForm] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [deletingOrder, setDeletingOrder] = useState<Order | null>(null);
+  const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
+  const [showingComments, setShowingComments] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      const customer = customers.find(c => c.id === order.customerId);
-      const customerName = customer ? `${customer.firstName} ${customer.lastName}` : '';
+  // Sort orders by collection date (earliest first), then by status priority
+  const getSortedOrders = (orders: Order[]) => {
+    const statusPriority = { 'confirmed': 1, 'pending': 2, 'collected': 3, 'cancelled': 4 };
+    
+    return orders.sort((a, b) => {
+      // First sort by collection date (earliest first)
+      const dateComparison = new Date(a.collectionDate).getTime() - new Date(b.collectionDate).getTime();
+      if (dateComparison !== 0) return dateComparison;
       
-      const matchesSearch = customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           order.items.some(item => 
-                             item.product.toLowerCase().includes(searchTerm.toLowerCase())
-                           );
-      
-      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-      
-      return matchesSearch && matchesStatus;
+      // Then sort by status priority
+      return statusPriority[a.status] - statusPriority[b.status];
     });
-  }, [orders, customers, searchTerm, statusFilter]);
-
-  const handleAddOrder = (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>) => {
-    addOrder(orderData);
-    setShowOrderForm(false);
-    setShowChristmasForm(false);
   };
 
-  const handleUpdateOrder = (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>) => {
-    if (editingOrder) {
-      updateOrder(editingOrder.id, orderData);
-      setEditingOrder(null);
+  const filteredOrders = getSortedOrders(
+    searchOrders(searchTerm, customers).filter(order => 
+      statusFilter === 'all' || order.status === statusFilter
+    )
+  );
+
+  const handleAddOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+    setIsSubmitting(true);
+    try {
+      const newOrder = addOrder(orderData);
+      if (newOrder) {
+        setShowCreateModal(false);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDeleteOrder = (orderId: string) => {
-    deleteOrder(orderId);
-    setSelectedOrder(null);
-  };
-
-  const getStatusBadge = (status: OrderStatus) => {
-    const statusConfig = {
-      pending: { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: 'Pending' },
-      confirmed: { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Confirmed' },
-      ready: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Ready' },
-      collected: { color: 'bg-gray-100 text-gray-800 border-gray-200', label: 'Collected' },
-      cancelled: { color: 'bg-red-100 text-red-800 border-red-200', label: 'Cancelled' }
-    };
-
-    const config = statusConfig[status];
-    return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${config.color}`}>
-        {config.label}
-      </span>
-    );
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
-
-  const formatTime = (timeString: string) => {
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const isChristmasOrder = (order: Order) => {
-    const christmasProducts = [
-      'whole turkey', 'turkey breast', 'duck', 'goose',
-      'beef wellington', 'roasting joint', 'beef tenderloin',
-      'leg of lamb', 'rack of lamb', 'lamb shoulder',
-      'glazed ham', 'pork belly', 'leg of pork',
-      'chipolatas', 'bacon', 'stuffing'
-    ];
+  const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!editingOrder) return;
     
-    return order.items.some(item => 
-      christmasProducts.some(product => 
-        item.product.toLowerCase().includes(product)
-      )
-    );
+    setIsSubmitting(true);
+    try {
+      const success = updateOrder(editingOrder.id, orderData);
+      if (success) {
+        setEditingOrder(null);
+        // Update viewing order if it's the same one
+        if (viewingOrder?.id === editingOrder.id) {
+          setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const handleDeleteOrder = () => {
+    if (!deletingOrder) return;
+    
+    const success = deleteOrder(deletingOrder.id);
+    if (success) {
+      setDeletingOrder(null);
+      // Close detail view if we're viewing the deleted order
+      if (viewingOrder?.id === deletingOrder.id) {
+        setViewingOrder(null);
+      }
+    }
+  };
+
+  const handleDuplicateOrder = (orderId: string) => {
+    const duplicateData = getDuplicateOrderData(orderId);
+    if (duplicateData) {
+      setDuplicatingOrder(duplicateData);
+      setViewingOrder(null); // Close detail view
+    } else {
+      alert('Failed to prepare duplicate order. Please try again.');
+    }
+  };
+
+  const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
+    const success = updateOrder(orderId, { status: newStatus });
+    if (success && viewingOrder?.id === orderId) {
+      setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return <CheckCircle className="h-4 w-4 text-fergbutcher-green-500" />;
+      case 'pending':
+        return <Clock className="h-4 w-4 text-fergbutcher-yellow-500" />;
+      case 'collected':
+        return <Package className="h-4 w-4 text-fergbutcher-brown-500" />;
+      case 'cancelled':
+        return <XCircle className="h-4 w-4 text-fergbutcher-black-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-fergbutcher-brown-400" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return 'bg-fergbutcher-green-100 text-fergbutcher-green-800';
+      case 'pending':
+        return 'bg-fergbutcher-yellow-100 text-fergbutcher-yellow-800';
+      case 'collected':
+        return 'bg-fergbutcher-brown-100 text-fergbutcher-brown-800';
+      case 'cancelled':
+        return 'bg-fergbutcher-black-100 text-fergbutcher-black-800';
+      default:
+        return 'bg-fergbutcher-brown-100 text-fergbutcher-brown-800';
+    }
+  };
+
+  if (ordersLoading || customersLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-fergbutcher-brown-600">Loading orders...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <p className="text-gray-600">Manage customer orders and track their status</p>
+          <h1 className="text-2xl font-bold text-fergbutcher-black-900">Orders</h1>
+          <p className="text-fergbutcher-brown-600">Manage all customer orders</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowChristmasForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            <Gift className="w-4 h-4" />
-            Christmas Order
-          </button>
-          <button
-            onClick={() => setShowOrderForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Order
-          </button>
-        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Create Order</span>
+        </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search orders by customer or product..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'all')}
-            className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="ready">Ready</option>
-            <option value="collected">Collected</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Orders List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        {filteredOrders.length === 0 ? (
-          <div className="p-8 text-center">
-            <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
-            <p className="text-gray-600 mb-4">
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Try adjusting your search or filter criteria'
-                : 'Get started by creating your first order'
-              }
-            </p>
-            {!searchTerm && statusFilter === 'all' && (
-              <button
-                onClick={() => setShowOrderForm(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add First Order
-              </button>
-            )}
+      {/* Error Message */}
+      {ordersError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+            <p className="text-red-700">{ordersError}</p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Order
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Items
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Collection
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredOrders.map((order) => {
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Orders List */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Search and Filters */}
+          <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-fergbutcher-brown-400 h-4 w-4" />
+                <input
+                  type="text"
+                  placeholder="Search orders by customer name or items..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Filter className="h-4 w-4 text-fergbutcher-brown-400" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="collected">Collected</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Orders List */}
+          <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h2 className="text-lg font-semibold text-fergbutcher-black-900">
+                All Orders ({filteredOrders.length.toLocaleString('en-NZ')})
+              </h2>
+            </div>
+            <div className="divide-y divide-fergbutcher-brown-200 max-h-96 overflow-y-auto">
+              {filteredOrders.length > 0 ? (
+                filteredOrders.map((order) => {
                   const customer = customers.find(c => c.id === order.customerId);
-                  const customerName = customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer';
-                  
                   return (
-                    <tr
-                      key={order.id}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setSelectedOrder(order)}
+                    <div 
+                      key={order.id} 
+                      className="p-6 hover:bg-fergbutcher-green-50 transition-colors cursor-pointer"
+                      onClick={() => setViewingOrder(order)}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900">
-                            #{order.orderNumber}
-                          </span>
-                          {isChristmasOrder(order) && (
-                            <Gift className="w-4 h-4 text-red-500" title="Christmas Order" />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-900">{customerName}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {order.items.slice(0, 2).map((item, index) => (
-                            <div key={index}>
-                              {item.quantity} × {item.product}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-4">
+                          <div className="bg-fergbutcher-green-100 p-3 rounded-full">
+                            <User className="h-6 w-6 text-fergbutcher-green-600" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h3 className="text-lg font-semibold text-fergbutcher-black-900">
+                                {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
+                              </h3>
+                              <div className="relative">
+                                <select
+                                  value={order.status}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    handleStatusChange(order.id, e.target.value as Order['status']);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`appearance-none pr-8 pl-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(order.status)}`}
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="confirmed">Confirmed</option>
+                                  <option value="collected">Collected</option>
+                                  <option value="cancelled">Cancelled</option>
+                                </select>
+                                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 pointer-events-none" />
+                              </div>
                             </div>
-                          ))}
-                          {order.items.length > 2 && (
-                            <div className="text-gray-500">
-                              +{order.items.length - 2} more items
+                            
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-4 text-sm text-fergbutcher-brown-600">
+                                <div className="flex items-center space-x-1">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>{new Date(order.collectionDate).toLocaleDateString('en-NZ')}</span>
+                                </div>
+                                {/* Comment Indicator */}
+                                {getNotesForOrder(order.id).length > 0 && (
+                                  <div className="relative">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowingComments(showingComments === order.id ? null : order.id);
+                                      }}
+                                      className="p-1 text-fergbutcher-green-600 hover:text-fergbutcher-green-700 hover:bg-fergbutcher-green-100 rounded-full transition-colors"
+                                      title={`${getNotesForOrder(order.id).length} staff comment${getNotesForOrder(order.id).length !== 1 ? 's' : ''}`}
+                                    >
+                                      <MessageSquare className="h-4 w-4" />
+                                      <span className="absolute -top-1 -right-1 bg-fergbutcher-green-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                                        {getNotesForOrder(order.id).length}
+                                      </span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="text-sm text-fergbutcher-brown-700">
+                                <strong>Items:</strong> {order.items.map(item => 
+                                  `${item.description} (${item.quantity.toLocaleString('en-NZ')} ${item.unit})`
+                                ).join(', ')}
+                              </div>
+                              
+                              {order.additionalNotes && (
+                                <div className="text-sm text-fergbutcher-brown-600">
+                                  <strong>Notes:</strong> {order.additionalNotes}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2 text-sm text-gray-900">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <span>{formatDate(order.collectionDate)}</span>
-                          <Clock className="w-4 h-4 text-gray-400 ml-2" />
-                          <span>{formatTime(order.collectionTime)}</span>
+                        
+                        <div className="flex items-center space-x-2">
+                          {getStatusIcon(order.status)}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingOrder(order);
+                            }}
+                            className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
+                            title="Edit Order"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(order.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        £{order.total.toFixed(2)}
-                      </td>
-                    </tr>
+                      </div>
+                      
+                      {/* Quick Comments Preview */}
+                      {showingComments === order.id && (
+                        <div className="mt-4 p-4 bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium text-fergbutcher-black-900 flex items-center space-x-2">
+                              <MessageSquare className="h-4 w-4 text-fergbutcher-green-600" />
+                              <span>Staff Comments ({getNotesForOrder(order.id).length})</span>
+                            </h4>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowingComments(null);
+                              }}
+                              className="text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {getNotesForOrder(order.id).slice(0, 3).map((note) => (
+                              <div key={note.id} className="bg-white border border-fergbutcher-brown-200 rounded p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium text-fergbutcher-black-900 text-sm">{note.staffName}</span>
+                                  <span className="text-xs text-fergbutcher-brown-500">
+                                    {new Date(note.timestamp).toLocaleDateString('en-NZ', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                </div>
+                                <p className="text-fergbutcher-brown-700 text-sm">{note.content}</p>
+                              </div>
+                            ))}
+                            {getNotesForOrder(order.id).length > 3 && (
+                              <div className="text-center">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewingOrder(order);
+                                    setShowingComments(null);
+                                  }}
+                                  className="text-sm text-fergbutcher-green-600 hover:text-fergbutcher-green-700 font-medium"
+                                >
+                                  View all {getNotesForOrder(order.id).length} comments →
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   );
-                })}
-              </tbody>
-            </table>
+                })
+              ) : (
+                <div className="p-12 text-center">
+                  <Package className="h-12 w-12 text-fergbutcher-brown-300 mx-auto mb-4" />
+                  <p className="text-fergbutcher-brown-500">
+                    {searchTerm || statusFilter !== 'all' ? 'No orders found matching your criteria.' : 'No orders yet.'}
+                  </p>
+                  {!searchTerm && statusFilter === 'all' && (
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="mt-4 text-fergbutcher-green-600 hover:text-fergbutcher-green-700 font-medium"
+                    >
+                      Create your first order
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Modals */}
-      {showOrderForm && (
-        <OrderForm
-          onSubmit={handleAddOrder}
-          onCancel={() => setShowOrderForm(false)}
-        />
+      {/* View Order Details Modal */}
+      {viewingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
+              <button
+                onClick={() => setViewingOrder(null)}
+                className="text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <OrderDetail
+                order={viewingOrder}
+                customer={customers.find(c => c.id === viewingOrder.customerId)}
+                onEdit={() => {
+                  setEditingOrder(viewingOrder);
+                  setViewingOrder(null);
+                }}
+                onDelete={() => {
+                  setDeletingOrder(viewingOrder);
+                  setViewingOrder(null);
+                }}
+                onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
+                onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
-      {showChristmasForm && (
-        <ChristmasOrderForm
-          onSubmit={handleAddOrder}
-          onCancel={() => setShowChristmasForm(false)}
-        />
+      {/* Create Order Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Create New Order</h3>
+            </div>
+            <div className="p-6">
+              <OrderForm
+                customers={customers}
+                onAddCustomer={addCustomer}
+                onSubmit={handleAddOrder}
+                onCancel={() => setShowCreateModal(false)}
+                isLoading={isSubmitting}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
+      {/* Edit Order Modal */}
       {editingOrder && (
-        <OrderForm
-          order={editingOrder}
-          onSubmit={handleUpdateOrder}
-          onCancel={() => setEditingOrder(null)}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
+            </div>
+            <div className="p-6">
+              <OrderForm
+                order={editingOrder}
+                customers={customers}
+                onAddCustomer={addCustomer}
+                onSubmit={handleUpdateOrder}
+                onCancel={() => setEditingOrder(null)}
+                isLoading={isSubmitting}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
-      {selectedOrder && (
-        <OrderDetail
-          order={selectedOrder}
-          onClose={() => setSelectedOrder(null)}
-          onEdit={(order) => {
-            setSelectedOrder(null);
-            setEditingOrder(order);
-          }}
-          onDelete={handleDeleteOrder}
-        />
+      {/* Delete Confirmation Modal */}
+      {deletingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Delete Order</h3>
+            </div>
+            <div className="p-6">
+              <div className="flex items-start space-x-3 mb-4">
+                <div className="bg-red-100 p-2 rounded-full">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-fergbutcher-black-900 font-medium">
+                    Are you sure you want to delete this order?
+                  </p>
+                  <p className="text-fergbutcher-brown-600 text-sm mt-1">
+                    This action cannot be undone. All order data will be permanently removed.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setDeletingOrder(null)}
+                  className="px-4 py-2 text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteOrder}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Delete Order
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Order Modal */}
+      {duplicatingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
+              <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
+            </div>
+            <div className="p-6">
+              <OrderForm
+                customers={customers}
+                onAddCustomer={addCustomer}
+                onSubmit={(orderData) => {
+                  const newOrder = addOrder(orderData);
+                  if (newOrder) {
+                    setDuplicatingOrder(null);
+                    alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                  }
+                }}
+                onCancel={() => setDuplicatingOrder(null)}
+                isLoading={isSubmitting}
+                initialData={duplicatingOrder}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
