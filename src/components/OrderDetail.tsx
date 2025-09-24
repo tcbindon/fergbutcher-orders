@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   Copy,
   Mail,
-  Send
+  Send,
+  Gift
 } from 'lucide-react';
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
@@ -107,12 +108,24 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="bg-fergbutcher-green-100 p-3 rounded-full">
-              <Package className="h-8 w-8 text-fergbutcher-green-600" />
+              {order.orderType === 'christmas' ? (
+                <Gift className="h-8 w-8 text-fergbutcher-green-600" />
+              ) : (
+                <Package className="h-8 w-8 text-fergbutcher-green-600" />
+              )}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-fergbutcher-black-900">
-                Order #{order.id}
-              </h2>
+              <div className="flex items-center space-x-3">
+                <h2 className="text-xl font-bold text-fergbutcher-black-900">
+                  Order #{order.id}
+                </h2>
+                {order.orderType === 'christmas' && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-fergbutcher-green-100 to-fergbutcher-yellow-100 text-fergbutcher-green-800 border border-fergbutcher-green-200">
+                    <Gift className="h-4 w-4 mr-1" />
+                    Christmas Order
+                  </span>
+                )}
+              </div>
               <p className="text-fergbutcher-brown-600">
                 Created {new Date(order.createdAt).toLocaleDateString('en-NZ')}
               </p>

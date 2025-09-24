@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, Gift } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { CalendarViewMode } from '../types';
@@ -126,8 +126,9 @@ const CalendarView: React.FC = () => {
               return (
                 <div
                   key={order.id}
-                  className={`text-xs px-2 py-1 rounded text-white truncate ${getStatusColor(order.status)}`}
+                  className={`text-xs px-2 py-1 rounded text-white truncate flex items-center space-x-1 ${getStatusColor(order.status)}`}
                 >
+                  {order.orderType === 'christmas' && <Gift className="h-3 w-3 flex-shrink-0" />}
                   {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown'}
                 </div>
               );
@@ -181,7 +182,8 @@ const CalendarView: React.FC = () => {
                       key={order.id}
                       className={`text-xs px-2 py-2 rounded text-white ${getStatusColor(order.status)}`}
                     >
-                      <div className="font-medium truncate">
+                      <div className="font-medium truncate flex items-center space-x-1">
+                        {order.orderType === 'christmas' && <Gift className="h-3 w-3 flex-shrink-0" />}
                         {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown'}
                       </div>
                       {order.collectionTime && (
@@ -243,11 +245,19 @@ const CalendarView: React.FC = () => {
                       <div className="flex items-center space-x-3">
                         <div className={`w-4 h-4 rounded-full ${getStatusColor(order.status)}`}></div>
                         <div>
-                          <h3 className="font-semibold text-fergbutcher-black-900">
-                            {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
-                          </h3>
-                          <p className="text-sm text-fergbutcher-brown-600">
-                            {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-semibold text-fergbutcher-black-900">
+                              {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
+                            </h3>
+                            {order.orderType === 'christmas' && (
+                              <Gift className="h-4 w-4 text-fergbutcher-green-600" />
+                            )}
+                          </div>
+                          <p className="text-sm text-fergbutcher-brown-600 flex items-center space-x-1">
+                            <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
+                            {order.orderType === 'christmas' && (
+                              <span className="text-fergbutcher-green-600">• Christmas</span>
+                            )}
                           </p>
                         </div>
                       </div>

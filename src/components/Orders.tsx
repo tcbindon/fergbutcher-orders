@@ -13,12 +13,14 @@ import {
   User,
   AlertTriangle,
   ChevronDown,
-  MessageSquare
+  MessageSquare,
+  Gift
 } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import OrderForm from './OrderForm';
+import ChristmasOrderForm from './ChristmasOrderForm';
 import OrderDetail from './OrderDetail';
 import { Order } from '../types';
 
@@ -40,6 +42,7 @@ const Orders: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showChristmasModal, setShowChristmasModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [deletingOrder, setDeletingOrder] = useState<Order | null>(null);
@@ -79,6 +82,17 @@ const Orders: React.FC = () => {
     }
   };
 
+  const handleAddChristmasOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+    setIsSubmitting(true);
+    try {
+      const newOrder = addOrder(orderData);
+      if (newOrder) {
+        setShowChristmasModal(false);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
     
@@ -173,13 +187,22 @@ const Orders: React.FC = () => {
           <h1 className="text-2xl font-bold text-fergbutcher-black-900">Orders</h1>
           <p className="text-fergbutcher-brown-600">Manage all customer orders</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Create Order</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setShowChristmasModal(true)}
+            className="bg-gradient-to-r from-fergbutcher-green-600 to-fergbutcher-yellow-600 text-white px-4 py-2 rounded-lg hover:from-fergbutcher-green-700 hover:to-fergbutcher-yellow-700 transition-all flex items-center space-x-2 shadow-lg"
+          >
+            <Gift className="h-4 w-4" />
+            <span>Christmas Order</span>
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Standard Order</span>
+          </button>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -245,13 +268,23 @@ const Orders: React.FC = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-4">
                           <div className="bg-fergbutcher-green-100 p-3 rounded-full">
-                            <User className="h-6 w-6 text-fergbutcher-green-600" />
+                            {order.orderType === 'christmas' ? (
+                              <Gift className="h-6 w-6 text-fergbutcher-green-600" />
+                            ) : (
+                              <User className="h-6 w-6 text-fergbutcher-green-600" />
+                            )}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
                               <h3 className="text-lg font-semibold text-fergbutcher-black-900">
                                 {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
                               </h3>
+                              {order.orderType === 'christmas' && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-fergbutcher-green-100 to-fergbutcher-yellow-100 text-fergbutcher-green-800 border border-fergbutcher-green-200">
+                                  <Gift className="h-3 w-3 mr-1" />
+                                  Christmas
+                                </span>
+                              )}
                               <div className="relative">
                                 <select
                                   value={order.status}
@@ -441,7 +474,7 @@ const Orders: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Create New Order</h3>
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Create Standard Order</h3>
             </div>
             <div className="p-6">
               <OrderForm
@@ -456,6 +489,28 @@ const Orders: React.FC = () => {
         </div>
       )}
 
+      {/* Create Christmas Order Modal */}
+      {showChristmasModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900 flex items-center space-x-2">
+                <Gift className="h-5 w-5 text-fergbutcher-green-600" />
+                <span>Create Christmas Order</span>
+              </h3>
+            </div>
+            <div className="p-6">
+              <ChristmasOrderForm
+                customers={customers}
+                onAddCustomer={addCustomer}
+                onSubmit={handleAddChristmasOrder}
+                onCancel={() => setShowChristmasModal(false)}
+                isLoading={isSubmitting}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {/* Edit Order Modal */}
       {editingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -464,14 +519,25 @@ const Orders: React.FC = () => {
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
             </div>
             <div className="p-6">
-              <OrderForm
-                order={editingOrder}
-                customers={customers}
-                onAddCustomer={addCustomer}
-                onSubmit={handleUpdateOrder}
-                onCancel={() => setEditingOrder(null)}
-                isLoading={isSubmitting}
-              />
+              {editingOrder.orderType === 'christmas' ? (
+                <ChristmasOrderForm
+                  order={editingOrder}
+                  customers={customers}
+                  onAddCustomer={addCustomer}
+                  onSubmit={handleUpdateOrder}
+                  onCancel={() => setEditingOrder(null)}
+                  isLoading={isSubmitting}
+                />
+              ) : (
+                <OrderForm
+                  order={editingOrder}
+                  customers={customers}
+                  onAddCustomer={addCustomer}
+                  onSubmit={handleUpdateOrder}
+                  onCancel={() => setEditingOrder(null)}
+                  isLoading={isSubmitting}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -526,20 +592,36 @@ const Orders: React.FC = () => {
               <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
             </div>
             <div className="p-6">
-              <OrderForm
-                customers={customers}
-                onAddCustomer={addCustomer}
-                onSubmit={(orderData) => {
-                  const newOrder = addOrder(orderData);
-                  if (newOrder) {
-                    setDuplicatingOrder(null);
-                    alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
-                  }
-                }}
-                onCancel={() => setDuplicatingOrder(null)}
-                isLoading={isSubmitting}
-                initialData={duplicatingOrder}
-              />
+              {duplicatingOrder.orderType === 'christmas' ? (
+                <ChristmasOrderForm
+                  customers={customers}
+                  onAddCustomer={addCustomer}
+                  onSubmit={(orderData) => {
+                    const newOrder = addOrder(orderData);
+                    if (newOrder) {
+                      setDuplicatingOrder(null);
+                      alert(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
+                    }
+                  }}
+                  onCancel={() => setDuplicatingOrder(null)}
+                  isLoading={isSubmitting}
+                />
+              ) : (
+                <OrderForm
+                  customers={customers}
+                  onAddCustomer={addCustomer}
+                  onSubmit={(orderData) => {
+                    const newOrder = addOrder(orderData);
+                    if (newOrder) {
+                      setDuplicatingOrder(null);
+                      alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                    }
+                  }}
+                  onCancel={() => setDuplicatingOrder(null)}
+                  isLoading={isSubmitting}
+                  initialData={duplicatingOrder}
+                />
+              )}
             </div>
           </div>
         </div>
