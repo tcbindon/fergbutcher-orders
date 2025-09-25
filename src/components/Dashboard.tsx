@@ -1,12 +1,20 @@
 import React from 'react';
+import { useState } from 'react';
 import { Users, Package, Calendar, TrendingUp, CheckCircle, Clock, Building } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
+import OrderDetail from './OrderDetail';
+import OrderForm from './OrderForm';
 import { Order } from '../types';
 
 const Dashboard: React.FC = () => {
   const { customers } = useCustomers();
-  const { orders } = useOrders();
+  const { orders, updateOrder, deleteOrder, addCustomer, getDuplicateOrderData, addOrder } = useOrders();
+  
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculate today's collections
   const today = new Date().toISOString().split('T')[0];
@@ -46,6 +54,50 @@ const Dashboard: React.FC = () => {
   const pendingOrdersChange = 9;
   const todaysPendingChange = 0;
   const revenueGrowth = 18;
+
+  const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!editingOrder) return;
+    
+    setIsSubmitting(true);
+    try {
+      const success = updateOrder(editingOrder.id, orderData);
+      if (success) {
+        setEditingOrder(null);
+        // Update viewing order if it's the same one
+        if (viewingOrder?.id === editingOrder.id) {
+          setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteOrder = () => {
+    if (!viewingOrder) return;
+    
+    const success = deleteOrder(viewingOrder.id);
+    if (success) {
+      setViewingOrder(null);
+    }
+  };
+
+  const handleDuplicateOrder = (orderId: string) => {
+    const duplicateData = getDuplicateOrderData(orderId);
+    if (duplicateData) {
+      setDuplicatingOrder(duplicateData);
+      setViewingOrder(null); // Close detail view
+    } else {
+      alert('Failed to prepare duplicate order. Please try again.');
+    }
+  };
+
+  const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
+    const success = updateOrder(orderId, { status: newStatus });
+    if (success && viewingOrder?.id === orderId) {
+      setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
