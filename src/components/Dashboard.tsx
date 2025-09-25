@@ -275,6 +275,85 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* View Order Details Modal */}
+      {viewingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
+              <button
+                onClick={() => setViewingOrder(null)}
+                className="text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <OrderDetail
+                order={viewingOrder}
+                customer={customers.find(c => c.id === viewingOrder.customerId)}
+                onEdit={() => {
+                  setEditingOrder(viewingOrder);
+                  setViewingOrder(null);
+                }}
+                onDelete={handleDeleteOrder}
+                onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
+                onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Order Modal */}
+      {editingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
+            </div>
+            <div className="p-6">
+              <OrderForm
+                order={editingOrder}
+                customers={customers}
+                onAddCustomer={addCustomer}
+                onSubmit={handleUpdateOrder}
+                onCancel={() => setEditingOrder(null)}
+                isLoading={isSubmitting}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Order Modal */}
+      {duplicatingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
+              <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
+            </div>
+            <div className="p-6">
+              <OrderForm
+                customers={customers}
+                onAddCustomer={addCustomer}
+                onSubmit={(orderData) => {
+                  const newOrder = addOrder(orderData);
+                  if (newOrder) {
+                    setDuplicatingOrder(null);
+                    alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                  }
+                }}
+                onCancel={() => setDuplicatingOrder(null)}
+                isLoading={isSubmitting}
+                initialData={duplicatingOrder}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
