@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertTriangle, UserPlus, Gift, RefreshCw } from 'lucide-react';
-import { Order, OrderItem, Customer, ChristmasProduct } from '../types';
+import { Plus, Trash2, AlertTriangle, UserPlus, Gift, Package } from 'lucide-react';
+import { Order, ChristmasOrderItem, Customer, ChristmasProduct } from '../types';
 import { useChristmasProducts } from '../hooks/useChristmasProducts';
 
 interface ChristmasOrderFormProps {
@@ -10,12 +10,6 @@ interface ChristmasOrderFormProps {
   onSubmit: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
   isLoading?: boolean;
-  initialData?: any;
-}
-
-interface ChristmasOrderItem extends Omit<OrderItem, 'id'> {
-  productId?: string;
-  isCustom: boolean;
 }
 
 const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
@@ -24,17 +18,10 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
   onAddCustomer,
   onSubmit,
   onCancel,
-  isLoading = false,
-  initialData
+  isLoading = false
 }) => {
-  const { 
-    products, 
-    loading: productsLoading, 
-    error: productsError, 
-    refreshProducts,
-    isUsingFallback 
-  } = useChristmasProducts();
-
+  const { products: christmasProducts, loading: productsLoading, error: productsError } = useChristmasProducts();
+  
   const [formData, setFormData] = useState({
     customerId: '',
     collectionDate: '',
@@ -43,8 +30,12 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
     status: 'pending' as Order['status']
   });
 
-  const [items, setItems] = useState<ChristmasOrderItem[]>([
-    { description: '', quantity: 0, unit: '', isCustom: false }
+  // Christmas product quantities (productId -> quantity)
+  const [christmasQuantities, setChristmasQuantities] = useState<Record<string, number>>({});
+  
+  // Additional (non-Christmas) items
+  const [additionalItems, setAdditionalItems] = useState<Omit<ChristmasOrderItem, 'id'>[]>([
+    { description: '', quantity: 0, unit: '', isChristmasProduct: false }
   ]);
 
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
@@ -58,32 +49,43 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const unitOptions = [
+    'Kilos', 'Grams', 'Packets', 'Pieces', 'ml', 'Litre'
+  ];
+
   useEffect(() => {
-    if (order || initialData) {
-      const sourceData = order || initialData;
+    if (order && order.orderType === 'christmas') {
       setFormData({
-        customerId: sourceData.customerId,
-        collectionDate: sourceData.collectionDate,
-        collectionTime: sourceData.collectionTime || '',
-        additionalNotes: sourceData.additionalNotes || '',
-        status: sourceData.status || 'pending'
+        customerId: order.customerId,
+        collectionDate: order.collectionDate,
+        collectionTime: order.collectionTime || '',
+        additionalNotes: order.additionalNotes || '',
+        status: order.status
       });
-      
-      // Convert existing items to Christmas order items
-      const christmasItems = sourceData.items.map((item: any) => {
-        const christmasProduct = products.find(p => p.name === item.description);
-        return {
-          description: item.description,
-          quantity: item.quantity,
-          unit: item.unit,
-          productId: christmasProduct?.id,
-          isCustom: !christmasProduct
-        };
+
+      // Separate Christmas items from additional items
+      const christmasQty: Record<string, number> = {};
+      const additionalItemsList: Omit<ChristmasOrderItem, 'id'>[] = [];
+
+      order.items.forEach((item: ChristmasOrderItem) => {
+        if (item.isChristmasProduct && item.christmasProductId) {
+          christmasQty[item.christmasProductId] = item.quantity;
+        } else {
+          additionalItemsList.push({
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            isChristmasProduct: false
+          });
+        }
       });
-      
-      setItems(christmasItems.length > 0 ? christmasItems : [{ description: '', quantity: 0, unit: '', isCustom: false }]);
+
+      setChristmasQuantities(christmasQty);
+      if (additionalItemsList.length > 0) {
+        setAdditionalItems(additionalItemsList);
+      }
     }
-  }, [order, initialData, products]);
+  }, [order]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -104,21 +106,23 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
       }
     }
 
-    // Validate items
-    const validItems = items.filter(item => 
+    // Check if at least one Christmas product or additional item is selected
+    const hasChristmasItems = Object.values(christmasQuantities).some(qty => qty > 0);
+    const hasAdditionalItems = additionalItems.some(item => 
       item.description.trim() && item.quantity > 0 && item.unit
     );
 
-    if (validItems.length === 0) {
-      newErrors.items = 'At least one valid item is required';
+    if (!hasChristmasItems && !hasAdditionalItems) {
+      newErrors.items = 'Please select at least one Christmas product or add additional items';
     }
 
-    items.forEach((item, index) => {
+    // Validate additional items
+    additionalItems.forEach((item, index) => {
       if (item.description.trim() && (!item.quantity || item.quantity <= 0)) {
-        newErrors[`item_${index}_quantity`] = 'Quantity must be greater than 0';
+        newErrors[`additional_${index}_quantity`] = 'Quantity must be greater than 0';
       }
       if (item.description.trim() && !item.unit) {
-        newErrors[`item_${index}_unit`] = 'Unit is required';
+        newErrors[`additional_${index}_unit`] = 'Unit is required';
       }
     });
 
@@ -130,18 +134,42 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
     e.preventDefault();
     
     if (validateForm()) {
-      const validItems = items
+      const allItems: ChristmasOrderItem[] = [];
+
+      // Add Christmas product items
+      Object.entries(christmasQuantities).forEach(([productId, quantity]) => {
+        if (quantity > 0) {
+          const product = christmasProducts.find(p => p.id === productId);
+          if (product) {
+            allItems.push({
+              id: `christmas_${productId}_${Date.now()}`,
+              description: product.name,
+              quantity,
+              unit: product.unit,
+              isChristmasProduct: true,
+              christmasProductId: productId
+            });
+          }
+        }
+      });
+
+      // Add additional items
+      const validAdditionalItems = additionalItems
         .filter(item => item.description.trim() && item.quantity > 0 && item.unit)
         .map((item, index) => ({
-          id: `${Date.now()}_${index}`,
+          id: `additional_${Date.now()}_${index}`,
           description: item.description.trim(),
           quantity: item.quantity,
-          unit: item.unit
+          unit: item.unit,
+          isChristmasProduct: false
         }));
+
+      allItems.push(...validAdditionalItems);
 
       onSubmit({
         customerId: formData.customerId,
-        items: validItems,
+        items: allItems,
+        orderType: 'christmas',
         collectionDate: formData.collectionDate,
         collectionTime: formData.collectionTime || undefined,
         additionalNotes: formData.additionalNotes || undefined,
@@ -157,47 +185,39 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
     }
   };
 
-  const handleItemChange = (index: number, field: keyof ChristmasOrderItem, value: string | number | boolean) => {
-    setItems(prev => prev.map((item, i) => {
-      if (i === index) {
-        const updatedItem = { ...item, [field]: value };
-        
-        // If selecting a Christmas product, auto-fill details
-        if (field === 'productId' && typeof value === 'string' && value) {
-          const product = products.find(p => p.id === value);
-          if (product) {
-            updatedItem.description = product.name;
-            updatedItem.unit = product.unit;
-            updatedItem.isCustom = false;
-          }
-        }
-        
-        // If switching to custom, clear product ID
-        if (field === 'isCustom' && value === true) {
-          updatedItem.productId = undefined;
-        }
-        
-        return updatedItem;
-      }
-      return item;
+  const handleChristmasQuantityChange = (productId: string, quantity: number) => {
+    setChristmasQuantities(prev => ({
+      ...prev,
+      [productId]: quantity
     }));
     
+    // Clear items error if user adds a Christmas product
+    if (quantity > 0 && errors.items) {
+      setErrors(prev => ({ ...prev, items: '' }));
+    }
+  };
+
+  const handleAdditionalItemChange = (index: number, field: keyof Omit<ChristmasOrderItem, 'id'>, value: string | number) => {
+    setAdditionalItems(prev => prev.map((item, i) => 
+      i === index ? { ...item, [field]: value } : item
+    ));
+    
     // Clear related errors
-    if (errors[`item_${index}_${field}`]) {
-      setErrors(prev => ({ ...prev, [`item_${index}_${field}`]: '' }));
+    if (errors[`additional_${index}_${field}`]) {
+      setErrors(prev => ({ ...prev, [`additional_${index}_${field}`]: '' }));
     }
     if (errors.items) {
       setErrors(prev => ({ ...prev, items: '' }));
     }
   };
 
-  const addItem = () => {
-    setItems(prev => [...prev, { description: '', quantity: 0, unit: '', isCustom: false }]);
+  const addAdditionalItem = () => {
+    setAdditionalItems(prev => [...prev, { description: '', quantity: 0, unit: '', isChristmasProduct: false }]);
   };
 
-  const removeItem = (index: number) => {
-    if (items.length > 1) {
-      setItems(prev => prev.filter((_, i) => i !== index));
+  const removeAdditionalItem = (index: number) => {
+    if (additionalItems.length > 1) {
+      setAdditionalItems(prev => prev.filter((_, i) => i !== index));
     }
   };
 
@@ -209,16 +229,19 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
   const handleAddNewCustomer = async () => {
     if (!onAddCustomer) return;
     
+    // Validate new customer data
     if (!newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.email.trim()) {
       alert('Please fill in first name, last name, and email for the new customer.');
       return;
     }
 
+    // Check email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCustomerData.email)) {
       alert('Please enter a valid email address.');
       return;
     }
 
+    // Check if customer already exists
     const existingCustomer = customers.find(c => 
       c.email.toLowerCase() === newCustomerData.email.toLowerCase()
     );
@@ -256,438 +279,411 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
     }
   };
 
+  if (productsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-fergbutcher-brown-600">Loading Christmas products...</div>
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-6">
       {/* Christmas Header */}
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div className="bg-gradient-to-r from-fergbutcher-green-50 to-fergbutcher-yellow-50 border border-fergbutcher-green-200 rounded-lg p-4">
         <div className="flex items-center space-x-3">
-          <Gift className="h-6 w-6 text-red-600" />
+          <Gift className="h-6 w-6 text-fergbutcher-green-600" />
           <div>
-            <h3 className="text-lg font-semibold text-red-900">Christmas Order</h3>
-            <p className="text-sm text-red-700">
-              {isUsingFallback ? 
-                'Using offline Christmas products (Google Sheets not connected)' : 
-                `${products.length} Christmas products available`
-              }
+            <h3 className="text-lg font-semibold text-fergbutcher-black-900">Christmas Order</h3>
+            <p className="text-sm text-fergbutcher-brown-600">
+              Select from our Christmas products or add custom items
             </p>
           </div>
-          {!isUsingFallback && (
-            <button
-              type="button"
-              onClick={refreshProducts}
-              className="p-2 text-red-600 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors"
-              title="Refresh Christmas Products"
-              disabled={productsLoading}
-            >
-              <RefreshCw className={`h-4 w-4 ${productsLoading ? 'animate-spin' : ''}`} />
-            </button>
-          )}
         </div>
       </div>
 
       {/* Products Error */}
       {productsError && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 text-yellow-600" />
-            <p className="text-yellow-800">{productsError}</p>
+        <div className="bg-fergbutcher-yellow-50 border border-fergbutcher-yellow-200 rounded-lg p-4">
+          <div className="flex items-start space-x-2">
+            <AlertTriangle className="h-5 w-5 text-fergbutcher-yellow-600 mt-0.5" />
+            <div>
+              <p className="text-fergbutcher-yellow-800 font-medium">Christmas Products Warning</p>
+              <p className="text-fergbutcher-yellow-700 text-sm mt-1">
+                {productsError}. Using default Christmas products.
+              </p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Customer Selection */}
-      <div>
-        <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
-          Customer *
-        </label>
-        <div className="space-y-3">
-          <div className="flex space-x-2">
-            <select
-              value={formData.customerId}
-              onChange={(e) => handleChange('customerId', e.target.value)}
-              className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
-                errors.customerId ? 'border-red-500' : 'border-fergbutcher-brown-300'
-              }`}
-              disabled={isLoading}
-            >
-              <option value="">Select a customer</option>
-              {customers.map(customer => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.firstName} {customer.lastName} ({customer.email})
-                </option>
-              ))}
-            </select>
-            {onAddCustomer && (
-              <button
-                type="button"
-                onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
-                className="px-3 py-2 bg-fergbutcher-green-100 text-fergbutcher-green-700 rounded-lg hover:bg-fergbutcher-green-200 transition-colors flex items-center space-x-1"
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Customer Selection */}
+        <div>
+          <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
+            Customer *
+          </label>
+          <div className="space-y-3">
+            <div className="flex space-x-2">
+              <select
+                value={formData.customerId}
+                onChange={(e) => handleChange('customerId', e.target.value)}
+                className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
+                  errors.customerId ? 'border-red-500' : 'border-fergbutcher-brown-300'
+                }`}
                 disabled={isLoading}
-                title="Add New Customer"
               >
-                <UserPlus className="h-4 w-4" />
-                <span className="hidden sm:inline">New</span>
-              </button>
+                <option value="">Select a customer</option>
+                {customers.map(customer => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.firstName} {customer.lastName} ({customer.email})
+                  </option>
+                ))}
+              </select>
+              {onAddCustomer && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
+                  className="px-3 py-2 bg-fergbutcher-green-100 text-fergbutcher-green-700 rounded-lg hover:bg-fergbutcher-green-200 transition-colors flex items-center space-x-1"
+                  disabled={isLoading}
+                  title="Add New Customer"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span className="hidden sm:inline">New</span>
+                </button>
+              )}
+            </div>
+            
+            {/* New Customer Form */}
+            {showNewCustomerForm && (
+              <div className="border border-fergbutcher-green-200 rounded-lg p-4 bg-fergbutcher-green-50">
+                <h4 className="font-medium text-fergbutcher-black-900 mb-3">Add New Customer</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={newCustomerData.firstName}
+                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                      placeholder="First name"
+                      disabled={isLoading || isAddingCustomer}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={newCustomerData.lastName}
+                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                      placeholder="Last name"
+                      disabled={isLoading || isAddingCustomer}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={newCustomerData.email}
+                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                      placeholder="Email address"
+                      disabled={isLoading || isAddingCustomer}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={newCustomerData.phone}
+                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                      placeholder="Phone number"
+                      disabled={isLoading || isAddingCustomer}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                      Company
+                    </label>
+                    <input
+                      type="text"
+                      value={newCustomerData.company}
+                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, company: e.target.value }))}
+                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                      placeholder="Company name"
+                      disabled={isLoading || isAddingCustomer}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewCustomerForm(false);
+                      setNewCustomerData({
+                        firstName: '',
+                        lastName: '',
+                        email: '',
+                        phone: '',
+                        company: ''
+                      });
+                    }}
+                    className="px-3 py-1 text-xs text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
+                    disabled={isLoading || isAddingCustomer}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddNewCustomer}
+                    className="px-3 py-1 text-xs bg-fergbutcher-green-600 text-white rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
+                    disabled={isLoading || isAddingCustomer || !newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.email.trim()}
+                  >
+                    {isAddingCustomer ? 'Adding...' : 'Add Customer'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-          
-          {/* New Customer Form */}
-          {showNewCustomerForm && (
-            <div className="border border-fergbutcher-green-200 rounded-lg p-4 bg-fergbutcher-green-50">
-              <h4 className="font-medium text-fergbutcher-black-900 mb-3">Add New Customer</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                    First Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={newCustomerData.firstName}
-                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                    placeholder="First name"
-                    disabled={isLoading || isAddingCustomer}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                    Last Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={newCustomerData.lastName}
-                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                    placeholder="Last name"
-                    disabled={isLoading || isAddingCustomer}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    value={newCustomerData.email}
-                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                    placeholder="Email address"
-                    disabled={isLoading || isAddingCustomer}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={newCustomerData.phone}
-                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                    placeholder="Phone number"
-                    disabled={isLoading || isAddingCustomer}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                    Company
-                  </label>
-                  <input
-                    type="text"
-                    value={newCustomerData.company}
-                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, company: e.target.value }))}
-                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                    placeholder="Company name"
-                    disabled={isLoading || isAddingCustomer}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-2 mt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNewCustomerForm(false);
-                    setNewCustomerData({
-                      firstName: '',
-                      lastName: '',
-                      email: '',
-                      phone: '',
-                      company: ''
-                    });
-                  }}
-                  className="px-3 py-1 text-xs text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
-                  disabled={isLoading || isAddingCustomer}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddNewCustomer}
-                  className="px-3 py-1 text-xs bg-fergbutcher-green-600 text-white rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
-                  disabled={isLoading || isAddingCustomer || !newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.email.trim()}
-                >
-                  {isAddingCustomer ? 'Adding...' : 'Add Customer'}
-                </button>
-              </div>
-            </div>
+          {errors.customerId && (
+            <p className="text-red-500 text-xs mt-1">{errors.customerId}</p>
           )}
         </div>
-        {errors.customerId && (
-          <p className="text-red-500 text-xs mt-1">{errors.customerId}</p>
-        )}
-      </div>
 
-      {/* Christmas Order Items */}
-      <div>
-        <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
-          Christmas Items *
-        </label>
-        <div className="space-y-4">
-          {items.map((item, index) => (
-            <div key={index} className="border border-red-200 rounded-lg p-4 bg-red-50">
-              <div className="space-y-3">
-                {/* Product Selection */}
-                <div className="flex items-center space-x-2 mb-3">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name={`item-type-${index}`}
-                      checked={!item.isCustom}
-                      onChange={() => handleItemChange(index, 'isCustom', false)}
-                      className="text-red-600 focus:ring-red-500"
-                      disabled={isLoading}
-                    />
-                    <span className="text-sm font-medium text-red-900">Christmas Product</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name={`item-type-${index}`}
-                      checked={item.isCustom}
-                      onChange={() => handleItemChange(index, 'isCustom', true)}
-                      className="text-red-600 focus:ring-red-500"
-                      disabled={isLoading}
-                    />
-                    <span className="text-sm font-medium text-red-900">Custom Item</span>
-                  </label>
-                </div>
-
-                {!item.isCustom ? (
-                  /* Christmas Product Selection */
-                  <div>
-                    <label className="block text-xs font-medium text-fergbutcher-brown-600 mb-1">
-                      Select Christmas Product
-                    </label>
-                    <select
-                      value={item.productId || ''}
-                      onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
-                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-                      disabled={isLoading || productsLoading}
-                    >
-                      <option value="">Select a Christmas product</option>
-                      {products.map(product => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} ({product.unit}) - {product.description}
-                        </option>
-                      ))}
-                    </select>
+        {/* Christmas Products */}
+        <div>
+          <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-3">
+            Christmas Products
+          </label>
+          <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {christmasProducts.map((product) => (
+                <div key={product.id} className="bg-white border border-fergbutcher-brown-200 rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-fergbutcher-black-900">{product.name}</h4>
+                      {product.description && (
+                        <p className="text-xs text-fergbutcher-brown-600 mt-1">{product.description}</p>
+                      )}
+                    </div>
+                    <div className="ml-3 flex items-center space-x-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={christmasQuantities[product.id] || ''}
+                        onChange={(e) => handleChristmasQuantityChange(product.id, parseFloat(e.target.value) || 0)}
+                        className="w-20 px-2 py-1 border border-fergbutcher-brown-300 rounded text-sm focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+                        placeholder="0"
+                        disabled={isLoading}
+                      />
+                      <span className="text-xs text-fergbutcher-brown-600 min-w-0">
+                        {product.unit}
+                      </span>
+                    </div>
                   </div>
-                ) : (
-                  /* Custom Item Input */
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Items */}
+        <div>
+          <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
+            Additional Items
+          </label>
+          <div className="space-y-4">
+            {additionalItems.map((item, index) => (
+              <div key={index} className="border border-fergbutcher-brown-200 rounded-lg p-4">
+                <div className="grid grid-cols-1 gap-3 mb-3">
                   <div>
                     <label className="block text-xs font-medium text-fergbutcher-brown-600 mb-1">
-                      Custom Item Description
+                      Item Description
                     </label>
                     <input
                       type="text"
                       value={item.description}
-                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                      placeholder="e.g., Special Christmas cake"
-                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
+                      onChange={(e) => handleAdditionalItemChange(index, 'description', e.target.value)}
+                      placeholder="e.g., Custom Christmas pudding"
+                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
                       disabled={isLoading}
                     />
                   </div>
-                )}
-
-                {/* Quantity and Unit */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-fergbutcher-brown-600 mb-1">
-                      Quantity
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={item.quantity || ''}
-                      onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                      placeholder="e.g., 1"
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm ${
-                        errors[`item_${index}_quantity`] ? 'border-red-500' : 'border-fergbutcher-brown-300'
-                      }`}
-                      disabled={isLoading}
-                    />
-                    {errors[`item_${index}_quantity`] && (
-                      <p className="text-red-500 text-xs mt-1">{errors[`item_${index}_quantity`]}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-fergbutcher-brown-600 mb-1">
-                      Unit
-                    </label>
-                    {item.isCustom ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-fergbutcher-brown-600 mb-1">
+                        Quantity
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={item.quantity || ''}
+                        onChange={(e) => handleAdditionalItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                        placeholder="e.g., 2.5"
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm ${
+                          errors[`additional_${index}_quantity`] ? 'border-red-500' : 'border-fergbutcher-brown-300'
+                        }`}
+                        disabled={isLoading}
+                      />
+                      {errors[`additional_${index}_quantity`] && (
+                        <p className="text-red-500 text-xs mt-1">{errors[`additional_${index}_quantity`]}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-fergbutcher-brown-600 mb-1">
+                        Unit
+                      </label>
                       <select
                         value={item.unit}
-                        onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm ${
-                          errors[`item_${index}_unit`] ? 'border-red-500' : 'border-fergbutcher-brown-300'
+                        onChange={(e) => handleAdditionalItemChange(index, 'unit', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm ${
+                          errors[`additional_${index}_unit`] ? 'border-red-500' : 'border-fergbutcher-brown-300'
                         }`}
                         disabled={isLoading}
                       >
                         <option value="">Select unit</option>
-                        <option value="kg">kg</option>
-                        <option value="each">each</option>
-                        <option value="portion">portion</option>
-                        <option value="service">service</option>
-                        <option value="dozen">dozen</option>
-                        <option value="jar">jar</option>
-                        <option value="litre">litre</option>
+                        {unitOptions.map(unit => (
+                          <option key={unit} value={unit}>{unit}</option>
+                        ))}
                       </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={item.unit}
-                        readOnly
-                        className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg bg-gray-50 text-sm"
-                        placeholder="Auto-filled"
-                      />
-                    )}
-                    {errors[`item_${index}_unit`] && (
-                      <p className="text-red-500 text-xs mt-1">{errors[`item_${index}_unit`]}</p>
-                    )}
+                      {errors[`additional_${index}_unit`] && (
+                        <p className="text-red-500 text-xs mt-1">{errors[`additional_${index}_unit`]}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
+                {additionalItems.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeAdditionalItem(index)}
+                    className="text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded flex items-center space-x-1"
+                    disabled={isLoading}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>Remove Item</span>
+                  </button>
+                )}
               </div>
-              
-              {items.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeItem(index)}
-                  className="mt-3 text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded flex items-center space-x-1"
-                  disabled={isLoading}
-                >
-                  <Trash2 className="h-3 w-3" />
-                  <span>Remove Item</span>
-                </button>
-              )}
-            </div>
-          ))}
+            ))}
+            
+            <button
+              type="button"
+              onClick={addAdditionalItem}
+              className="w-full border-2 border-dashed border-fergbutcher-green-300 text-fergbutcher-green-600 px-4 py-3 rounded-lg hover:border-fergbutcher-green-400 hover:bg-fergbutcher-green-50 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+              disabled={isLoading}
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Additional Item</span>
+            </button>
+          </div>
           
-          <button
-            type="button"
-            onClick={addItem}
-            className="w-full border-2 border-dashed border-red-300 text-red-600 px-4 py-3 rounded-lg hover:border-red-400 hover:bg-red-50 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
-            disabled={isLoading}
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Another Christmas Item</span>
-          </button>
-        </div>
-        
-        {errors.items && (
-          <p className="text-red-500 text-xs mt-1">{errors.items}</p>
-        )}
-      </div>
-
-      {/* Collection Details */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-            Collection Date *
-          </label>
-          <input
-            type="date"
-            value={formData.collectionDate}
-            onChange={(e) => handleChange('collectionDate', e.target.value)}
-            min={getMinDate()}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
-              errors.collectionDate ? 'border-red-500' : 'border-fergbutcher-brown-300'
-            }`}
-            disabled={isLoading}
-          />
-          {errors.collectionDate && (
-            <p className="text-red-500 text-xs mt-1">{errors.collectionDate}</p>
+          {errors.items && (
+            <p className="text-red-500 text-xs mt-1">{errors.items}</p>
           )}
         </div>
+
+        {/* Collection Details */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
+              Collection Date *
+            </label>
+            <input
+              type="date"
+              value={formData.collectionDate}
+              onChange={(e) => handleChange('collectionDate', e.target.value)}
+              min={getMinDate()}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
+                errors.collectionDate ? 'border-red-500' : 'border-fergbutcher-brown-300'
+              }`}
+              disabled={isLoading}
+            />
+            {errors.collectionDate && (
+              <p className="text-red-500 text-xs mt-1">{errors.collectionDate}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
+              Collection Time
+            </label>
+            <input
+              type="time"
+              value={formData.collectionTime}
+              onChange={(e) => handleChange('collectionTime', e.target.value)}
+              className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+              disabled={isLoading}
+            />
+          </div>
+        </div>
+
+        {/* Status (for editing existing orders) */}
+        {order && (
+          <div>
+            <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
+              Status
+            </label>
+            <select
+              value={formData.status}
+              onChange={(e) => handleChange('status', e.target.value)}
+              className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+              disabled={isLoading}
+            >
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="collected">Collected</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+        )}
+
+        {/* Additional Notes */}
         <div>
           <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-            Collection Time
+            Additional Notes
           </label>
-          <input
-            type="time"
-            value={formData.collectionTime}
-            onChange={(e) => handleChange('collectionTime', e.target.value)}
+          <textarea
+            rows={3}
+            value={formData.additionalNotes}
+            onChange={(e) => handleChange('additionalNotes', e.target.value)}
             className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+            placeholder="Any special instructions, preparation notes, or customer preferences..."
             disabled={isLoading}
           />
         </div>
-      </div>
 
-      {/* Status (for editing existing orders) */}
-      {order && (
-        <div>
-          <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-            Status
-          </label>
-          <select
-            value={formData.status}
-            onChange={(e) => handleChange('status', e.target.value)}
-            className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+        {/* Form Actions */}
+        <div className="flex justify-end space-x-3 pt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
             disabled={isLoading}
           >
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="collected">Collected</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-fergbutcher-green-600 text-white rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            disabled={isLoading}
+          >
+            <Gift className="h-4 w-4" />
+            <span>{isLoading ? 'Saving...' : order ? 'Update Christmas Order' : 'Create Christmas Order'}</span>
+          </button>
         </div>
-      )}
-
-      {/* Additional Notes */}
-      <div>
-        <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-          Additional Notes
-        </label>
-        <textarea
-          rows={3}
-          value={formData.additionalNotes}
-          onChange={(e) => handleChange('additionalNotes', e.target.value)}
-          className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-          placeholder="Any special Christmas preparation instructions or customer preferences..."
-          disabled={isLoading}
-        />
-      </div>
-
-      {/* Form Actions */}
-      <div className="flex justify-end space-x-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
-          disabled={isLoading}
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
-          disabled={isLoading}
-        >
-          <Gift className="h-4 w-4" />
-          <span>{isLoading ? 'Saving...' : order ? 'Update Christmas Order' : 'Create Christmas Order'}</span>
-        </button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 };
 

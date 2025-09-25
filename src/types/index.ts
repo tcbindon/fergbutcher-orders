@@ -22,6 +22,11 @@ export interface OrderItem {
   unit: string;
 }
 
+export interface ChristmasOrderItem extends OrderItem {
+  isChristmasProduct: boolean;
+  christmasProductId?: string;
+}
+
 export interface Order {
   id: string;
   customerId: string;
