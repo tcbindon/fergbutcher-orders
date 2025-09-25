@@ -240,6 +240,6 @@ export const useChristmasProducts = () => {
     getChristmasProductForItem,
     clearCache,
     isCacheExpired,
-    isUsingFallback: !isConnected || products === fallbackChristmasProducts
+    isUsingFallback: !isConnected || products.length === 0 || JSON.stringify(products) === JSON.stringify(fallbackChristmasProducts)
   };
 };

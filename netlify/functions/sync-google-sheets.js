@@ -143,6 +143,51 @@ exports.handler = async (event, context) => {
       await syncDailyCollections(doc, orders || [], customers || [], today);
     }
 
+    if (type === 'christmas-products') {
+      const products = await fetchChristmasProductsFromSheet(doc);
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ 
+          success: true, 
+          products,
+          message: `Fetched ${products.length} Christmas products`
+        })
+      };
+    }
+
+    if (type === 'christmas-orders') {
+      const christmasOrders = (orders || []).filter(order => 
+        order.items && order.items.some(item => 
+          item.description && (
+            item.description.toLowerCase().includes('christmas') ||
+            item.description.toLowerCase().includes('turkey') ||
+            item.description.toLowerCase().includes('ham') ||
+            item.description.toLowerCase().includes('wellington') ||
+            item.description.toLowerCase().includes('duck') ||
+            item.description.toLowerCase().includes('goose') ||
+            item.description.toLowerCase().includes('venison') ||
+            item.description.toLowerCase().includes('pudding') ||
+            item.description.toLowerCase().includes('mince pie') ||
+            item.description.toLowerCase().includes('stuffing') ||
+            item.description.toLowerCase().includes('cranberry') ||
+            item.description.toLowerCase().includes('gravy')
+          )
+        )
+      );
+      
+      await syncChristmasOrders(doc, christmasOrders, customers || []);
+      
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ 
+          success: true, 
+          message: `Successfully synced ${christmasOrders.length} Christmas orders to Google Sheets`
+        })
+      };
+    }
+
     // Sync Christmas orders if any exist
     const christmasOrders = (orders || []).filter(order => 
       order.items && order.items.some(item => 
@@ -318,6 +363,52 @@ async function syncDailyCollections(doc, orders, customers, date) {
   }
   
   console.log(`Synced ${dailyOrders.length} daily collections`);
+}
+
+// Fetch Christmas products from Google Sheets
+async function fetchChristmasProductsFromSheet(doc) {
+  let sheet = doc.sheetsByTitle['Christmas Products'];
+  
+  if (!sheet) {
+    // Create the sheet if it doesn't exist
+    sheet = await doc.addSheet({ 
+      title: 'Christmas Products',
+      headerValues: ['ID', 'Name', 'Unit', 'Description']
+    });
+    
+    // Add some default products
+    const defaultProducts = [
+      ['1', 'Half Ham', 'kg', 'Traditional half ham'],
+      ['2', 'Whole Ham', 'kg', 'Full traditional ham'],
+      ['3', '4kg Turkey', 'each', '4kg fresh turkey'],
+      ['4', '6kg Turkey', 'each', '6kg fresh turkey'],
+      ['5', 'Dressing service', 'service', 'Professional dressing service'],
+      ['6', 'Gravy', 'portion', 'Traditional gravy'],
+      ['7', 'Stuffing', 'portion', 'Traditional stuffing'],
+      ['8', 'Pigs in Blankets', 'kg', 'Sausages wrapped in bacon']
+    ];
+    
+    await sheet.addRows(defaultProducts.map(row => ({
+      'ID': row[0],
+      'Name': row[1],
+      'Unit': row[2],
+      'Description': row[3]
+    })));
+  }
+
+  // Fetch all rows
+  const rows = await sheet.getRows();
+  
+  // Convert to ChristmasProduct format
+  const products = rows.map(row => ({
+    id: row.get('ID') || '',
+    name: row.get('Name') || '',
+    unit: row.get('Unit') || '',
+    description: row.get('Description') || ''
+  })).filter(product => product.id && product.name); // Filter out empty rows
+
+  console.log(`Fetched ${products.length} Christmas products`);
+  return products;
 }
 
 // Sync Christmas orders with individual product columns
