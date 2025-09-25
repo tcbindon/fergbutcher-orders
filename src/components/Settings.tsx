@@ -298,7 +298,7 @@ const Settings: React.FC = () => {
               {isConnected && (
                 <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-6">
                   <h4 className="font-medium text-fergbutcher-black-900 mb-3">Sync Statistics</h4>
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-4 gap-4 text-center">
                     <div>
                       <div className="text-2xl font-bold text-fergbutcher-green-600">{customers.length}</div>
                       <div className="text-sm text-fergbutcher-brown-600">Customers</div>
@@ -312,6 +312,21 @@ const Settings: React.FC = () => {
                         {orders.filter(o => o.collectionDate === new Date().toISOString().split('T')[0]).length}
                       </div>
                       <div className="text-sm text-fergbutcher-brown-600">Today's Collections</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-fergbutcher-green-600">
+                        {orders.filter(o => 
+                          o.items && o.items.some(item => 
+                            item.description && (
+                              item.description.toLowerCase().includes('christmas') ||
+                              item.description.toLowerCase().includes('turkey') ||
+                              item.description.toLowerCase().includes('ham') ||
+                              item.description.toLowerCase().includes('wellington')
+                            )
+                          )
+                        ).length}
+                      </div>
+                      <div className="text-sm text-fergbutcher-brown-600">Christmas Orders</div>
                     </div>
                   </div>
                 </div>
