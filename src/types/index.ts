@@ -43,6 +43,13 @@ export interface StaffNote {
   content: string;
 }
 
+export interface ChristmasProduct {
+  id: string;
+  name: string;
+  unit: string;
+  description: string;
+}
+
 export interface EmailTemplate {
   id: string;
   name: string;
