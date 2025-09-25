@@ -142,7 +142,30 @@ export const useOrders = () => {
       setError(null);
       
       // Auto-sync to Google Sheets if connected (need customers for sync)
-      // This will be handled by the component that has access to customers
+      if (isConnected) {
+        // Trigger sync for Christmas orders specifically
+        const isChristmasOrder = orderData.items.some(item => 
+          item.description && (
+            item.description.toLowerCase().includes('christmas') ||
+            item.description.toLowerCase().includes('turkey') ||
+            item.description.toLowerCase().includes('ham') ||
+            item.description.toLowerCase().includes('wellington') ||
+            item.description.toLowerCase().includes('duck') ||
+            item.description.toLowerCase().includes('goose') ||
+            item.description.toLowerCase().includes('venison') ||
+            item.description.toLowerCase().includes('pudding') ||
+            item.description.toLowerCase().includes('mince pie') ||
+            item.description.toLowerCase().includes('stuffing') ||
+            item.description.toLowerCase().includes('cranberry') ||
+            item.description.toLowerCase().includes('gravy')
+          )
+        );
+        
+        if (isChristmasOrder) {
+          // This would trigger a sync - implementation depends on your sync service
+          console.log('Christmas order detected - should trigger sync');
+        }
+      }
       
       return true;
     } catch (err) {

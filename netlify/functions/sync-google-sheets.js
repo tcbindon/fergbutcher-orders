@@ -143,6 +143,30 @@ exports.handler = async (event, context) => {
       await syncDailyCollections(doc, orders || [], customers || [], today);
     }
 
+    // Sync Christmas orders if any exist
+    const christmasOrders = (orders || []).filter(order => 
+      order.items && order.items.some(item => 
+        item.description && (
+          item.description.toLowerCase().includes('christmas') ||
+          item.description.toLowerCase().includes('turkey') ||
+          item.description.toLowerCase().includes('ham') ||
+          item.description.toLowerCase().includes('wellington') ||
+          item.description.toLowerCase().includes('duck') ||
+          item.description.toLowerCase().includes('goose') ||
+          item.description.toLowerCase().includes('venison') ||
+          item.description.toLowerCase().includes('pudding') ||
+          item.description.toLowerCase().includes('mince pie') ||
+          item.description.toLowerCase().includes('stuffing') ||
+          item.description.toLowerCase().includes('cranberry') ||
+          item.description.toLowerCase().includes('gravy')
+        )
+      )
+    );
+    
+    if (christmasOrders.length > 0 || type === 'all') {
+      await syncChristmasOrders(doc, christmasOrders, customers || []);
+    }
+
     return {
       statusCode: 200,
       headers,
@@ -172,7 +196,16 @@ async function ensureSheetsExist(doc) {
   const requiredSheets = [
     { title: 'Customers', headers: ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Created Date'] },
     { title: 'Orders', headers: ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Created Date', 'Updated Date'] },
-    { title: 'Daily Collections', headers: ['Date', 'Customer Name', 'Phone', 'Items', 'Collection Time', 'Status', 'Notes'] }
+    { title: 'Daily Collections', headers: ['Date', 'Customer Name', 'Phone', 'Items', 'Collection Time', 'Status', 'Notes'] },
+    { 
+      title: 'Christmas Orders', 
+      headers: [
+        'Order ID', 'Customer ID', 'Customer Name', 'Email', 'Phone', 'Collection Date', 'Collection Time', 'Status', 'Notes',
+        'Turkey (kg)', 'Ham (kg)', 'Beef Wellington (kg)', 'Lamb Leg (kg)', 'Pork Belly (kg)', 'Duck (whole)', 
+        'Goose (whole)', 'Venison (kg)', 'Christmas Pudding', 'Mince Pies (dozen)', 'Stuffing (kg)', 
+        'Cranberry Sauce (jars)', 'Gravy (litres)', 'Other Items', 'Total Items', 'Created Date', 'Updated Date'
+      ] 
+    }
   ];
 
   for (const sheetConfig of requiredSheets) {
@@ -285,4 +318,94 @@ async function syncDailyCollections(doc, orders, customers, date) {
   }
   
   console.log(`Synced ${dailyOrders.length} daily collections`);
+}
+
+// Sync Christmas orders with individual product columns
+async function syncChristmasOrders(doc, orders, customers) {
+  const sheet = doc.sheetsByTitle['Christmas Orders'];
+  
+  // Clear existing data (except headers)
+  await sheet.clear('A2:Z1000');
+  
+  // Christmas product mapping - maps keywords to column names
+  const christmasProducts = {
+    'Turkey (kg)': ['turkey'],
+    'Ham (kg)': ['ham'],
+    'Beef Wellington (kg)': ['wellington', 'beef wellington'],
+    'Lamb Leg (kg)': ['lamb leg', 'lamb'],
+    'Pork Belly (kg)': ['pork belly', 'pork'],
+    'Duck (whole)': ['duck'],
+    'Goose (whole)': ['goose'],
+    'Venison (kg)': ['venison'],
+    'Christmas Pudding': ['christmas pudding', 'pudding'],
+    'Mince Pies (dozen)': ['mince pie', 'mince pies'],
+    'Stuffing (kg)': ['stuffing'],
+    'Cranberry Sauce (jars)': ['cranberry sauce', 'cranberry'],
+    'Gravy (litres)': ['gravy']
+  };
+  
+  // Prepare Christmas order data
+  const christmasRows = orders.map(order => {
+    const customer = customers.find(c => c.id === order.customerId);
+    const customerName = customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown';
+    
+    // Initialize row data
+    const rowData = {
+      'Order ID': order.id,
+      'Customer ID': order.customerId,
+      'Customer Name': customerName,
+      'Email': customer?.email || '',
+      'Phone': customer?.phone || '',
+      'Collection Date': order.collectionDate,
+      'Collection Time': order.collectionTime || '',
+      'Status': order.status,
+      'Notes': order.additionalNotes || '',
+      'Other Items': '',
+      'Total Items': order.items.length,
+      'Created Date': new Date(order.createdAt).toLocaleDateString('en-NZ'),
+      'Updated Date': new Date(order.updatedAt).toLocaleDateString('en-NZ')
+    };
+    
+    // Initialize all Christmas product columns to 0
+    Object.keys(christmasProducts).forEach(productColumn => {
+      rowData[productColumn] = 0;
+    });
+    
+    // Process each order item
+    const otherItems = [];
+    
+    order.items.forEach(item => {
+      const itemDesc = item.description.toLowerCase();
+      let matched = false;
+      
+      // Check each Christmas product
+      for (const [productColumn, keywords] of Object.entries(christmasProducts)) {
+        if (keywords.some(keyword => itemDesc.includes(keyword))) {
+          // Add quantity to the appropriate column
+          const currentQty = parseFloat(rowData[productColumn]) || 0;
+          const itemQty = parseFloat(item.quantity) || 0;
+          rowData[productColumn] = currentQty + itemQty;
+          matched = true;
+          break;
+        }
+      }
+      
+      // If no match found, add to other items
+      if (!matched) {
+        otherItems.push(`${item.description} (${item.quantity} ${item.unit})`);
+      }
+    });
+    
+    // Set other items
+    rowData['Other Items'] = otherItems.join('; ');
+    
+    return rowData;
+  });
+  
+  // Add Christmas order data
+  if (christmasRows.length > 0) {
+    await sheet.addRows(christmasRows);
+  }
+  
+  console.log(`Synced ${orders.length} Christmas orders with individual product columns`);
 }
