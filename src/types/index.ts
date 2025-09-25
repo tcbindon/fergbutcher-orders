@@ -31,6 +31,7 @@ export interface Order {
   collectionTime?: string;
   additionalNotes?: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'collected';
+  orderType?: 'regular' | 'christmas';
   createdAt: string;
   updatedAt: string;
 }
