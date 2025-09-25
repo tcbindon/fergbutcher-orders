@@ -1,6 +1,27 @@
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
 
+// Define Christmas product descriptions for identification
+const CHRISTMAS_PRODUCTS = [
+  'Whole Turkey',
+  'Turkey Breast',
+  'Turkey Legs',
+  'Turkey Wings',
+  'Boneless Ham',
+  'Glazed Ham',
+  'Christmas Ham',
+  'Leg of Lamb',
+  'Lamb Shoulder',
+  'Prime Rib',
+  'Beef Tenderloin',
+  'Christmas Pudding',
+  'Mince Pies',
+  'Christmas Cake',
+  'Stuffing Mix',
+  'Cranberry Sauce',
+  'Christmas Sausages'
+];
+
 exports.handler = async (event, context) => {
   // Set CORS headers
   const headers = {
@@ -172,6 +193,7 @@ async function ensureSheetsExist(doc) {
   const requiredSheets = [
     { title: 'Customers', headers: ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Created Date'] },
     { title: 'Orders', headers: ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Created Date', 'Updated Date'] },
+    { title: 'Christmas Orders', headers: ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Created Date', 'Updated Date'] },
     { title: 'Daily Collections', headers: ['Date', 'Customer Name', 'Phone', 'Items', 'Collection Time', 'Status', 'Notes'] }
   ];
 
@@ -214,15 +236,38 @@ async function syncCustomers(doc, customers) {
   console.log(`Synced ${customers.length} customers`);
 }
 
+// Helper function to determine if an order is a Christmas order
+function isChristmasOrder(order) {
+  return order.items.some(item => 
+    CHRISTMAS_PRODUCTS.some(christmasProduct => 
+      item.description.toLowerCase().includes(christmasProduct.toLowerCase())
+    )
+  );
+}
+
 // Sync orders to Google Sheets
 async function syncOrders(doc, orders, customers) {
-  const sheet = doc.sheetsByTitle['Orders'];
+  const ordersSheet = doc.sheetsByTitle['Orders'];
+  const christmasOrdersSheet = doc.sheetsByTitle['Christmas Orders'];
   
-  // Clear existing data (except headers)
-  await sheet.clear('A2:Z1000');
+  // Separate orders into regular and Christmas orders
+  const regularOrders = [];
+  const christmasOrders = [];
   
-  // Prepare order data
-  const orderRows = orders.map(order => {
+  orders.forEach(order => {
+    if (isChristmasOrder(order)) {
+      christmasOrders.push(order);
+    } else {
+      regularOrders.push(order);
+    }
+  });
+  
+  // Clear existing data from both sheets (except headers)
+  await ordersSheet.clear('A2:Z1000');
+  await christmasOrdersSheet.clear('A2:Z1000');
+  
+  // Helper function to prepare order data
+  const prepareOrderData = (order) => {
     const customer = customers.find(c => c.id === order.customerId);
     const customerName = customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown';
     const itemsText = order.items.map(item => 
@@ -241,14 +286,25 @@ async function syncOrders(doc, orders, customers) {
       'Created Date': new Date(order.createdAt).toLocaleDateString('en-NZ'),
       'Updated Date': new Date(order.updatedAt).toLocaleDateString('en-NZ')
     };
-  });
+  };
   
-  // Add order data
-  if (orderRows.length > 0) {
-    await sheet.addRows(orderRows);
+  // Prepare regular order data
+  const regularOrderRows = regularOrders.map(prepareOrderData);
+  
+  // Prepare Christmas order data
+  const christmasOrderRows = christmasOrders.map(prepareOrderData);
+  
+  // Add regular orders to Orders sheet
+  if (regularOrderRows.length > 0) {
+    await ordersSheet.addRows(regularOrderRows);
   }
   
-  console.log(`Synced ${orders.length} orders`);
+  // Add Christmas orders to Christmas Orders sheet
+  if (christmasOrderRows.length > 0) {
+    await christmasOrdersSheet.addRows(christmasOrderRows);
+  }
+  
+  console.log(`Synced ${regularOrders.length} regular orders and ${christmasOrders.length} Christmas orders`);
 }
 
 // Sync daily collections
