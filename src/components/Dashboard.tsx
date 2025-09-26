@@ -1,6 +1,6 @@
 import React from 'react';
 import { useState } from 'react';
-import { Users, Package, Calendar, TrendingUp, CheckCircle, Clock, Building } from 'lucide-react';
+import { Users, ShoppingCart, Calendar, TrendingUp, CheckCircle, Clock, Building, Gift } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import OrderDetail from './OrderDetail';
@@ -20,7 +20,7 @@ const Dashboard: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
   const todaysCollections = orders.filter(order => 
     order.collectionDate === today && order.status !== 'cancelled'
-  ).length;
+  );
 
   // Calculate this week's orders
   const startOfWeek = new Date();
@@ -39,20 +39,19 @@ const Dashboard: React.FC = () => {
   // Calculate active orders (pending + confirmed)
   const activeOrders = orders.filter(order => 
     order.status === 'pending' || order.status === 'confirmed'
-  ).length;
+  );
 
   // Calculate pending orders from today's collections
   const todaysPendingOrders = orders.filter(order => 
     order.collectionDate === today && order.status === 'pending'
   ).length;
 
-  // Mock revenue calculation (you can implement actual revenue tracking)
+  // Mock revenue calculation
   const thisWeeksRevenue = 2340;
 
-  // Mock percentage changes (you can implement actual comparison logic)
+  // Mock percentage changes
   const customerGrowth = 12;
   const pendingOrdersChange = 9;
-  const todaysPendingChange = 0;
   const revenueGrowth = 18;
 
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -63,7 +62,6 @@ const Dashboard: React.FC = () => {
       const success = updateOrder(editingOrder.id, orderData);
       if (success) {
         setEditingOrder(null);
-        // Update viewing order if it's the same one
         if (viewingOrder?.id === editingOrder.id) {
           setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
         }
@@ -86,7 +84,7 @@ const Dashboard: React.FC = () => {
     const duplicateData = getDuplicateOrderData(orderId);
     if (duplicateData) {
       setDuplicatingOrder(duplicateData);
-      setViewingOrder(null); // Close detail view
+      setViewingOrder(null);
     } else {
       alert('Failed to prepare duplicate order. Please try again.');
     }
@@ -113,11 +111,11 @@ const Dashboard: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return 'bg-green-100 text-green-800';
+        return 'text-green-600 bg-green-50';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'text-yellow-600 bg-yellow-50';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'text-gray-600 bg-gray-50';
     }
   };
 
@@ -130,7 +128,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -140,13 +138,13 @@ const Dashboard: React.FC = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Customers */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Customers</p>
+              <p className="text-sm text-gray-600 mb-1">Total Customers</p>
               <p className="text-3xl font-bold text-gray-900">{customers.length}</p>
               <div className="flex items-center mt-2">
-                <span className="text-sm font-medium text-green-600">+{customerGrowth}%</span>
+                <span className="text-sm text-green-600 font-medium">+{customerGrowth}%</span>
                 <span className="text-sm text-gray-500 ml-2">from last week</span>
               </div>
             </div>
@@ -157,30 +155,30 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Active Orders */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Active Orders</p>
-              <p className="text-3xl font-bold text-gray-900">{activeOrders}</p>
+              <p className="text-sm text-gray-600 mb-1">Active Orders</p>
+              <p className="text-3xl font-bold text-gray-900">{activeOrders.length}</p>
               <div className="flex items-center mt-2">
-                <span className="text-sm font-medium text-gray-600">{pendingOrdersChange} pending</span>
+                <span className="text-sm text-gray-600 font-medium">{pendingOrdersChange} pending</span>
                 <span className="text-sm text-gray-500 ml-2">from last week</span>
               </div>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
-              <Package className="h-6 w-6 text-orange-600" />
+              <ShoppingCart className="h-6 w-6 text-orange-600" />
             </div>
           </div>
         </div>
 
         {/* Today's Collections */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Today's Collections</p>
-              <p className="text-3xl font-bold text-gray-900">{todaysCollections}</p>
+              <p className="text-sm text-gray-600 mb-1">Today's Collections</p>
+              <p className="text-3xl font-bold text-gray-900">{todaysCollections.length}</p>
               <div className="flex items-center mt-2">
-                <span className="text-sm font-medium text-gray-600">{todaysPendingChange} pending</span>
+                <span className="text-sm text-gray-600 font-medium">{todaysPendingOrders} pending</span>
                 <span className="text-sm text-gray-500 ml-2">from last week</span>
               </div>
             </div>
@@ -191,13 +189,13 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* This Week's Revenue */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">This Week's Revenue</p>
+              <p className="text-sm text-gray-600 mb-1">This Week's Revenue</p>
               <p className="text-3xl font-bold text-gray-900">${thisWeeksRevenue.toLocaleString()}</p>
               <div className="flex items-center mt-2">
-                <span className="text-sm font-medium text-green-600">+{revenueGrowth}%</span>
+                <span className="text-sm text-green-600 font-medium">+{revenueGrowth}%</span>
                 <span className="text-sm text-gray-500 ml-2">from last week</span>
               </div>
             </div>
@@ -209,29 +207,31 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* This Week's Orders */}
-      <div className="bg-white rounded-lg border border-gray-200">
+      <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">This Week's Orders</h3>
         </div>
         <div className="p-6">
           {thisWeeksOrders.length === 0 ? (
             <div className="text-center py-8">
-              <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No orders scheduled for this week.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {thisWeeksOrders.slice(0, 10).map((order) => {
                 const customer = customers.find(c => c.id === order.customerId);
                 return (
-                  <div key={order.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                  <div 
+                    key={order.id} 
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    onClick={() => setViewingOrder(order)}
+                  >
                     <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
-                        {getStatusIcon(order.status)}
-                      </div>
+                      <div className={`w-2 h-2 rounded-full ${order.status === 'confirmed' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
                       <div>
                         <div className="flex items-center space-x-2">
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="font-medium text-gray-900">
                             {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
                           </p>
                           {customer?.company && (
@@ -239,6 +239,9 @@ const Dashboard: React.FC = () => {
                               <Building className="h-3 w-3 text-gray-400" />
                               <span className="text-xs text-gray-500">{customer.company}</span>
                             </div>
+                          )}
+                          {order.orderType === 'christmas' && (
+                            <Gift className="h-4 w-4 text-green-600" />
                           )}
                         </div>
                         <p className="text-sm text-gray-600">
@@ -248,6 +251,7 @@ const Dashboard: React.FC = () => {
                         </p>
                       </div>
                     </div>
+                    
                     <div className="flex items-center space-x-4">
                       <div className="text-right">
                         <p className="text-sm font-medium text-gray-900">
@@ -280,11 +284,11 @@ const Dashboard: React.FC = () => {
       {viewingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-brown-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">Order Details</h3>
               <button
                 onClick={() => setViewingOrder(null)}
-                className="text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600"
+                className="text-gray-400 hover:text-gray-600"
               >
                 ✕
               </button>
@@ -310,8 +314,8 @@ const Dashboard: React.FC = () => {
       {editingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Order</h3>
             </div>
             <div className="p-6">
               <OrderForm
@@ -331,9 +335,9 @@ const Dashboard: React.FC = () => {
       {duplicatingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
-              <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Duplicate Order</h3>
+              <p className="text-gray-600 text-sm">Review and modify the order details before creating</p>
             </div>
             <div className="p-6">
               <OrderForm
