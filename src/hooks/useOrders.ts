@@ -9,6 +9,7 @@ const initialOrders: Order[] = [
   {
     id: '1',
     customerId: '1',
+    orderType: 'standard',
     items: [
       { id: '1', description: 'Beef Wellington - medium rare, 2cm thick', quantity: 2, unit: 'kg' },
       { id: '2', description: 'French-trimmed Lamb Rack - frenched, cap off', quantity: 1.5, unit: 'kg' }
@@ -22,6 +23,7 @@ const initialOrders: Order[] = [
   {
     id: '2',
     customerId: '2',
+    orderType: 'standard',
     items: [
       { id: '3', description: 'Pork Belly - skin on, scored for crackling', quantity: 1.5, unit: 'kg' },
       { id: '4', description: 'Free-range Chicken Thighs - bone in, skin on', quantity: 8, unit: 'pieces' }
@@ -35,6 +37,7 @@ const initialOrders: Order[] = [
   {
     id: '3',
     customerId: '3',
+    orderType: 'standard',
     items: [
       { id: '5', description: 'Ribeye Steak - 2cm thick, well-marbled', quantity: 4, unit: 'steaks' },
       { id: '6', description: 'Cumberland Sausages - traditional recipe', quantity: 1, unit: 'kg' }
@@ -52,6 +55,7 @@ export const useOrders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isConnected, syncOrders } = useGoogleSheets();
+  const { syncChristmasOrders } = useGoogleSheets();
   const { addUndoAction } = useUndo();
 
   // Load orders from localStorage on mount
@@ -99,6 +103,7 @@ export const useOrders = () => {
       const newOrder: Order = {
         ...orderData,
         id: newOrderId,
+        orderType: orderData.orderType || 'standard', // Default to standard if not specified
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -118,7 +123,7 @@ export const useOrders = () => {
       });
       
       // Auto-sync to Google Sheets if connected (need customers for sync)
-      // This will be handled by the component that has access to customers
+      // Note: Actual sync will be handled by components that have access to customers
       
       errorLogger.info(`Order created: #${newOrder.id}`);
       return newOrder;
@@ -141,8 +146,7 @@ export const useOrders = () => {
       );
       setError(null);
       
-      // Auto-sync to Google Sheets if connected (need customers for sync)
-      // This will be handled by the component that has access to customers
+      // Note: Actual sync will be handled by components that have access to customers
       
       return true;
     } catch (err) {
@@ -171,8 +175,7 @@ export const useOrders = () => {
         }
       });
       
-      // Auto-sync to Google Sheets if connected (need customers for sync)
-      // This will be handled by the component that has access to customers
+      // Note: Actual sync will be handled by components that have access to customers
       
       errorLogger.info(`Order deleted: #${id}`);
       return true;
@@ -278,6 +281,31 @@ export const useOrders = () => {
     getOrdersByStatus,
     getOrdersByDateRange,
     searchOrders,
-    getOrderStats
+    getOrderStats,
+    // Helper function to sync orders to Google Sheets
+    syncOrdersToSheets: async (customers: Customer[]) => {
+      if (!isConnected) return false;
+      
+      try {
+        // Separate standard and Christmas orders
+        const standardOrders = orders.filter(order => order.orderType !== 'christmas');
+        const christmasOrders = orders.filter(order => order.orderType === 'christmas');
+        
+        // Sync standard orders
+        if (standardOrders.length > 0) {
+          await syncOrders(standardOrders, customers);
+        }
+        
+        // Sync Christmas orders
+        if (christmasOrders.length > 0) {
+          await syncChristmasOrders(christmasOrders, customers);
+        }
+        
+        return true;
+      } catch (error) {
+        console.error('Error syncing orders to sheets:', error);
+        return false;
+      }
+    }
   };
 };

@@ -24,9 +24,9 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, children }) 
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-fergbutcher-green-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white shadow-sm border-b border-fergbutcher-brown-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
@@ -36,11 +36,11 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, children }) 
                 className="h-10 w-auto"
               />
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Fergbutcher</h1>
-                <p className="text-sm text-gray-600">Pre-Order Management</p>
+                <h1 className="text-xl font-bold text-fergbutcher-black-900">Fergbutcher</h1>
+                <p className="text-sm text-fergbutcher-brown-600">Pre-Order Management</p>
               </div>
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-fergbutcher-brown-600">
               Welcome back, Team
             </div>
           </div>
@@ -49,7 +49,7 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, children }) 
 
       <div className="flex">
         {/* Sidebar */}
-        <nav className="w-64 bg-white shadow-sm min-h-screen border-r border-gray-200">
+        <nav className="w-64 bg-white shadow-sm min-h-screen border-r border-fergbutcher-brown-200">
           <div className="p-4">
             <ul className="space-y-2">
               {navigationItems.map((item) => {
@@ -62,11 +62,11 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, children }) 
                       onClick={() => onViewChange(item.id)}
                       className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
                         isActive
-                          ? 'bg-gray-100 text-gray-900 border border-gray-300'
-                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                          ? 'bg-fergbutcher-green-50 text-fergbutcher-green-700 border border-fergbutcher-green-200'
+                          : 'text-fergbutcher-black-700 hover:bg-fergbutcher-green-50 hover:text-fergbutcher-black-900'
                       }`}
                     >
-                      <Icon className={`h-5 w-5 ${isActive ? 'text-gray-600' : 'text-gray-400'}`} />
+                      <Icon className={`h-5 w-5 ${isActive ? 'text-fergbutcher-green-600' : 'text-fergbutcher-brown-400'}`} />
                       <span className="font-medium">{item.label}</span>
                     </button>
                   </li>

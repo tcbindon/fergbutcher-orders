@@ -22,11 +22,24 @@ export interface OrderItem {
   unit: string;
 }
 
+export interface ChristmasProduct {
+  id: string;
+  name: string;
+  unit: string;
+  description?: string;
+}
+
+export interface ChristmasOrderItem extends OrderItem {
+  isChristmasProduct: boolean;
+  christmasProductId?: string;
+}
+
 export interface Order {
   id: string;
   customerId: string;
   customer?: Customer;
-  items: OrderItem[];
+  items: OrderItem[] | ChristmasOrderItem[];
+  orderType: 'standard' | 'christmas';
   collectionDate: string;
   collectionTime?: string;
   additionalNotes?: string;

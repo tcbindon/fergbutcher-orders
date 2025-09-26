@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, X, Calendar } from 'lucide-react';
+import { Printer, X, Calendar, Gift } from 'lucide-react';
 import { Order, Customer } from '../types';
 
 interface PrintScheduleProps {
@@ -114,15 +114,26 @@ const PrintSchedule: React.FC<PrintScheduleProps> = ({
                     <div className="flex justify-between items-start mb-3 print:mb-2">
                       <div className="flex items-center space-x-3">
                         <div className="bg-fergbutcher-green-100 print:bg-gray-100 p-2 rounded-full">
-                          <span className="font-bold text-fergbutcher-green-600 print:text-gray-800">#{order.id}</span>
+                          {order.orderType === 'christmas' ? (
+                            <Gift className="h-4 w-4 text-fergbutcher-green-600 print:text-gray-800" />
+                          ) : (
+                            <span className="font-bold text-fergbutcher-green-600 print:text-gray-800">#{order.id}</span>
+                          )}
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-fergbutcher-black-900 print:text-black">
-                            {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
-                          </h3>
+                          <div className="flex items-center space-x-2">
+                            <h3 className="text-lg font-semibold text-fergbutcher-black-900 print:text-black">
+                              {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
+                            </h3>
+                            {order.orderType === 'christmas' && (
+                              <span className="text-xs bg-fergbutcher-green-100 print:bg-gray-100 text-fergbutcher-green-700 print:text-gray-700 px-2 py-1 rounded-full">
+                                Christmas
+                              </span>
+                            )}
+                          </div>
                           {customer?.phone && (
                             <p className="text-sm text-fergbutcher-brown-600 print:text-gray-600">
-                              📞 {customer.phone}
+                              {customer.phone}
                             </p>
                           )}
                         </div>

@@ -18,6 +18,8 @@ import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import CustomerForm from './CustomerForm';
+import OrderForm from './OrderForm';
+import ChristmasOrderForm from './ChristmasOrderForm';
 import CustomerDetail from './CustomerDetail';
 import { Customer, Order } from '../types';
 
