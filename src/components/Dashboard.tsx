@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Package, Calendar, TrendingUp, CheckCircle, Clock, Building } from 'lucide-react';
+import { Users, ShoppingCart, Calendar, TrendingUp, CheckCircle, Clock, Package, Gift, Building } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import { Order } from '../types';
@@ -33,39 +33,40 @@ const Dashboard: React.FC = () => {
     order.status === 'pending' || order.status === 'confirmed'
   ).length;
 
+  // Calculate pending orders from active orders
+  const pendingOrders = orders.filter(order => order.status === 'pending').length;
+
   // Calculate pending orders from today's collections
   const todaysPendingOrders = orders.filter(order => 
     order.collectionDate === today && order.status === 'pending'
   ).length;
 
-  // Mock revenue calculation (you can implement actual revenue tracking)
+  // Mock revenue calculation
   const thisWeeksRevenue = 2340;
 
-  // Mock percentage changes (you can implement actual comparison logic)
+  // Mock percentage changes
   const customerGrowth = 12;
-  const pendingOrdersChange = 9;
-  const todaysPendingChange = 0;
   const revenueGrowth = 18;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <div className="w-2 h-2 bg-green-500 rounded-full" />;
       case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-600" />;
+        return <div className="w-2 h-2 bg-yellow-500 rounded-full" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-400" />;
+        return <div className="w-2 h-2 bg-gray-400 rounded-full" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return 'bg-green-100 text-green-800';
+        return 'text-green-600 bg-green-50';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'text-yellow-600 bg-yellow-50';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'text-gray-600 bg-gray-50';
     }
   };
 
@@ -76,6 +77,8 @@ const Dashboard: React.FC = () => {
       year: 'numeric'
     });
   };
+
+  const [viewingOrder, setViewingOrder] = React.useState<any>(null);
 
   return (
     <div className="space-y-6">
@@ -111,12 +114,12 @@ const Dashboard: React.FC = () => {
               <p className="text-sm font-medium text-gray-600">Active Orders</p>
               <p className="text-3xl font-bold text-gray-900">{activeOrders}</p>
               <div className="flex items-center mt-2">
-                <span className="text-sm font-medium text-gray-600">{pendingOrdersChange} pending</span>
+                <span className="text-sm font-medium text-gray-600">{pendingOrders} pending</span>
                 <span className="text-sm text-gray-500 ml-2">from last week</span>
               </div>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
-              <Package className="h-6 w-6 text-orange-600" />
+              <ShoppingCart className="h-6 w-6 text-orange-600" />
             </div>
           </div>
         </div>
@@ -128,7 +131,7 @@ const Dashboard: React.FC = () => {
               <p className="text-sm font-medium text-gray-600">Today's Collections</p>
               <p className="text-3xl font-bold text-gray-900">{todaysCollections}</p>
               <div className="flex items-center mt-2">
-                <span className="text-sm font-medium text-gray-600">{todaysPendingChange} pending</span>
+                <span className="text-sm font-medium text-gray-600">{todaysPendingOrders} pending</span>
                 <span className="text-sm text-gray-500 ml-2">from last week</span>
               </div>
             </div>
@@ -172,7 +175,11 @@ const Dashboard: React.FC = () => {
               {thisWeeksOrders.slice(0, 10).map((order) => {
                 const customer = customers.find(c => c.id === order.customerId);
                 return (
-                  <div key={order.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                  <div 
+                    key={order.id} 
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => setViewingOrder(order)}
+                  >
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
                         {getStatusIcon(order.status)}
@@ -182,6 +189,9 @@ const Dashboard: React.FC = () => {
                           <p className="text-sm font-medium text-gray-900">
                             {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
                           </p>
+                          {order.orderType === 'christmas' && (
+                            <Gift className="h-4 w-4 text-orange-500" />
+                          )}
                           {customer?.company && (
                             <div className="flex items-center space-x-1">
                               <Building className="h-3 w-3 text-gray-400" />
@@ -223,6 +233,72 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Order Detail Modal */}
+      {viewingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">Order Details</h3>
+              <button
+                onClick={() => setViewingOrder(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Customer</h4>
+                  <p className="text-gray-700">
+                    {(() => {
+                      const customer = customers.find(c => c.id === viewingOrder.customerId);
+                      return customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer';
+                    })()}
+                  </p>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Collection Date</h4>
+                  <p className="text-gray-700">
+                    {new Date(viewingOrder.collectionDate).toLocaleDateString('en-NZ')}
+                    {viewingOrder.collectionTime && ` at ${viewingOrder.collectionTime}`}
+                  </p>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Status</h4>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(viewingOrder.status)}`}>
+                    {viewingOrder.status}
+                  </span>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Items</h4>
+                  <div className="space-y-2">
+                    {viewingOrder.items.map((item: any, index: number) => (
+                      <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                        <p className="font-medium text-gray-900">{item.description}</p>
+                        <p className="text-sm text-gray-600">
+                          {item.quantity.toLocaleString('en-NZ')} {item.unit}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {viewingOrder.additionalNotes && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">Additional Notes</h4>
+                    <p className="text-gray-700">{viewingOrder.additionalNotes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
