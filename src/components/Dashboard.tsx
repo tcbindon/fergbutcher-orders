@@ -2,21 +2,11 @@ import React from 'react';
 import { Users, ShoppingCart, Calendar, TrendingUp, CheckCircle, Clock, Package, Gift, Building } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
-import OrderDetail from './OrderDetail';
-import OrderForm from './OrderForm';
-import ChristmasOrderForm from './ChristmasOrderForm';
-import { Order } from '../types';
 
 const Dashboard: React.FC = () => {
   const { customers } = useCustomers();
-  const { orders, updateOrder, deleteOrder, addOrder, getDuplicateOrderData } = useOrders();
-  const { addCustomer } = useCustomers();
-
-  const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
-  const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
-  const [duplicatingOrder, setDuplicatingOrder] = React.useState<any>(null);
-  const [deletingOrder, setDeletingOrder] = React.useState<Order | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const { orders, getOrderStats } = useOrders();
+  const orderStats = getOrderStats();
 
   // Calculate today's collections
   const today = new Date().toISOString().split('T')[0];
@@ -86,54 +76,6 @@ const Dashboard: React.FC = () => {
       month: '2-digit',
       year: 'numeric'
     });
-  };
-
-  const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!editingOrder) return;
-    
-    setIsSubmitting(true);
-    try {
-      const success = updateOrder(editingOrder.id, orderData);
-      if (success) {
-        setEditingOrder(null);
-        // Update viewing order if it's the same one
-        if (viewingOrder?.id === editingOrder.id) {
-          setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
-        }
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteOrder = () => {
-    if (!deletingOrder) return;
-    
-    const success = deleteOrder(deletingOrder.id);
-    if (success) {
-      setDeletingOrder(null);
-      // Close detail view if we're viewing the deleted order
-      if (viewingOrder?.id === deletingOrder.id) {
-        setViewingOrder(null);
-      }
-    }
-  };
-
-  const handleDuplicateOrder = (orderId: string) => {
-    const duplicateData = getDuplicateOrderData(orderId);
-    if (duplicateData) {
-      setDuplicatingOrder(duplicateData);
-      setViewingOrder(null); // Close detail view
-    } else {
-      alert('Failed to prepare duplicate order. Please try again.');
-    }
-  };
-
-  const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
-    const success = updateOrder(orderId, { status: newStatus });
-    if (success && viewingOrder?.id === orderId) {
-      setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
-    }
   };
 
   return (
@@ -233,8 +175,7 @@ const Dashboard: React.FC = () => {
                 return (
                   <div 
                     key={order.id} 
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => setViewingOrder(order)}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
@@ -289,155 +230,6 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Order Detail Modal */}
-      {viewingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Order Details</h3>
-              <button
-                onClick={() => setViewingOrder(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-6">
-              <OrderDetail
-                order={viewingOrder}
-                customer={customers.find(c => c.id === viewingOrder.customerId)}
-                onEdit={() => {
-                  setEditingOrder(viewingOrder);
-                  setViewingOrder(null);
-                }}
-                onDelete={() => {
-                  setDeletingOrder(viewingOrder);
-                  setViewingOrder(null);
-                }}
-                onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
-                onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Order Modal */}
-      {editingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Edit Order</h3>
-            </div>
-            <div className="p-6">
-              {editingOrder.orderType === 'christmas' ? (
-                <ChristmasOrderForm
-                  order={editingOrder}
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={handleUpdateOrder}
-                  onCancel={() => setEditingOrder(null)}
-                  isLoading={isSubmitting}
-                />
-              ) : (
-                <OrderForm
-                  order={editingOrder}
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={handleUpdateOrder}
-                  onCancel={() => setEditingOrder(null)}
-                  isLoading={isSubmitting}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deletingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Delete Order</h3>
-            </div>
-            <div className="p-6">
-              <div className="flex items-start space-x-3 mb-4">
-                <div className="bg-red-100 p-2 rounded-full">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-gray-900 font-medium">
-                    Are you sure you want to delete this order?
-                  </p>
-                  <p className="text-gray-600 text-sm mt-1">
-                    This action cannot be undone. All order data will be permanently removed.
-                  </p>
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setDeletingOrder(null)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteOrder}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Delete Order
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Duplicate Order Modal */}
-      {duplicatingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Duplicate Order</h3>
-              <p className="text-gray-600 text-sm">Review and modify the order details before creating</p>
-            </div>
-            <div className="p-6">
-              {duplicatingOrder.orderType === 'christmas' ? (
-                <ChristmasOrderForm
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={(orderData) => {
-                    const newOrder = addOrder(orderData);
-                    if (newOrder) {
-                      setDuplicatingOrder(null);
-                      alert(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
-                    }
-                  }}
-                  onCancel={() => setDuplicatingOrder(null)}
-                  isLoading={isSubmitting}
-                />
-              ) : (
-                <OrderForm
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={(orderData) => {
-                    const newOrder = addOrder(orderData);
-                    if (newOrder) {
-                      setDuplicatingOrder(null);
-                      alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
-                    }
-                  }}
-                  onCancel={() => setDuplicatingOrder(null)}
-                  isLoading={isSubmitting}
-                  initialData={duplicatingOrder}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
