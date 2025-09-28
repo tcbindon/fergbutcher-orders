@@ -138,6 +138,8 @@ export const useOrders = () => {
   const updateOrder = (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>) => {
     try {
       setOrders(prev => 
+      console.log(`Syncing ${standardOrders.length} standard orders and ${christmasOrders.length} Christmas orders`);
+      
         prev.map(order => 
           order.id === id 
             ? { ...order, ...updates, updatedAt: new Date().toISOString() }

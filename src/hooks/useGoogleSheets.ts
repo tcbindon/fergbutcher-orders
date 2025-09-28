@@ -210,6 +210,8 @@ export const useGoogleSheets = () => {
       return false;
     }
 
+    console.log(`Attempting to sync ${orders.length} Christmas orders`);
+    
     setIsLoading(true);
     setError(null);
 
@@ -228,13 +230,17 @@ export const useGoogleSheets = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Christmas orders sync failed:', errorData);
         throw new Error(errorData.error || 'Christmas orders sync failed');
       }
 
+      const result = await response.json();
+      console.log('Christmas orders sync successful:', result);
       setLastSync(new Date());
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Christmas orders sync failed';
+      console.error('Christmas orders sync error:', err);
       setError(errorMessage);
       return false;
     } finally {

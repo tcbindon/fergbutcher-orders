@@ -270,28 +270,21 @@ async function getChristmasProducts(doc) {
 async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
   const sheet = doc.sheetsByTitle['Christmas Orders'];
   
-  // Get current headers to see if we need to add product columns
-  const headerValues = await sheet.getHeaderRow();
-  const existingHeaders = new Set(headerValues);
+  // Clear existing data first (except headers)
+  await sheet.clear('A2:ZZ1000');
   
   // Build required headers (standard fields + product columns)
   const standardHeaders = ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Notes', 'Created Date', 'Updated Date'];
   const productHeaders = christmasProducts.map(product => `${product.name} (${product.unit})`);
   const requiredHeaders = [...standardHeaders, ...productHeaders, 'Other Items'];
   
-  // Add missing product columns if needed
-  const missingHeaders = requiredHeaders.filter(header => !existingHeaders.has(header));
-  if (missingHeaders.length > 0) {
-    // Update headers by setting the entire header row
-    await sheet.setHeaderRow(requiredHeaders);
-    console.log('Updated Christmas Orders sheet headers with new product columns');
-  }
-  
-  // Clear existing data (except headers)
-  await sheet.clear('A2:ZZ1000');
+  // Always update headers to ensure they include all current products
+  await sheet.setHeaderRow(requiredHeaders);
+  console.log('Updated Christmas Orders sheet headers with product columns:', productHeaders);
   
   // Filter for Christmas orders only
   const christmasOrders = orders.filter(order => order.orderType === 'christmas');
+  console.log(`Processing ${christmasOrders.length} Christmas orders`);
   
   // Prepare Christmas order data
   const orderRows = christmasOrders.map(order => {
@@ -314,9 +307,14 @@ async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
     // Add quantities for each Christmas product
     christmasProducts.forEach(product => {
       const columnName = `${product.name} (${product.unit})`;
-      const orderItem = order.items.find(item => 
-        item.isChristmasProduct && item.christmasProductId === product.id
-      );
+      // Find the Christmas product item in the order
+      const orderItem = order.items.find(item => {
+        if (item.isChristmasProduct && item.christmasProductId === product.id) {
+          return true;
+        }
+        // Also check by name match as fallback
+        return item.isChristmasProduct && item.description === product.name;
+      });
       rowData[columnName] = orderItem ? orderItem.quantity.toString() : '';
     });
     
@@ -333,6 +331,9 @@ async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
   // Add order data
   if (orderRows.length > 0) {
     await sheet.addRows(orderRows);
+    console.log(`Added ${orderRows.length} Christmas order rows to sheet`);
+  } else {
+    console.log('No Christmas orders to sync');
   }
   
   console.log(`Synced ${christmasOrders.length} Christmas orders`);

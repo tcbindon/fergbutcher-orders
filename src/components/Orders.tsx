@@ -92,8 +92,13 @@ const Orders: React.FC = () => {
       const newOrder = addOrder(orderData);
       if (newOrder) {
         setShowChristmasModal(false);
-        // Auto-sync Christmas orders to Google Sheets if connected
-        // This will be handled by the syncOrdersToSheets function
+        // Auto-sync to Google Sheets if connected
+        try {
+          await syncOrdersToSheets(customers);
+          console.log('Christmas order synced to Google Sheets');
+        } catch (syncError) {
+          console.error('Failed to sync Christmas order to Google Sheets:', syncError);
+        }
       }
     } finally {
       setIsSubmitting(false);
