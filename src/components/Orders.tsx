@@ -1,21 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  Search, 
-  Plus, 
-  Filter, 
-  Edit, 
-  Eye, 
-  Calendar,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Package,
-  User,
-  AlertTriangle,
-  ChevronDown,
-  MessageSquare,
-  Gift
-} from 'lucide-react';
+import { Search, Plus, Filter, CreditCard as Edit, Eye, Calendar, Clock, CheckCircle, XCircle, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
