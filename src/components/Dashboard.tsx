@@ -57,6 +57,7 @@ const Dashboard: React.FC = () => {
   // Get this week's orders, sorted by collection date then status
   const getThisWeeksOrders = () => {
     const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
     const endOfWeek = new Date(startOfWeek);
@@ -69,6 +70,7 @@ const Dashboard: React.FC = () => {
     
     return orders
       .filter(order => order.collectionDate >= startDateString && order.collectionDate <= endDateString)
+      .filter(order => order.collectionDate >= todayString) // Only show current and future orders
       .sort((a, b) => {
         // First sort by collection date (earliest first)
         const dateComparison = new Date(a.collectionDate).getTime() - new Date(b.collectionDate).getTime();

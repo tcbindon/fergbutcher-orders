@@ -36,9 +36,12 @@ const Orders: React.FC = () => {
 
   // Sort orders by collection date (earliest first), then by status priority
   const getSortedOrders = (orders: Order[]) => {
+    const today = new Date().toISOString().split('T')[0];
     const statusPriority = { 'confirmed': 1, 'pending': 2, 'collected': 3, 'cancelled': 4 };
     
-    return orders.sort((a, b) => {
+    return orders
+      .filter(order => order.collectionDate >= today) // Only show current and future orders
+      .sort((a, b) => {
       // First sort by collection date (earliest first)
       const dateComparison = new Date(a.collectionDate).getTime() - new Date(b.collectionDate).getTime();
       if (dateComparison !== 0) return dateComparison;

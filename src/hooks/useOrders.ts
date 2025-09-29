@@ -208,27 +208,32 @@ export const useOrders = () => {
   const searchOrders = (searchTerm: string, customers: Customer[]) => {
     if (!searchTerm.trim()) return orders;
     
+    const today = new Date().toISOString().split('T')[0];
     const term = searchTerm.toLowerCase();
-    return orders.filter(order => {
+    return orders
+      .filter(order => order.collectionDate >= today) // Only show current and future orders in search
+      .filter(order => {
       const customer = customers.find(c => c.id === order.customerId);
       const customerName = customer ? `${customer.firstName} ${customer.lastName}`.toLowerCase() : '';
       
       return customerName.includes(term) ||
         order.items.some(item => item.description.toLowerCase().includes(term)) ||
         order.additionalNotes?.toLowerCase().includes(term);
-    });
+      });
   };
 
   const getOrderStats = () => {
-    const total = orders.length;
-    const pending = orders.filter(o => o.status === 'pending').length;
-    const confirmed = orders.filter(o => o.status === 'confirmed').length;
-    const collected = orders.filter(o => o.status === 'collected').length;
-    const cancelled = orders.filter(o => o.status === 'cancelled').length;
+    const today = new Date().toISOString().split('T')[0];
+    const currentOrders = orders.filter(o => o.collectionDate >= today);
+    
+    const total = currentOrders.length;
+    const pending = currentOrders.filter(o => o.status === 'pending').length;
+    const confirmed = currentOrders.filter(o => o.status === 'confirmed').length;
+    const collected = currentOrders.filter(o => o.status === 'collected').length;
+    const cancelled = currentOrders.filter(o => o.status === 'cancelled').length;
 
     // Today's collections
-    const today = new Date().toISOString().split('T')[0];
-    const todaysOrders = orders.filter(o => o.collectionDate === today);
+    const todaysOrders = currentOrders.filter(o => o.collectionDate === today);
     const todaysConfirmed = todaysOrders.filter(o => o.status === 'confirmed').length;
     const todaysPending = todaysOrders.filter(o => o.status === 'pending').length;
 
