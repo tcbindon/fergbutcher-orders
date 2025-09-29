@@ -18,6 +18,7 @@ import {
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
+import { useStaffNotes } from '../hooks/useStaffNotes';
 import { generateEmailData, populateTemplate, openEmailClient } from '../utils/emailUtils';
 
 interface OrderDetailProps {
@@ -38,6 +39,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   onStatusChange
 }) => {
   const { templates, getTemplate } = useEmailTemplates();
+  const { addStaffNote } = useStaffNotes();
 
   const handleSendEmail = (templateId: string) => {
     if (!customer) {
@@ -54,6 +56,20 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
     const emailData = generateEmailData(order, customer);
     const populatedSubject = populateTemplate(template.subject, emailData);
     const populatedBody = populateTemplate(template.body, emailData);
+
+    // Create staff note to track email sending
+    const emailTypeNames = {
+      'order-received': 'Order Received',
+      'order-confirmed': 'Order Confirmed', 
+      'collection-reminder': 'Collection Reminder'
+    };
+    
+    const emailTypeName = emailTypeNames[templateId as keyof typeof emailTypeNames] || templateId;
+    addStaffNote(
+      order.id, 
+      'System', 
+      `📧 ${emailTypeName} email sent to ${customer.email}`
+    );
 
     openEmailClient(customer.email, populatedSubject, populatedBody);
   };
