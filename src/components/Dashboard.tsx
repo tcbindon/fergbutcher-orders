@@ -2,6 +2,7 @@ import React from 'react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import { useStaffNotes } from '../hooks/useStaffNotes';
+import backupService from '../services/backupService';
 import OrderDetail from './OrderDetail';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
@@ -9,7 +10,7 @@ import {
   Users, 
   ShoppingCart, 
   Calendar, 
-  TrendingUp,
+  Clock,
   Clock,
   CheckCircle,
   XCircle,
@@ -31,6 +32,42 @@ const Dashboard: React.FC = () => {
   const [deletingOrder, setDeletingOrder] = React.useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = React.useState<any>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // Calculate time since last backup
+  const getTimeSinceLastBackup = () => {
+    const backups = backupService.getBackupList();
+    if (backups.length === 0) {
+      return { text: 'No backups', type: 'warning' as const };
+    }
+
+    const lastBackup = new Date(backups[0].timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - lastBackup.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    let text: string;
+    let type: 'positive' | 'neutral' | 'warning';
+
+    if (diffDays > 0) {
+      text = diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+      type = diffDays > 2 ? 'warning' : 'neutral';
+    } else if (diffHours > 0) {
+      text = diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+      type = diffHours > 12 ? 'warning' : 'positive';
+    } else if (diffMinutes > 0) {
+      text = diffMinutes === 1 ? '1 minute ago' : `${diffMinutes} minutes ago`;
+      type = 'positive';
+    } else {
+      text = 'Just now';
+      type = 'positive';
+    }
+
+    return { text, type };
+  };
+
+  const backupInfo = getTimeSinceLastBackup();
 
   // Mock data for demonstration
   const stats = [
@@ -59,11 +96,11 @@ const Dashboard: React.FC = () => {
       color: 'fergbutcher-yellow'
     },
     {
-      title: 'This Week\'s Revenue',
-      value: '$2,340',
-      change: '+18%',
-      changeType: 'positive' as const,
-      icon: TrendingUp,
+      title: 'Last Backup',
+      value: backupInfo.text,
+      change: 'Auto backup at 8:30 PM',
+      changeType: backupInfo.type,
+      icon: Clock,
       color: 'fergbutcher-black'
     }
   ];
