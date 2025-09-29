@@ -1,20 +1,5 @@
 import React from 'react';
-import { 
-  User, 
-  Calendar, 
-  Clock, 
-  Package, 
-  FileText,
-  Edit,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Copy,
-  Mail,
-  Send,
-  Gift
-} from 'lucide-react';
+import { User, Calendar, Clock, Package, FileText, CreditCard as Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift } from 'lucide-react';
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
