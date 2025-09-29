@@ -254,9 +254,23 @@ const Dashboard: React.FC = () => {
                     <p className="text-sm font-medium text-fergbutcher-black-900">
                       {new Date(order.collection).toLocaleDateString('en-NZ')}
                     </p>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
+                    <div className="relative">
+                      <select
+                        value={order.status}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleStatusChange(order.fullOrder.id, e.target.value as Order['status']);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`appearance-none pr-8 pl-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(order.status)}`}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="collected">Collected</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
               </div>
