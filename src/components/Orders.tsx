@@ -33,15 +33,18 @@ const Orders: React.FC = () => {
   const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [showingComments, setShowingComments] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPastOrders, setShowPastOrders] = useState(false);
 
   // Sort orders by collection date (earliest first), then by status priority
   const getSortedOrders = (orders: Order[]) => {
     const today = new Date().toISOString().split('T')[0];
     const statusPriority = { 'confirmed': 1, 'pending': 2, 'collected': 3, 'cancelled': 4 };
     
-    return orders
-      .filter(order => order.collectionDate >= today) // Only show current and future orders
-      .sort((a, b) => {
+    const filteredOrders = showPastOrders 
+      ? orders // Show all orders when toggle is on
+      : orders.filter(order => order.collectionDate >= today); // Only show current and future orders by default
+    
+    return filteredOrders.sort((a, b) => {
       // First sort by collection date (earliest first)
       const dateComparison = new Date(a.collectionDate).getTime() - new Date(b.collectionDate).getTime();
       if (dateComparison !== 0) return dateComparison;
@@ -229,7 +232,16 @@ const Orders: React.FC = () => {
                   className="w-full pl-10 pr-4 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
                 />
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center space-x-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={showPastOrders}
+                    onChange={(e) => setShowPastOrders(e.target.checked)}
+                    className="rounded border-fergbutcher-brown-300 text-fergbutcher-green-600 focus:ring-fergbutcher-green-500"
+                  />
+                  <span className="text-fergbutcher-brown-700">Show past orders</span>
+                </label>
                 <Filter className="h-4 w-4 text-fergbutcher-brown-400" />
                 <select
                   value={statusFilter}
@@ -250,7 +262,7 @@ const Orders: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200">
             <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h2 className="text-lg font-semibold text-fergbutcher-black-900">
-                All Orders ({filteredOrders.length.toLocaleString('en-NZ')})
+                {showPastOrders ? 'All Orders' : 'Current & Upcoming Orders'} ({filteredOrders.length.toLocaleString('en-NZ')})
               </h2>
             </div>
             <div className="divide-y divide-fergbutcher-brown-200 max-h-96 overflow-y-auto">
