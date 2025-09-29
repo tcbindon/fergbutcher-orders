@@ -11,7 +11,6 @@ import {
   ShoppingCart, 
   Calendar, 
   Clock,
-  Clock,
   CheckCircle,
   XCircle,
   Package,
