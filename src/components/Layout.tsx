@@ -11,10 +11,11 @@ import { ViewType } from '../types';
 interface LayoutProps {
   currentView: ViewType;
   onViewChange: (view: ViewType) => void;
+  onLogout: () => void;
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, children }) => {
+const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, children }) => {
   const navigationItems = [
     { id: 'dashboard' as ViewType, label: 'Dashboard', icon: Home },
     { id: 'customers' as ViewType, label: 'Customers', icon: Users },
@@ -40,8 +41,16 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, children }) 
                 <p className="text-sm text-fergbutcher-brown-600">Pre-Order Management</p>
               </div>
             </div>
-            <div className="text-sm text-fergbutcher-brown-600">
-              Welcome back, Team
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-fergbutcher-brown-600">
+                Welcome back, Team
+              </div>
+              <button
+                onClick={onLogout}
+                className="text-sm bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-3 py-1 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
