@@ -16,7 +16,6 @@ import {
   Package,
   Gift,
   AlertTriangle,
-  ChevronDown,
   RefreshCw
 } from 'lucide-react';
 import { Order } from '../types';
