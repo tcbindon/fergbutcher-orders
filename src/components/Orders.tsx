@@ -632,7 +632,6 @@ const Orders: React.FC = () => {
                   onSubmit={(orderData) => {
                     const newOrder = addOrder(orderData);
                     if (newOrder) {
-                      setDuplicatingOrder(null);
                       alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
                     }
                   }}
