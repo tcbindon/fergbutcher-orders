@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { Order, OrderItem, Customer, StaffNote } from '../types';
 import { useGoogleSheets } from './useGoogleSheets';
 import { useUndo } from './useUndo';
@@ -96,38 +97,100 @@ export const useOrders = () => {
       if (orderData.isRecurring && orderData.recurrencePattern && orderData.recurrenceEndDate) {
         // Handle recurring order creation
         const parentOrderId = uuidv4();
-        const recurringOrders: Order[] = [];
-        
-        // Calculate all collection dates
-        const startDate = new Date(orderData.collectionDate);
+        const newOrders: Order[] = [];
+        const collectionDate = new Date(orderData.collectionDate);
         const endDate = new Date(orderData.recurrenceEndDate);
-        const interval = orderData.recurrencePattern === 'weekly' ? 7 : 14;
         
-        let currentDate = new Date(startDate);
-        let orderCounter = 1;
+        // Calculate interval in days
+        const intervalDays = orderData.recurrencePattern === 'weekly' ? 7 : 14;
         
-        while (currentDate <= endDate) {
+        let currentDate = new Date(collectionDate);
+        let orderCount = 0;
+        
+        while (currentDate <= endDate && orderCount < 52) { // Safety limit of 52 orders
           // Generate sequential order number
-          const allOrders = [...orders, ...initialOrders, ...recurringOrders];
+          const allOrders = [...orders, ...initialOrders, ...newOrders];
           const maxOrderNumber = allOrders.reduce((max, order) => {
             const orderNum = parseInt(order.id);
             return isNaN(orderNum) ? max : Math.max(max, orderNum);
           }, 0);
           const newOrderId = (maxOrderNumber + 1).toString();
           
-          const recurringOrder: Order = {
+          const newOrder: Order = {
             ...orderData,
             id: newOrderId,
             collectionDate: currentDate.toISOString().split('T')[0],
             orderType: orderData.orderType || 'standard',
             isRecurring: true,
+            recurrencePattern: orderData.recurrencePattern,
+            recurrenceEndDate: orderData.recurrenceEndDate,
             parentOrderId: parentOrderId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
           
-          recurringOrders.push(recurringOrder);
+          newOrders.push(newOrder);
           
+          // Move to next occurrence
+          currentDate = new Date(currentDate);
+          currentDate.setDate(currentDate.getDate() + intervalDays);
+          orderCount++;
+        }
+        
+        const previousOrders = [...orders];
+        setOrders(prev => [...newOrders, ...prev]);
+        setError(null);
+        
+        // Add undo action for the entire series
+        addUndoAction({
+          id: `add-recurring-orders-${parentOrderId}`,
+          description: `Created ${newOrders.length} recurring orders (${orderData.recurrencePattern})`,
+          undo: () => {
+            setOrders(previousOrders);
+            errorLogger.info(`Undid creating ${newOrders.length} recurring orders`);
+          }
+        });
+        
+        errorLogger.info(`Created ${newOrders.length} recurring orders: ${orderData.recurrencePattern}`);
+        return newOrders[0]; // Return the first order in the series
+      } else {
+        // Handle single order creation
+        const allOrders = [...orders, ...initialOrders];
+        const maxOrderNumber = allOrders.reduce((max, order) => {
+          const orderNum = parseInt(order.id);
+          return isNaN(orderNum) ? max : Math.max(max, orderNum);
+        }, 0);
+        const newOrderId = (maxOrderNumber + 1).toString();
+        
+        const newOrder: Order = {
+          ...orderData,
+          id: newOrderId,
+          orderType: orderData.orderType || 'standard',
+          isRecurring: false,
+          recurrencePattern: null,
+          recurrenceEndDate: null,
+          parentOrderId: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        const previousOrders = [...orders];
+        setOrders(prev => [newOrder, ...prev]);
+        setError(null);
+        
+        // Add undo action
+        addUndoAction({
+          id: `add-order-${newOrder.id}`,
+          description: `Created order #${newOrder.id}`,
+          undo: () => {
+            setOrders(previousOrders);
+            errorLogger.info(`Undid creating order #${newOrder.id}`);
+          }
+        });
+        
+        errorLogger.info(`Order created: #${newOrder.id}`);
+        return newOrder;
+      }
           // Move to next occurrence
           currentDate.setDate(currentDate.getDate() + interval);
           orderCounter++;
