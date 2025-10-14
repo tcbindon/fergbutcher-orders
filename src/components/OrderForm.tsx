@@ -279,7 +279,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
   };
   return (
-    <div className="relative">
+    <div className="relative space-y-6">
       {showCloseButton && (
         <button
           type="button"
