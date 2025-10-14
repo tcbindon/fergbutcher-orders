@@ -132,6 +132,12 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
                     Recurring Order
                   </span>
                 )}
+                {order.isRecurring && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-fergbutcher-blue-100 text-fergbutcher-blue-800 border border-fergbutcher-blue-200">
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Recurring Order
+                  </span>
+                )}
               </div>
               <p className="text-fergbutcher-brown-600">
                 Created {new Date(order.createdAt).toLocaleDateString('en-NZ')}
