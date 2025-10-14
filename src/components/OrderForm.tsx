@@ -29,9 +29,6 @@ const OrderForm: React.FC<OrderFormProps> = ({
     status: 'pending' as Order['status'],
     orderType: 'standard' as Order['orderType'],
     isRecurring: false,
-    recurrencePattern: '' as 'weekly' | 'fortnightly' | '',
-    recurrenceEndDate: ''
-    isRecurring: false,
     recurrencePattern: null as 'weekly' | 'fortnightly' | null,
     recurrenceEndDate: null as string | null
   });
@@ -143,10 +140,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       }
       if (item.description.trim() && !item.unit) {
         newErrors[`item_${index}_unit`] = 'Unit is required';
-      orderType: sourceData.orderType || 'standard',
-      isRecurring: false,
-      recurrencePattern: '',
-      recurrenceEndDate: ''
+      }
     });
 
     setErrors(newErrors);
@@ -176,10 +170,6 @@ const OrderForm: React.FC<OrderFormProps> = ({
         orderType: formData.orderType,
         isRecurring: formData.isRecurring,
         recurrencePattern: formData.isRecurring ? formData.recurrencePattern as 'weekly' | 'fortnightly' : null,
-        recurrenceEndDate: formData.isRecurring ? formData.recurrenceEndDate : null,
-        parentOrderId: null
-        isRecurring: formData.isRecurring,
-        recurrencePattern: formData.isRecurring ? formData.recurrencePattern : null,
         recurrenceEndDate: formData.isRecurring ? formData.recurrenceEndDate : null,
         parentOrderId: null
       });
@@ -536,7 +526,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
               id="isRecurring"
               checked={formData.isRecurring}
               onChange={(e) => {
-                handleChange('isRecurring', e.target.checked);
+                handleChange('isRecurring', e.target.checked.toString());
                 if (!e.target.checked) {
                   handleChange('recurrencePattern', '');
                   handleChange('recurrenceEndDate', '');
@@ -557,7 +547,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
                   Recurrence Pattern *
                 </label>
                 <select
-                  value={formData.recurrencePattern}
+                  value={formData.recurrencePattern || ''}
                   onChange={(e) => handleChange('recurrencePattern', e.target.value)}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
                     errors.recurrencePattern ? 'border-red-500' : 'border-fergbutcher-brown-300'
@@ -579,7 +569,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
                 </label>
                 <input
                   type="date"
-                  value={formData.recurrenceEndDate}
+                  value={formData.recurrenceEndDate || ''}
                   onChange={(e) => handleChange('recurrenceEndDate', e.target.value)}
                   min={formData.collectionDate || getMinDate()}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
@@ -636,87 +626,6 @@ const OrderForm: React.FC<OrderFormProps> = ({
             disabled={isLoading}
           />
         </div>
-      </div>
-
-      {/* Recurring Order Settings */}
-      <div className="border border-fergbutcher-green-200 rounded-lg p-4 bg-fergbutcher-green-50">
-        <div className="flex items-center space-x-3 mb-4">
-          <RefreshCw className="h-5 w-5 text-fergbutcher-green-600" />
-          <h4 className="font-medium text-fergbutcher-black-900">Recurring Order Settings</h4>
-        </div>
-        
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="isRecurring"
-              checked={formData.isRecurring}
-              onChange={(e) => {
-                handleChange('isRecurring', e.target.checked.toString());
-                if (!e.target.checked) {
-                  handleChange('recurrencePattern', '');
-                  handleChange('recurrenceEndDate', '');
-                }
-              }}
-              className="rounded border-fergbutcher-brown-300 text-fergbutcher-green-600 focus:ring-fergbutcher-green-500"
-              disabled={isLoading}
-            />
-            <label htmlFor="isRecurring" className="text-sm font-medium text-fergbutcher-brown-700">
-              Make this a recurring order
-            </label>
-          </div>
-
-          {formData.isRecurring && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6">
-              <div>
-                <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-                  Recurrence Pattern *
-                </label>
-                <select
-                  value={formData.recurrencePattern || ''}
-                  onChange={(e) => handleChange('recurrencePattern', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
-                    errors.recurrencePattern ? 'border-red-500' : 'border-fergbutcher-brown-300'
-                  }`}
-                  disabled={isLoading}
-                >
-                  <option value="">Select pattern</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="fortnightly">Fortnightly</option>
-                </select>
-                {errors.recurrencePattern && (
-                  <p className="text-red-500 text-xs mt-1">{errors.recurrencePattern}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-                  Recurrence End Date *
-                </label>
-                <input
-                  type="date"
-                  value={formData.recurrenceEndDate || ''}
-                  onChange={(e) => handleChange('recurrenceEndDate', e.target.value)}
-                  min={formData.collectionDate || getMinDate()}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
-                    errors.recurrenceEndDate ? 'border-red-500' : 'border-fergbutcher-brown-300'
-                  }`}
-                  disabled={isLoading}
-                />
-                {errors.recurrenceEndDate && (
-                  <p className="text-red-500 text-xs mt-1">{errors.recurrenceEndDate}</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {formData.isRecurring && (
-          <div className="mt-3 p-3 bg-fergbutcher-yellow-50 border border-fergbutcher-yellow-200 rounded-lg">
-            <p className="text-xs text-fergbutcher-yellow-700">
-              <strong>Note:</strong> This will create multiple individual orders based on your selected pattern and end date. Each order can be managed separately.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Status (for editing existing orders) */}

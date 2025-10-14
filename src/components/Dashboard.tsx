@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   ChevronDown,
   RefreshCw
-  RefreshCw
 } from 'lucide-react';
 import { Order } from '../types';
 
