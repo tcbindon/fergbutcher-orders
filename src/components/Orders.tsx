@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Filter, CreditCard as Edit, Eye, Calendar, Clock, CheckCircle, XCircle, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift } from 'lucide-react';
+import { Search, Plus, Filter, CreditCard as Edit, Eye, Calendar, Clock, CheckCircle, XCircle, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
@@ -293,6 +293,12 @@ const Orders: React.FC = () => {
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-fergbutcher-green-100 to-fergbutcher-yellow-100 text-fergbutcher-green-800 border border-fergbutcher-green-200">
                                   <Gift className="h-3 w-3 mr-1" />
                                   Christmas
+                                </span>
+                              )}
+                              {order.isRecurring && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-fergbutcher-blue-100 text-fergbutcher-blue-800 border border-fergbutcher-blue-200">
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                  Recurring
                                 </span>
                               )}
                               <div className="relative">

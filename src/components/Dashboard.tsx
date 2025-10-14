@@ -16,7 +16,8 @@ import {
   Package,
   Gift,
   AlertTriangle,
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from 'lucide-react';
 import { Order } from '../types';
 
@@ -280,6 +281,9 @@ const Dashboard: React.FC = () => {
                       <p className="font-medium text-fergbutcher-black-900">{order.customer}</p>
                       {order.fullOrder.orderType === 'christmas' && (
                         <Gift className="h-4 w-4 text-fergbutcher-green-600" />
+                      )}
+                      {order.fullOrder.isRecurring && (
+                        <RefreshCw className="h-4 w-4 text-fergbutcher-blue-600" />
                       )}
                     </div>
                     <p className="text-sm text-fergbutcher-brown-600">{order.items}</p>

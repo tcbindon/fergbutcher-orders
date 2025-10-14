@@ -3,6 +3,7 @@ import { Order, OrderItem, Customer, StaffNote } from '../types';
 import { useGoogleSheets } from './useGoogleSheets';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
+import { v4 as uuidv4 } from 'uuid';
 
 // Mock initial data
 const initialOrders: Order[] = [
@@ -92,41 +93,96 @@ export const useOrders = () => {
 
   const addOrder = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      // Generate a shorter, sequential order number starting from 1
-      const allOrders = [...orders, ...initialOrders];
-      const maxOrderNumber = allOrders.reduce((max, order) => {
-        const orderNum = parseInt(order.id);
-        return isNaN(orderNum) ? max : Math.max(max, orderNum);
-      }, 0); // Start from 0 so first order is #1
-      const newOrderId = (maxOrderNumber + 1).toString();
-      
-      const newOrder: Order = {
-        ...orderData,
-        id: newOrderId,
-        orderType: orderData.orderType || 'standard', // Default to standard if not specified
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      const previousOrders = [...orders];
-      setOrders(prev => [newOrder, ...prev]);
-      setError(null);
-      
-      // Add undo action
-      addUndoAction({
-        id: `add-order-${newOrder.id}`,
-        description: `Created order #${newOrder.id}`,
-        undo: () => {
-          setOrders(previousOrders);
-          errorLogger.info(`Undid creating order #${newOrder.id}`);
+      if (orderData.isRecurring && orderData.recurrencePattern && orderData.recurrenceEndDate) {
+        // Handle recurring order creation
+        const parentOrderId = uuidv4();
+        const recurringOrders: Order[] = [];
+        
+        // Calculate all collection dates
+        const startDate = new Date(orderData.collectionDate);
+        const endDate = new Date(orderData.recurrenceEndDate);
+        const interval = orderData.recurrencePattern === 'weekly' ? 7 : 14;
+        
+        let currentDate = new Date(startDate);
+        let orderCounter = 1;
+        
+        while (currentDate <= endDate) {
+          // Generate sequential order number
+          const allOrders = [...orders, ...initialOrders, ...recurringOrders];
+          const maxOrderNumber = allOrders.reduce((max, order) => {
+            const orderNum = parseInt(order.id);
+            return isNaN(orderNum) ? max : Math.max(max, orderNum);
+          }, 0);
+          const newOrderId = (maxOrderNumber + 1).toString();
+          
+          const recurringOrder: Order = {
+            ...orderData,
+            id: newOrderId,
+            collectionDate: currentDate.toISOString().split('T')[0],
+            orderType: orderData.orderType || 'standard',
+            isRecurring: true,
+            parentOrderId: parentOrderId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          
+          recurringOrders.push(recurringOrder);
+          
+          // Move to next occurrence
+          currentDate.setDate(currentDate.getDate() + interval);
+          orderCounter++;
         }
-      });
-      
-      // Auto-sync to Google Sheets if connected (need customers for sync)
-      // Note: Actual sync will be handled by components that have access to customers
-      
-      errorLogger.info(`Order created: #${newOrder.id}`);
-      return newOrder;
+        
+        const previousOrders = [...orders];
+        setOrders(prev => [...recurringOrders, ...prev]);
+        setError(null);
+        
+        // Add undo action for the entire recurring series
+        addUndoAction({
+          id: `add-recurring-orders-${parentOrderId}`,
+          description: `Created ${recurringOrders.length} recurring orders (${orderData.recurrencePattern})`,
+          undo: () => {
+            setOrders(previousOrders);
+            errorLogger.info(`Undid creating ${recurringOrders.length} recurring orders`);
+          }
+        });
+        
+        errorLogger.info(`Created ${recurringOrders.length} recurring orders with pattern: ${orderData.recurrencePattern}`);
+        return recurringOrders[0]; // Return the first order in the series
+      } else {
+        // Handle single order creation
+        const allOrders = [...orders, ...initialOrders];
+        const maxOrderNumber = allOrders.reduce((max, order) => {
+          const orderNum = parseInt(order.id);
+          return isNaN(orderNum) ? max : Math.max(max, orderNum);
+        }, 0);
+        const newOrderId = (maxOrderNumber + 1).toString();
+        
+        const newOrder: Order = {
+          ...orderData,
+          id: newOrderId,
+          orderType: orderData.orderType || 'standard',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        const previousOrders = [...orders];
+        setOrders(prev => [newOrder, ...prev]);
+        setError(null);
+        
+        // Add undo action
+        addUndoAction({
+          id: `add-order-${newOrder.id}`,
+          description: `Created order #${newOrder.id}`,
+          undo: () => {
+            setOrders(previousOrders);
+            errorLogger.info(`Undid creating order #${newOrder.id}`);
+          }
+        });
+        
+        errorLogger.info(`Order created: #${newOrder.id}`);
+        return newOrder;
+      }
     } catch (err) {
       console.error('Error adding order:', err);
       errorLogger.error('Failed to add order', err);

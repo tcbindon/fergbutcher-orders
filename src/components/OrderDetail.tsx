@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Calendar, Clock, Package, FileText, CreditCard as Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift } from 'lucide-react';
+import { User, Calendar, Clock, Package, FileText, CreditCard as Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift, RefreshCw } from 'lucide-react';
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
@@ -124,6 +124,12 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-fergbutcher-green-100 to-fergbutcher-yellow-100 text-fergbutcher-green-800 border border-fergbutcher-green-200">
                     <Gift className="h-4 w-4 mr-1" />
                     Christmas Order
+                  </span>
+                )}
+                {order.isRecurring && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-fergbutcher-blue-100 text-fergbutcher-blue-800 border border-fergbutcher-blue-200">
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Recurring Order
                   </span>
                 )}
               </div>

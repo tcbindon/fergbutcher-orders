@@ -44,6 +44,10 @@ export interface Order {
   collectionTime?: string;
   additionalNotes?: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'collected';
+  isRecurring?: boolean;
+  recurrencePattern?: 'weekly' | 'fortnightly' | null;
+  recurrenceEndDate?: string | null;
+  parentOrderId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
