@@ -279,7 +279,21 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
   };
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="relative">
+      {showCloseButton && (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="absolute top-0 right-0 -mt-2 -mr-2 p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors z-10"
+          disabled={isLoading}
+          title="Close"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-6">
       {/* Customer Selection */}
       <div>
         <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
@@ -693,7 +707,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
           {isLoading ? 'Saving...' : order ? 'Update Order' : 'Create Order'}
         </button>
       </div>
-      </form>
+    </form>
     </div>
   );
 };
