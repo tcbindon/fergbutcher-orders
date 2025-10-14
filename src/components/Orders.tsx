@@ -543,6 +543,7 @@ const Orders: React.FC = () => {
                   onSubmit={handleUpdateOrder}
                   onCancel={() => setEditingOrder(null)}
                   isLoading={isSubmitting}
+                  showCloseButton={true}
                 />
               ) : (
                 <OrderForm
@@ -552,6 +553,7 @@ const Orders: React.FC = () => {
                   onSubmit={handleUpdateOrder}
                   onCancel={() => setEditingOrder(null)}
                   isLoading={isSubmitting}
+                  showCloseButton={true}
                 />
               )}
             </div>
@@ -621,6 +623,7 @@ const Orders: React.FC = () => {
                   }}
                   onCancel={() => setDuplicatingOrder(null)}
                   isLoading={isSubmitting}
+                  showCloseButton={true}
                 />
               ) : (
                 <OrderForm
@@ -636,6 +639,7 @@ const Orders: React.FC = () => {
                   onCancel={() => setDuplicatingOrder(null)}
                   isLoading={isSubmitting}
                   initialData={duplicatingOrder}
+                  showCloseButton={true}
                 />
               )}
             </div>

@@ -12,6 +12,17 @@ interface OrderFormProps {
   initialData?: any; // For pre-populating when duplicating
 }
 
+interface OrderFormProps {
+  order?: Order;
+  customers: Customer[];
+  onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
+  onSubmit: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onCancel: () => void;
+  isLoading?: boolean;
+  initialData?: any; // For pre-populating when duplicating
+  showCloseButton?: boolean; // New prop to show close button
+}
+
 const OrderForm: React.FC<OrderFormProps> = ({
   order,
   customers,
@@ -19,7 +30,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
   onSubmit,
   onCancel,
   isLoading = false,
-  initialData
+  initialData,
+  showCloseButton = false
 }) => {
   const [formData, setFormData] = useState({
     customerId: '',
@@ -681,7 +693,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
           {isLoading ? 'Saving...' : order ? 'Update Order' : 'Create Order'}
         </button>
       </div>
-    </form>
+      </form>
+    </div>
   );
 };
 

@@ -384,6 +384,7 @@ const Dashboard: React.FC = () => {
                   onSubmit={handleUpdateOrder}
                   onCancel={() => setEditingOrder(null)}
                   isLoading={isSubmitting}
+                  showCloseButton={true}
                 />
               )}
             </div>
@@ -453,6 +454,7 @@ const Dashboard: React.FC = () => {
                   }}
                   onCancel={() => setDuplicatingOrder(null)}
                   isLoading={isSubmitting}
+                  showCloseButton={true}
                 />
               ) : (
                 <OrderForm
@@ -462,12 +464,14 @@ const Dashboard: React.FC = () => {
                     const newOrder = addOrder(orderData);
                     if (newOrder) {
                       setDuplicatingOrder(null);
+                  showCloseButton={true}
                       alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
                     }
                   }}
                   onCancel={() => setDuplicatingOrder(null)}
                   isLoading={isSubmitting}
                   initialData={duplicatingOrder}
+                  showCloseButton={true}
                 />
               )}
             </div>
