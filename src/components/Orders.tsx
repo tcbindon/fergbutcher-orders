@@ -499,6 +499,7 @@ const Orders: React.FC = () => {
                 onSubmit={handleAddOrder}
                 onCancel={() => setShowCreateModal(false)}
                 isLoading={isSubmitting}
+               showCloseButton={true}
               />
             </div>
           </div>
@@ -522,6 +523,7 @@ const Orders: React.FC = () => {
                 onSubmit={handleAddChristmasOrder}
                 onCancel={() => setShowChristmasModal(false)}
                 isLoading={isSubmitting}
+               showCloseButton={true}
               />
             </div>
           </div>
