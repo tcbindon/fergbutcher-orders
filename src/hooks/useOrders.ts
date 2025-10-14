@@ -191,61 +191,6 @@ export const useOrders = () => {
         errorLogger.info(`Order created: #${newOrder.id}`);
         return newOrder;
       }
-          // Move to next occurrence
-          currentDate.setDate(currentDate.getDate() + interval);
-          orderCounter++;
-        }
-        
-        const previousOrders = [...orders];
-        setOrders(prev => [...recurringOrders, ...prev]);
-        setError(null);
-        
-        // Add undo action for the entire recurring series
-        addUndoAction({
-          id: `add-recurring-orders-${parentOrderId}`,
-          description: `Created ${recurringOrders.length} recurring orders (${orderData.recurrencePattern})`,
-          undo: () => {
-            setOrders(previousOrders);
-            errorLogger.info(`Undid creating ${recurringOrders.length} recurring orders`);
-          }
-        });
-        
-        errorLogger.info(`Created ${recurringOrders.length} recurring orders with pattern: ${orderData.recurrencePattern}`);
-        return recurringOrders[0]; // Return the first order in the series
-      } else {
-        // Handle single order creation
-        const allOrders = [...orders, ...initialOrders];
-        const maxOrderNumber = allOrders.reduce((max, order) => {
-          const orderNum = parseInt(order.id);
-          return isNaN(orderNum) ? max : Math.max(max, orderNum);
-        }, 0);
-        const newOrderId = (maxOrderNumber + 1).toString();
-        
-        const newOrder: Order = {
-          ...orderData,
-          id: newOrderId,
-          orderType: orderData.orderType || 'standard',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        
-        const previousOrders = [...orders];
-        setOrders(prev => [newOrder, ...prev]);
-        setError(null);
-        
-        // Add undo action
-        addUndoAction({
-          id: `add-order-${newOrder.id}`,
-          description: `Created order #${newOrder.id}`,
-          undo: () => {
-            setOrders(previousOrders);
-            errorLogger.info(`Undid creating order #${newOrder.id}`);
-          }
-        });
-        
-        errorLogger.info(`Order created: #${newOrder.id}`);
-        return newOrder;
-      }
     } catch (err) {
       console.error('Error adding order:', err);
       errorLogger.error('Failed to add order', err);
