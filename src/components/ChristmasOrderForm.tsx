@@ -50,6 +50,10 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [showCustomerSearchResults, setShowCustomerSearchResults] = useState(false);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+
   const unitOptions = [
     'Kilos', 'Grams', 'Packets', 'Pieces', 'ml', 'Litre'
   ];
@@ -87,6 +91,33 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
       }
     }
   }, [order]);
+
+  const handleCustomerSearch = (searchTerm: string) => {
+    setCustomerSearchTerm(searchTerm);
+    
+    if (searchTerm.trim()) {
+      const filtered = customers.filter(customer => {
+        const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
+        const email = customer.email.toLowerCase();
+        const company = customer.company?.toLowerCase() || '';
+        const term = searchTerm.toLowerCase();
+        
+        return fullName.includes(term) || email.includes(term) || company.includes(term);
+      });
+      setFilteredCustomers(filtered);
+    } else {
+      setFilteredCustomers(customers);
+    }
+  };
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setFormData(prev => ({ ...prev, customerId: customer.id }));
+    setCustomerSearchTerm(`${customer.firstName} ${customer.lastName}`);
+    setShowCustomerSearchResults(false);
+    if (errors.customerId) {
+      setErrors(prev => ({ ...prev, customerId: '' }));
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -528,6 +559,18 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
                     onClick={handleAddNewCustomer}
                     className="px-3 py-1 text-xs bg-fergbutcher-green-600 text-white rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
                     disabled={isLoading || isAddingCustomer || !newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.email.trim()}
+                  >
+                    {isAddingCustomer ? 'Adding...' : 'Add Customer'}
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {errors.customerId && (
+              <p className="text-red-500 text-xs mt-1">{errors.customerId}</p>
+            )}
+          </div>
+        </div>
 
         {/* Christmas Products */}
         <div>
