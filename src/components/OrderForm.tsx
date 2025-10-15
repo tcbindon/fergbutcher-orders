@@ -65,6 +65,40 @@ const OrderForm: React.FC<OrderFormProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Filter customers based on search term
+  useEffect(() => {
+    if (!customerSearchTerm.trim()) {
+      setFilteredCustomers(customers);
+    } else {
+      const searchTerm = customerSearchTerm.toLowerCase();
+      const filtered = customers.filter(customer => 
+        customer.firstName.toLowerCase().includes(searchTerm) ||
+        customer.lastName.toLowerCase().includes(searchTerm) ||
+        customer.email.toLowerCase().includes(searchTerm) ||
+        (customer.company && customer.company.toLowerCase().includes(searchTerm)) ||
+        (customer.phone && customer.phone.toLowerCase().includes(searchTerm))
+      );
+      setFilteredCustomers(filtered);
+    }
+  }, [customerSearchTerm, customers]);
+
+  // Handle customer search input
+  const handleCustomerSearch = (value: string) => {
+    setCustomerSearchTerm(value);
+    setShowCustomerSearchResults(true);
+  };
+
+  // Handle customer selection from search results
+  const handleCustomerSelect = (customer: Customer) => {
+    setFormData(prev => ({ ...prev, customerId: customer.id }));
+    setCustomerSearchTerm(`${customer.firstName} ${customer.lastName}`);
+    setShowCustomerSearchResults(false);
+    // Clear customer selection error if it exists
+    if (errors.customerId) {
+      setErrors(prev => ({ ...prev, customerId: '' }));
+    }
+  };
+
   const unitOptions = [
     'Kilos', 'Grams', 'Packets', 'Pieces', 'ml', 'Litre'
   ];
@@ -72,6 +106,15 @@ const OrderForm: React.FC<OrderFormProps> = ({
   useEffect(() => {
     if (order || initialData) {
       const sourceData = order || initialData;
+      
+      // Set customer search term if customer is selected
+      if (sourceData.customerId) {
+        const selectedCustomer = customers.find(c => c.id === sourceData.customerId);
+        if (selectedCustomer) {
+          setCustomerSearchTerm(`${selectedCustomer.firstName} ${selectedCustomer.lastName}`);
+        }
+      }
+      
       setFormData({
         customerId: sourceData.customerId,
         collectionDate: sourceData.collectionDate,
@@ -89,7 +132,6 @@ const OrderForm: React.FC<OrderFormProps> = ({
         unit: item.unit
       })));
     }
-  }, [order, initialData]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
