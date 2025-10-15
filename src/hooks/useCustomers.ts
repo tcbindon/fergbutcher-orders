@@ -242,6 +242,23 @@ export const useCustomers = () => {
     addCustomer,
     updateCustomer,
     deleteCustomer,
+    setAllCustomers: (newCustomers: Customer[]) => {
+      try {
+        const sortedCustomers = newCustomers.sort((a, b) => 
+          a.firstName.localeCompare(b.firstName)
+        );
+        setCustomers(sortedCustomers);
+        localStorage.setItem('fergbutcher_customers', JSON.stringify(sortedCustomers));
+        setError(null);
+        errorLogger.info(`Restored ${newCustomers.length} customers from backup`);
+        return true;
+      } catch (err) {
+        console.error('Error setting customers:', err);
+        errorLogger.error('Failed to restore customers', err);
+        setError('Failed to restore customers');
+        return false;
+      }
+    },
     getCustomerById,
     searchCustomers
   };

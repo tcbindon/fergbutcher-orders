@@ -320,6 +320,20 @@ export const useOrders = () => {
     addOrder,
     updateOrder,
     deleteOrder,
+    setAllOrders: (newOrders: Order[]) => {
+      try {
+        setOrders(newOrders);
+        localStorage.setItem('fergbutcher_orders', JSON.stringify(newOrders));
+        setError(null);
+        errorLogger.info(`Restored ${newOrders.length} orders from backup`);
+        return true;
+      } catch (err) {
+        console.error('Error setting orders:', err);
+        errorLogger.error('Failed to restore orders', err);
+        setError('Failed to restore orders');
+        return false;
+      }
+    },
     getDuplicateOrderData: (orderId: string) => {
       try {
         const originalOrder = orders.find(o => o.id === orderId);

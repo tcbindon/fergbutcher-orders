@@ -592,7 +592,16 @@ const Settings: React.FC = () => {
                               const data = backupService.restoreFromBackup(backup.id);
                               if (data) {
                                 alert('Restore functionality would be implemented here');
+                              const customersSuccess = setAllCustomers(data.customers);
+                              const ordersSuccess = setAllOrders(data.orders);
+                              
+                              if (customersSuccess && ordersSuccess) {
+                                alert(`Successfully restored ${data.customers.length} customers and ${data.orders.length} orders from backup!`);
+                              } else {
+                                alert('Restore partially failed. Please check the console for errors.');
                               }
+                            } else {
+                              alert('Failed to restore backup. Backup may be corrupted.');
                             }
                           }}
                           className="text-xs bg-fergbutcher-green-600 text-white px-2 py-1 rounded hover:bg-fergbutcher-green-700 transition-colors"
