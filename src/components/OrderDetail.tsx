@@ -77,15 +77,15 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return 'bg-fergbutcher-green-100 text-fergbutcher-green-800 border-fergbutcher-green-200';
+        return 'bg-green-100 text-green-800 border-green-200';
       case 'pending':
-        return 'bg-fergbutcher-yellow-100 text-fergbutcher-yellow-800 border-fergbutcher-yellow-200';
+        return 'bg-amber-100 text-amber-800 border-amber-200';
       case 'collected':
-        return 'bg-fergbutcher-brown-100 text-fergbutcher-brown-800 border-fergbutcher-brown-200';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'cancelled':
-        return 'bg-fergbutcher-black-100 text-fergbutcher-black-800 border-fergbutcher-black-200';
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return 'bg-fergbutcher-brown-100 text-fergbutcher-brown-800 border-fergbutcher-brown-200';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
