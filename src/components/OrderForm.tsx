@@ -33,6 +33,11 @@ const OrderForm: React.FC<OrderFormProps> = ({
   initialData,
   showCloseButton = false
 }) => {
+  // Customer search state
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [showCustomerSearchResults, setShowCustomerSearchResults] = useState(false);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+
   const [formData, setFormData] = useState({
     customerId: '',
     collectionDate: '',
@@ -300,10 +305,207 @@ const OrderForm: React.FC<OrderFormProps> = ({
           Customer *
         </label>
         <div className="space-y-3">
-          <div className="flex space-x-2">
-            <select
-              value={formData.customerId}
-              onChange={(e) => handleChange('customerId', e.target.value)}
+          <div className="flex space-x-2 relative">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={customerSearchTerm}
+                onChange={(e) => handleCustomerSearch(e.target.value)}
+                onFocus={() => setShowCustomerSearchResults(true)}
+                onBlur={() => {
+                  // Delay hiding results to allow for clicks
+                  setTimeout(() => setShowCustomerSearchResults(false), 200);
+                }}
+                placeholder="Search customers by name, email, or company..."
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
+                  errors.customerId ? 'border-red-500' : 'border-fergbutcher-brown-300'
+                }`}
+                disabled={isLoading}
+              />
+              
+              {/* Search Results Dropdown */}
+              {showCustomerSearchResults && (customerSearchTerm.trim() || !formData.customerId) && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-fergbutcher-brown-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredCustomers.length > 0 ? (
+                    filteredCustomers.slice(0, 10).map((customer) => (
+                      <div
+                        key={customer.id}
+                        onClick={() => handleCustomerSelect(customer)}
+                        className="px-4 py-3 hover:bg-fergbutcher-green-50 cursor-pointer border-b border-fergbutcher-brown-100 last:border-b-0"
+                      >
+                        <div className="font-medium text-fergbutcher-black-900">
+                          {customer.firstName} {customer.lastName}
+                        </div>
+                        <div className="text-sm text-fergbutcher-brown-600">
+                          {customer.email}
+                          {customer.company && ` • ${customer.company}`}
+                        </div>
+                      </div>
+                    ))
+                  ) : customerSearchTerm.trim() ? (
+                    <div className="px-4 py-3 text-fergbutcher-brown-500 text-sm">
+                      No customers found matching "{customerSearchTerm}"
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3 text-fergbutcher-brown-500 text-sm">
+                      Start typing to search customers...
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {onAddCustomer && (
+              <button
+                type="button"
+                onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
+                className="px-3 py-2 bg-fergbutcher-green-100 text-fergbutcher-green-700 rounded-lg hover:bg-fergbutcher-green-200 transition-colors flex items-center space-x-1"
+                disabled={isLoading}
+                title="Add New Customer"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span className="hidden sm:inline">New</span>
+              </button>
+            )}
+          </div>
+          
+          {/* Show selected customer info */}
+          {formData.customerId && (
+            <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-3">
+              {(() => {
+                const selectedCustomer = customers.find(c => c.id === formData.customerId);
+                return selectedCustomer ? (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-fergbutcher-green-800">
+                        Selected: {selectedCustomer.firstName} {selectedCustomer.lastName}
+                      </div>
+                      <div className="text-sm text-fergbutcher-green-700">
+                        {selectedCustomer.email}
+                        {selectedCustomer.phone && ` • ${selectedCustomer.phone}`}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, customerId: '' }));
+                        setCustomerSearchTerm('');
+                      }}
+                      className="text-fergbutcher-green-600 hover:text-fergbutcher-green-800 text-sm"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+          )}
+          
+          {/* New Customer Form */}
+          {showNewCustomerForm && (
+            <div className="border border-fergbutcher-green-200 rounded-lg p-4 bg-fergbutcher-green-50">
+              <h4 className="font-medium text-fergbutcher-black-900 mb-3">Add New Customer</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerData.firstName}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="First name"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerData.lastName}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="Last name"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={newCustomerData.email}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="Email address"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={newCustomerData.phone}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="Phone number"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                    Company
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerData.company}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, company: e.target.value }))}
+                    className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                    placeholder="Company name"
+                    disabled={isLoading || isAddingCustomer}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewCustomerForm(false);
+                    setNewCustomerData({
+                      firstName: '',
+                      lastName: '',
+                      email: '',
+                      phone: '',
+                      company: ''
+                    });
+                  }}
+                  className="px-3 py-1 text-xs text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
+                  disabled={isLoading || isAddingCustomer}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddNewCustomer}
+                  className="px-3 py-1 text-xs bg-fergbutcher-green-600 text-white rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
+                  disabled={isLoading || isAddingCustomer || !newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.email.trim()}
+                >
+                  {isAddingCustomer ? 'Adding...' : 'Add Customer'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        {errors.customerId && (
+          <p className="text-red-500 text-xs mt-1">{errors.customerId}</p>
+        )}
+      </div>
               className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
                 errors.customerId ? 'border-red-500' : 'border-fergbutcher-brown-300'
               }`}
