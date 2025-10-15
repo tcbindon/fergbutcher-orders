@@ -132,6 +132,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
         unit: item.unit
       })));
     }
+  }, [order, initialData, customers]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
