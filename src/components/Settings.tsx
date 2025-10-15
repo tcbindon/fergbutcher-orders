@@ -591,7 +591,6 @@ const Settings: React.FC = () => {
                             if (window.confirm('Restore from this backup? This will overwrite current data.')) {
                               const data = backupService.restoreFromBackup(backup.id);
                               if (data) {
-                                alert('Restore functionality would be implemented here');
                               const customersSuccess = setAllCustomers(data.customers);
                               const ordersSuccess = setAllOrders(data.orders);
                               
@@ -603,7 +602,8 @@ const Settings: React.FC = () => {
                             } else {
                               alert('Failed to restore backup. Backup may be corrupted.');
                             }
-                          }}
+                          }
+                        }}
                           className="text-xs bg-fergbutcher-green-600 text-white px-2 py-1 rounded hover:bg-fergbutcher-green-700 transition-colors"
                         >
                           Restore
