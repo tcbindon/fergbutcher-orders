@@ -174,12 +174,10 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
 
       {/* Status */}
       <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
             {getStatusIcon(order.status)}
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(order.status)}`}>
-              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-            </span>
+            <span className="text-sm font-medium text-fergbutcher-brown-700">Order Status:</span>
           </div>
           {nextStatus && (
             <button
@@ -189,6 +187,30 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
               Mark as {nextStatus.charAt(0).toUpperCase() + nextStatus.slice(1)}
             </button>
           )}
+        </div>
+        
+        {/* Status Dropdown */}
+        <div className="flex items-center space-x-3">
+          <label className="text-sm font-medium text-fergbutcher-brown-700">
+            Change Status:
+          </label>
+          <div className="relative">
+            <select
+              value={order.status}
+              onChange={(e) => onStatusChange(e.target.value as Order['status'])}
+              className={`appearance-none pr-8 pl-3 py-2 rounded-lg text-sm font-medium border cursor-pointer focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${getStatusColor(order.status)}`}
+            >
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="collected">Collected</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
 

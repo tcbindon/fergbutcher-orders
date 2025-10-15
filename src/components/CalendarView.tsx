@@ -31,15 +31,15 @@ const CalendarView: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return 'bg-fergbutcher-green-500';
+        return 'bg-green-500';
       case 'pending':
-        return 'bg-fergbutcher-yellow-500';
+        return 'bg-amber-500';
       case 'collected':
-        return 'bg-fergbutcher-brown-500';
+        return 'bg-blue-500';
       case 'cancelled':
-        return 'bg-fergbutcher-black-500';
+        return 'bg-red-500';
       default:
-        return 'bg-fergbutcher-brown-400';
+        return 'bg-gray-400';
     }
   };
 
