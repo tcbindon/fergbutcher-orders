@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Clock, User, Package, CheckCircle, AlertTriangle, XCircle, Edit, MessageSquare } from 'lucide-react';
+import { X, Calendar, Clock, User, Package, CheckCircle, AlertTriangle, XCircle, CreditCard as Edit, MessageSquare } from 'lucide-react';
 import { Gift } from 'lucide-react';
 import { Order, Customer } from '../types';
 import OrderDetail from './OrderDetail';
