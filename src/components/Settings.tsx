@@ -591,15 +591,14 @@ const Settings: React.FC = () => {
                             if (window.confirm('Restore from this backup? This will overwrite current data.')) {
                               const data = backupService.restoreFromBackup(backup.id);
                               if (data) {
-                                alert('Restore functionality would be implemented here');
-                                // const customersSuccess = setAllCustomers(data.customers);
-                                // const ordersSuccess = setAllOrders(data.orders);
+                                const customersSuccess = setAllCustomers(data.customers);
+                                const ordersSuccess = setAllOrders(data.orders);
                                 
-                                // if (customersSuccess && ordersSuccess) {
-                                //   alert(`Successfully restored ${data.customers.length} customers and ${data.orders.length} orders from backup!`);
-                                // } else {
-                                //   alert('Restore partially failed. Please check the console for errors.');
-                                // }
+                                if (customersSuccess && ordersSuccess) {
+                                  alert(`Successfully restored ${data.customers.length} customers and ${data.orders.length} orders from backup!`);
+                                } else {
+                                  alert('Restore partially failed. Please check the console for errors.');
+                                }
                               } else {
                                 alert('Failed to restore backup. Backup may be corrupted.');
                               }
