@@ -359,20 +359,6 @@ const Settings: React.FC = () => {
                 <div className="flex items-start space-x-2">
                   <AlertTriangle className="h-5 w-5 text-fergbutcher-yellow-600 mt-0.5" />
                   <div>
-                <div className="mt-4 pt-4 border-t border-fergbutcher-green-200">
-                  <div className="grid grid-cols-2 gap-4 text-center">
-                    <div>
-                      <div className="text-lg font-bold text-fergbutcher-green-600">
-                        {orders.filter(o => o.orderType === 'christmas').length}
-                      </div>
-                      <div className="text-sm text-fergbutcher-brown-600">Christmas Orders</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-fergbutcher-green-600">{christmasProducts.length}</div>
-                      <div className="text-sm text-fergbutcher-brown-600">Christmas Products</div>
-                    </div>
-                  </div>
-                </div>
                     <p className="text-fergbutcher-yellow-800 font-medium">Tips:</p>
                     <ul className="text-sm text-fergbutcher-yellow-700 mt-1 space-y-1">
                       <li>• Shortcuts don't work when typing in input fields</li>
@@ -498,6 +484,20 @@ const Settings: React.FC = () => {
                       <div className="text-sm text-fergbutcher-brown-600">Today's Collections</div>
                     </div>
                   </div>
+                  <div className="mt-4 pt-4 border-t border-fergbutcher-green-200">
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <div className="text-lg font-bold text-fergbutcher-green-600">
+                          {orders.filter(o => o.orderType === 'christmas').length}
+                        </div>
+                        <div className="text-sm text-fergbutcher-brown-600">Christmas Orders</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-fergbutcher-green-600">{christmasProducts.length}</div>
+                        <div className="text-sm text-fergbutcher-brown-600">Christmas Products</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -591,19 +591,20 @@ const Settings: React.FC = () => {
                             if (window.confirm('Restore from this backup? This will overwrite current data.')) {
                               const data = backupService.restoreFromBackup(backup.id);
                               if (data) {
-                              const customersSuccess = setAllCustomers(data.customers);
-                              const ordersSuccess = setAllOrders(data.orders);
-                              
-                              if (customersSuccess && ordersSuccess) {
-                                alert(`Successfully restored ${data.customers.length} customers and ${data.orders.length} orders from backup!`);
+                                alert('Restore functionality would be implemented here');
+                                // const customersSuccess = setAllCustomers(data.customers);
+                                // const ordersSuccess = setAllOrders(data.orders);
+                                
+                                // if (customersSuccess && ordersSuccess) {
+                                //   alert(`Successfully restored ${data.customers.length} customers and ${data.orders.length} orders from backup!`);
+                                // } else {
+                                //   alert('Restore partially failed. Please check the console for errors.');
+                                // }
                               } else {
-                                alert('Restore partially failed. Please check the console for errors.');
+                                alert('Failed to restore backup. Backup may be corrupted.');
                               }
-                            } else {
-                              alert('Failed to restore backup. Backup may be corrupted.');
                             }
-                          }
-                        }}
+                          }}
                           className="text-xs bg-fergbutcher-green-600 text-white px-2 py-1 rounded hover:bg-fergbutcher-green-700 transition-colors"
                         >
                           Restore
