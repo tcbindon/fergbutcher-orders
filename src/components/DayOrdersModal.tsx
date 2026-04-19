@@ -12,6 +12,8 @@ interface DayOrdersModalProps {
   onUpdateOrder?: (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>) => boolean;
   onDeleteOrder?: (id: string) => boolean;
   onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
+  onEdit?: (order: Order) => void;
+  onDuplicate?: (orderId: string) => void;
 }
 
 const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
@@ -99,12 +101,11 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
     }
   };
 
-  const handleEditOrder = (order: Order) => {
-    setEditingOrder(order);
-  };
-
   const handleDuplicateOrder = (orderId: string) => {
-    // Implementation for duplicating order
+    if (onDuplicate) {
+      onDuplicate(orderId);
+      setViewingOrder(null);
+    }
   };
 
   const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
@@ -142,7 +143,12 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
             <OrderDetail
               order={viewingOrder}
               customer={customers.find(c => c.id === viewingOrder.customerId)}
-              onEdit={() => handleEditOrder(viewingOrder)}
+              onEdit={() => {
+                if (onEdit) {
+                  onEdit(viewingOrder);
+                  setViewingOrder(null);
+                }
+              }}
               onDelete={handleDeleteOrder}
               onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
               onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
