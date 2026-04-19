@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, Gift, RefreshCw } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
+import OrderForm from './OrderForm';
+import ChristmasOrderForm from './ChristmasOrderForm';
 import { CalendarViewMode } from '../types';
 import DayOrdersModal from './DayOrdersModal';
 import PrintSchedule from './PrintSchedule';
@@ -76,6 +78,39 @@ const CalendarView: React.FC = () => {
   const handleDayClick = (date: Date) => {
     setSelectedDayForModal(date);
     setShowDayDetailModal(true);
+  };
+
+  const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!editingOrder) return false;
+    
+    setIsSubmitting(true);
+    try {
+      const success = updateOrder(editingOrder.id, orderData);
+      if (success) {
+        setEditingOrder(null);
+      }
+      return success;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    const success = deleteOrder(orderId);
+    if (success) {
+      setDeletingOrder(null);
+    }
+    return success;
+  };
+
+  const handleDuplicateOrder = (orderId: string) => {
+    const duplicateData = getDuplicateOrderData(orderId);
+    if (duplicateData) {
+      setDuplicatingOrder(duplicateData);
+      setShowDayDetailModal(false); // Close day modal
+    } else {
+      alert('Failed to prepare duplicate order. Please try again.');
+    }
   };
 
   const getWeekDays = (date: Date) => {
@@ -476,6 +511,86 @@ const CalendarView: React.FC = () => {
           customers={customers}
           onClose={() => setShowPrintModal(false)}
         />
+      )}
+
+      {/* Edit Order Modal */}
+      {editingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
+            </div>
+            <div className="p-6">
+              {editingOrder.orderType === 'christmas' ? (
+                <ChristmasOrderForm
+                  order={editingOrder}
+                  customers={customers}
+                  onAddCustomer={addCustomer}
+                  onSubmit={handleUpdateOrder}
+                  onCancel={() => setEditingOrder(null)}
+                  isLoading={isSubmitting}
+                  showCloseButton={true}
+                />
+              ) : (
+                <OrderForm
+                  order={editingOrder}
+                  customers={customers}
+                  onAddCustomer={addCustomer}
+                  onSubmit={handleUpdateOrder}
+                  onCancel={() => setEditingOrder(null)}
+                  isLoading={isSubmitting}
+                  showCloseButton={true}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Order Modal */}
+      {duplicatingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
+              <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
+            </div>
+            <div className="p-6">
+              {duplicatingOrder.orderType === 'christmas' ? (
+                <ChristmasOrderForm
+                  customers={customers}
+                  onAddCustomer={addCustomer}
+                  onSubmit={(orderData) => {
+                    const newOrder = addOrder(orderData);
+                    if (newOrder) {
+                      setDuplicatingOrder(null);
+                      alert(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
+                    }
+                  }}
+                  onCancel={() => setDuplicatingOrder(null)}
+                  isLoading={isSubmitting}
+                  showCloseButton={true}
+                />
+              ) : (
+                <OrderForm
+                  customers={customers}
+                  onAddCustomer={addCustomer}
+                  onSubmit={(orderData) => {
+                    const newOrder = addOrder(orderData);
+                    if (newOrder) {
+                      setDuplicatingOrder(null);
+                      alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                    }
+                  }}
+                  onCancel={() => setDuplicatingOrder(null)}
+                  isLoading={isSubmitting}
+                  initialData={duplicatingOrder}
+                  showCloseButton={true}
+                />
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

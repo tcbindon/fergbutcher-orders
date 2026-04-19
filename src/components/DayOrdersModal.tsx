@@ -12,6 +12,8 @@ interface DayOrdersModalProps {
   onUpdateOrder?: (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>) => boolean;
   onDeleteOrder?: (id: string) => boolean;
   onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
+  onEdit?: (order: Order) => void;
+  onDuplicate?: (orderId: string) => void;
 }
 
 const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
@@ -68,24 +70,6 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
 
   const isToday = date.toDateString() === new Date().toDateString();
 
-  const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!editingOrder || !onUpdateOrder) return;
-    
-    setIsSubmitting(true);
-    try {
-      const success = onUpdateOrder(editingOrder.id, orderData);
-      if (success) {
-        setEditingOrder(null);
-        // Update viewing order if it's the same one
-        if (viewingOrder?.id === editingOrder.id) {
-          setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
-        }
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleDeleteOrder = () => {
     if (!viewingOrder || !onDeleteOrder) return;
     
@@ -94,6 +78,18 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
       if (success) {
         setViewingOrder(null);
       }
+    }
+  };
+
+  const handleEditOrder = (order: Order) => {
+    if (onEdit) {
+      onEdit(order);
+    }
+  };
+
+  const handleDuplicateOrder = (orderId: string) => {
+    if (onDuplicate) {
+      onDuplicate(orderId);
     }
   };
 
@@ -265,10 +261,10 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setViewingOrder(order);
+                              handleEditOrder(order);
                             }}
                             className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
-                            title="View Full Order Details"
+                            title="Edit Order"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
