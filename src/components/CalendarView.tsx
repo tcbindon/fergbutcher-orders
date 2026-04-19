@@ -493,16 +493,17 @@ const CalendarView: React.FC = () => {
             selectedDayForModal.getDate()
           ))}
           customers={customers}
-          onUpdateOrder={(id, updates) => {
-            // This would need to be passed down from the parent component
-            // For now, we'll just return false to indicate no update capability
-            console.log('Update order:', id, updates);
-            return false;
+          onUpdateOrder={(id, updates) => updateOrder(id, updates)}
+          onDeleteOrder={(id) => deleteOrder(id)}
+          onEdit={(order) => {
+            setEditingOrder(order);
+            setShowDayDetailModal(false);
+            setSelectedDayForModal(null);
           }}
-          onDeleteOrder={(id) => {
-            // This would need to be passed down from the parent component
-            console.log('Delete order:', id);
-            return false;
+          onDuplicate={(orderId) => {
+            handleDuplicateOrder(orderId);
+            setShowDayDetailModal(false);
+            setSelectedDayForModal(null);
           }}
           onClose={() => {
             setShowDayDetailModal(false);
