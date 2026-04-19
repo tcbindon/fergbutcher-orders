@@ -12,8 +12,6 @@ interface DayOrdersModalProps {
   onUpdateOrder?: (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>) => boolean;
   onDeleteOrder?: (id: string) => boolean;
   onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
-  onEdit?: (order: Order) => void;
-  onDuplicate?: (orderId: string) => void;
 }
 
 const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
@@ -23,7 +21,9 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   onClose,
   onUpdateOrder,
   onDeleteOrder,
-  onAddCustomer
+  onAddCustomer,
+  onEdit,
+  onDuplicate
 }) => {
   const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
@@ -70,6 +70,24 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
 
   const isToday = date.toDateString() === new Date().toDateString();
 
+  const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!editingOrder || !onUpdateOrder) return;
+    
+    setIsSubmitting(true);
+    try {
+      const success = onUpdateOrder(editingOrder.id, orderData);
+      if (success) {
+        setEditingOrder(null);
+        // Update viewing order if it's the same one
+        if (viewingOrder?.id === editingOrder.id) {
+          setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDeleteOrder = () => {
     if (!viewingOrder || !onDeleteOrder) return;
     
@@ -82,15 +100,11 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   };
 
   const handleEditOrder = (order: Order) => {
-    if (onEdit) {
-      onEdit(order);
-    }
+    setEditingOrder(order);
   };
 
   const handleDuplicateOrder = (orderId: string) => {
-    if (onDuplicate) {
-      onDuplicate(orderId);
-    }
+    // Implementation for duplicating order
   };
 
   const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
@@ -128,44 +142,11 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
             <OrderDetail
               order={viewingOrder}
               customer={customers.find(c => c.id === viewingOrder.customerId)}
-              onEdit={() => setEditingOrder(viewingOrder)}
+              onEdit={() => handleEditOrder(viewingOrder)}
               onDelete={handleDeleteOrder}
+              onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
               onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
             />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // If editing an order, show the order form
-  if (editingOrder) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
-            <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
-          </div>
-          <div className="p-6">
-            {editingOrder.orderType === 'christmas' ? (
-              <ChristmasOrderForm
-                order={editingOrder}
-                customers={customers}
-                onAddCustomer={onAddCustomer}
-                onSubmit={handleUpdateOrder}
-                onCancel={() => setEditingOrder(null)}
-                isLoading={isSubmitting}
-              />
-            ) : (
-              <OrderForm
-                order={editingOrder}
-                customers={customers}
-                onAddCustomer={onAddCustomer}
-                onSubmit={handleUpdateOrder}
-                onCancel={() => setEditingOrder(null)}
-                isLoading={isSubmitting}
-              />
-            )}
           </div>
         </div>
       </div>
@@ -261,10 +242,10 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleEditOrder(order);
+                              setViewingOrder(order);
                             }}
                             className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
-                            title="Edit Order"
+                            title="View Full Order Details"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
