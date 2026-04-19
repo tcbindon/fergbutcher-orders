@@ -33,14 +33,16 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return <CheckCircle className="h-4 w-4 text-fergbutcher-green-500" />;
       case 'pending':
-        return <Clock className="h-4 w-4 text-fergbutcher-yellow-500" />;
+        return <Clock className="h-4 w-4 text-amber-500" />;
+      case 'confirmed':
+        return <CheckCircle className="h-4 w-4 text-sky-500" />;
+      case 'prepared':
+        return <CheckCircle className="h-4 w-4 text-teal-500" />;
       case 'collected':
-        return <Package className="h-4 w-4 text-fergbutcher-brown-500" />;
+        return <Package className="h-4 w-4 text-green-600" />;
       case 'cancelled':
-        return <XCircle className="h-4 w-4 text-fergbutcher-black-500" />;
+        return <XCircle className="h-4 w-4 text-rose-400" />;
       default:
         return <Clock className="h-4 w-4 text-fergbutcher-brown-400" />;
     }
@@ -48,14 +50,16 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-green-100 text-green-800 border-green-200';
       case 'pending':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
+        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'confirmed':
+        return 'bg-sky-50 text-sky-800 border-sky-200';
+      case 'prepared':
+        return 'bg-teal-50 text-teal-800 border-teal-200';
       case 'collected':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-green-50 text-green-800 border-green-200';
       case 'cancelled':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-rose-50 text-rose-700 border-rose-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -201,8 +205,8 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
                   if (a.collectionTime && !b.collectionTime) return -1;
                   if (!a.collectionTime && b.collectionTime) return 1;
                   
-                  const statusPriority = { 'confirmed': 1, 'pending': 2, 'collected': 3, 'cancelled': 4 };
-                  return statusPriority[a.status] - statusPriority[b.status];
+                  const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
+                  return (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99);
                 })
                 .map((order) => {
                   const customer = customers.find(c => c.id === order.customerId);
@@ -312,19 +316,25 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-1">
-                  <div className="w-3 h-3 bg-fergbutcher-green-500 rounded-full"></div>
-                  <span className="text-fergbutcher-brown-600">
-                    {orders.filter(o => o.status === 'confirmed').length} Confirmed
-                  </span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <div className="w-3 h-3 bg-fergbutcher-yellow-500 rounded-full"></div>
+                  <div className="w-3 h-3 bg-amber-300 rounded-full"></div>
                   <span className="text-fergbutcher-brown-600">
                     {orders.filter(o => o.status === 'pending').length} Pending
                   </span>
                 </div>
                 <div className="flex items-center space-x-1">
-                  <div className="w-3 h-3 bg-fergbutcher-brown-500 rounded-full"></div>
+                  <div className="w-3 h-3 bg-sky-300 rounded-full"></div>
+                  <span className="text-fergbutcher-brown-600">
+                    {orders.filter(o => o.status === 'confirmed').length} Confirmed
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-3 h-3 bg-teal-300 rounded-full"></div>
+                  <span className="text-fergbutcher-brown-600">
+                    {orders.filter(o => o.status === 'prepared').length} Prepared
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-3 h-3 bg-green-400 rounded-full"></div>
                   <span className="text-fergbutcher-brown-600">
                     {orders.filter(o => o.status === 'collected').length} Collected
                   </span>

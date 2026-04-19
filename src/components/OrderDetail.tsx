@@ -61,14 +61,16 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return <CheckCircle className="h-5 w-5 text-fergbutcher-green-500" />;
       case 'pending':
-        return <Clock className="h-5 w-5 text-fergbutcher-yellow-500" />;
+        return <Clock className="h-5 w-5 text-amber-500" />;
+      case 'confirmed':
+        return <CheckCircle className="h-5 w-5 text-sky-500" />;
+      case 'prepared':
+        return <CheckCircle className="h-5 w-5 text-teal-500" />;
       case 'collected':
-        return <Package className="h-5 w-5 text-fergbutcher-brown-500" />;
+        return <Package className="h-5 w-5 text-green-600" />;
       case 'cancelled':
-        return <XCircle className="h-5 w-5 text-fergbutcher-black-500" />;
+        return <XCircle className="h-5 w-5 text-rose-400" />;
       default:
         return <Clock className="h-5 w-5 text-fergbutcher-brown-400" />;
     }
@@ -76,14 +78,16 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-green-100 text-green-800 border-green-200';
       case 'pending':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
+        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'confirmed':
+        return 'bg-sky-50 text-sky-800 border-sky-200';
+      case 'prepared':
+        return 'bg-teal-50 text-teal-800 border-teal-200';
       case 'collected':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-green-50 text-green-800 border-green-200';
       case 'cancelled':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-rose-50 text-rose-700 border-rose-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -94,6 +98,8 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
       case 'pending':
         return 'confirmed';
       case 'confirmed':
+        return 'prepared';
+      case 'prepared':
         return 'collected';
       default:
         return null;
@@ -196,6 +202,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
             >
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
+              <option value="prepared">Prepared</option>
               <option value="collected">Collected</option>
               <option value="cancelled">Cancelled</option>
             </select>

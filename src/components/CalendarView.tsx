@@ -73,16 +73,18 @@ const CalendarView: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-green-500';
       case 'pending':
-        return 'bg-amber-500';
+        return 'bg-amber-300';
+      case 'confirmed':
+        return 'bg-sky-300';
+      case 'prepared':
+        return 'bg-teal-300';
       case 'collected':
-        return 'bg-blue-500';
+        return 'bg-green-400';
       case 'cancelled':
-        return 'bg-red-500';
+        return 'bg-rose-300';
       default:
-        return 'bg-gray-400';
+        return 'bg-gray-300';
     }
   };
 

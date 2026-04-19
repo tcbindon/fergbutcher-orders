@@ -293,6 +293,7 @@ export const useOrders = () => {
     const total = currentOrders.length;
     const pending = currentOrders.filter(o => o.status === 'pending').length;
     const confirmed = currentOrders.filter(o => o.status === 'confirmed').length;
+    const prepared = currentOrders.filter(o => o.status === 'prepared').length;
     const collected = currentOrders.filter(o => o.status === 'collected').length;
     const cancelled = currentOrders.filter(o => o.status === 'cancelled').length;
 
@@ -300,16 +301,19 @@ export const useOrders = () => {
     const todaysOrders = currentOrders.filter(o => o.collectionDate === today);
     const todaysConfirmed = todaysOrders.filter(o => o.status === 'confirmed').length;
     const todaysPending = todaysOrders.filter(o => o.status === 'pending').length;
+    const todaysPrepared = todaysOrders.filter(o => o.status === 'prepared').length;
 
     return {
       total,
       pending,
       confirmed,
+      prepared,
       collected,
       cancelled,
       todaysTotal: todaysOrders.length,
       todaysConfirmed,
-      todaysPending
+      todaysPending,
+      todaysPrepared
     };
   };
 

@@ -30,14 +30,16 @@ const PrintSchedule: React.FC<PrintScheduleProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'text-green-600';
       case 'pending':
-        return 'text-yellow-600';
+        return 'text-amber-600';
+      case 'confirmed':
+        return 'text-sky-600';
+      case 'prepared':
+        return 'text-teal-600';
       case 'collected':
-        return 'text-gray-600';
+        return 'text-green-600';
       case 'cancelled':
-        return 'text-red-600';
+        return 'text-rose-500';
       default:
         return 'text-gray-600';
     }
@@ -53,8 +55,8 @@ const PrintSchedule: React.FC<PrintScheduleProps> = ({
       if (a.collectionTime && !b.collectionTime) return -1;
       if (!a.collectionTime && b.collectionTime) return 1;
       
-      const statusPriority = { 'confirmed': 1, 'pending': 2, 'collected': 3, 'cancelled': 4 };
-      return statusPriority[a.status] - statusPriority[b.status];
+      const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
+      return (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99);
     });
 
   return (

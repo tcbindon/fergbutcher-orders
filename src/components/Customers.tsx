@@ -1,19 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  Search, 
-  Plus, 
-  Edit, 
-  Eye, 
-  Mail, 
-  Phone, 
-  Building,
-  User,
-  Trash2,
-  AlertTriangle,
-  Copy,
-  Package,
-  MessageSquare
-} from 'lucide-react';
+import { Search, Plus, CreditCard as Edit, Eye, Mail, Phone, Building, User, Trash2, AlertTriangle, Copy, Package, MessageSquare } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import { useStaffNotes } from '../hooks/useStaffNotes';
@@ -61,14 +47,16 @@ const Customers: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-fergbutcher-green-100 text-fergbutcher-green-800 border-fergbutcher-green-200';
       case 'pending':
-        return 'bg-fergbutcher-yellow-100 text-fergbutcher-yellow-800 border-fergbutcher-yellow-200';
+        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'confirmed':
+        return 'bg-sky-50 text-sky-800 border-sky-200';
+      case 'prepared':
+        return 'bg-teal-50 text-teal-800 border-teal-200';
       case 'collected':
-        return 'bg-fergbutcher-brown-100 text-fergbutcher-brown-800 border-fergbutcher-brown-200';
+        return 'bg-green-50 text-green-800 border-green-200';
       case 'cancelled':
-        return 'bg-fergbutcher-black-100 text-fergbutcher-black-800 border-fergbutcher-black-200';
+        return 'bg-rose-50 text-rose-700 border-rose-200';
       default:
         return 'bg-fergbutcher-brown-100 text-fergbutcher-brown-800 border-fergbutcher-brown-200';
     }

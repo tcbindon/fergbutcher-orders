@@ -117,7 +117,7 @@ const Dashboard: React.FC = () => {
     const startDateString = startOfWeek.toISOString().split('T')[0];
     const endDateString = endOfWeek.toISOString().split('T')[0];
     
-    const statusPriority = { 'confirmed': 1, 'pending': 2, 'collected': 3, 'cancelled': 4 };
+    const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
     
     return orders
       .filter(order => order.collectionDate >= startDateString && order.collectionDate <= endDateString)
@@ -196,14 +196,16 @@ const Dashboard: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return <CheckCircle className="h-4 w-4 text-fergbutcher-green-500" />;
       case 'pending':
-        return <Clock className="h-4 w-4 text-fergbutcher-yellow-500" />;
+        return <Clock className="h-4 w-4 text-amber-500" />;
+      case 'confirmed':
+        return <CheckCircle className="h-4 w-4 text-sky-500" />;
+      case 'prepared':
+        return <CheckCircle className="h-4 w-4 text-teal-500" />;
       case 'collected':
-        return <Package className="h-4 w-4 text-fergbutcher-brown-500" />;
+        return <Package className="h-4 w-4 text-green-600" />;
       case 'cancelled':
-        return <XCircle className="h-4 w-4 text-fergbutcher-black-500" />;
+        return <XCircle className="h-4 w-4 text-rose-400" />;
       default:
         return <Clock className="h-4 w-4 text-fergbutcher-brown-400" />;
     }
@@ -211,14 +213,16 @@ const Dashboard: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-green-100 text-green-800';
       case 'pending':
-        return 'bg-amber-100 text-amber-800';
+        return 'bg-amber-50 text-amber-800';
+      case 'confirmed':
+        return 'bg-sky-50 text-sky-800';
+      case 'prepared':
+        return 'bg-teal-50 text-teal-800';
       case 'collected':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-green-50 text-green-800';
       case 'cancelled':
-        return 'bg-red-100 text-red-800';
+        return 'bg-rose-50 text-rose-700';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -309,6 +313,7 @@ const Dashboard: React.FC = () => {
                       >
                         <option value="pending">Pending</option>
                         <option value="confirmed">Confirmed</option>
+                        <option value="prepared">Prepared</option>
                         <option value="collected">Collected</option>
                         <option value="cancelled">Cancelled</option>
                       </select>

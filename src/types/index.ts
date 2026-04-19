@@ -43,7 +43,7 @@ export interface Order {
   collectionDate: string;
   collectionTime?: string;
   additionalNotes?: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'collected';
+  status: 'pending' | 'confirmed' | 'prepared' | 'collected' | 'cancelled';
   isRecurring?: boolean;
   recurrencePattern?: 'weekly' | 'fortnightly' | null;
   recurrenceEndDate?: string | null;

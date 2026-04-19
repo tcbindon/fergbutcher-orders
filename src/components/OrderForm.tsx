@@ -782,6 +782,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
           >
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
+            <option value="prepared">Prepared</option>
             <option value="collected">Collected</option>
             <option value="cancelled">Cancelled</option>
           </select>
