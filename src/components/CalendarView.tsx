@@ -4,17 +4,17 @@ import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
-import { CalendarViewMode } from '../types';
+import { CalendarViewMode, Order } from '../types';
 import DayOrdersModal from './DayOrdersModal';
 import PrintSchedule from './PrintSchedule';
 
 const CalendarView: React.FC = () => {
-  const { 
-    orders, 
-    updateOrder, 
-    deleteOrder, 
-    getDuplicateOrderData, 
-    addOrder 
+  const {
+    orders,
+    updateOrder,
+    deleteOrder,
+    getDuplicateOrderData,
+    addOrder
   } = useOrders();
   const { customers, addCustomer } = useCustomers();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -22,6 +22,11 @@ const CalendarView: React.FC = () => {
   const [selectedDayForModal, setSelectedDayForModal] = useState<Date | null>(null);
   const [showDayDetailModal, setShowDayDetailModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [deletingOrder, setDeletingOrder] = useState<string | null>(null);
+  const [duplicatingOrder, setDuplicatingOrder] = useState<Omit<Order, 'id' | 'createdAt' | 'updatedAt'> | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [printDate, setPrintDate] = useState<string>('');
 
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
