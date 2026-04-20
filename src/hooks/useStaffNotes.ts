@@ -1,98 +1,92 @@
-import { useState, useEffect } from 'react';
+// src/hooks/useStaffNotes.ts
+// ============================================================
+// DROP-IN REPLACEMENT for the original useStaffNotes.ts
+// Identical public API — components need zero changes.
+// Data now lives in MySQL via the SiteGround PHP API.
+// ============================================================
+import { useState, useEffect, useCallback } from 'react';
 import { StaffNote } from '../types';
-
-// Mock initial data
-const initialStaffNotes: StaffNote[] = [
-  {
-    id: '1',
-    orderId: '1',
-    staffName: 'Sarah',
-    timestamp: '2025-01-12T14:30:00Z',
-    content: 'Customer called to confirm they want the beef wellington cooked medium-rare. Make sure to note this for prep.'
-  },
-  {
-    id: '2',
-    orderId: '2',
-    staffName: 'Mike',
-    timestamp: '2025-01-11T16:45:00Z',
-    content: 'Customer mentioned they have a large family gathering. Double-check portion sizes are generous.'
-  }
-];
+import errorLogger from '../services/errorLogger';
+import { staffNotesApi } from './useApi';
 
 export const useStaffNotes = () => {
   const [staffNotes, setStaffNotes] = useState<StaffNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load staff notes from localStorage on mount
+  // ── Load all notes from DB on mount ──────────────────────
   useEffect(() => {
-    try {
-      const savedNotes = localStorage.getItem('fergbutcher_staff_notes');
-      if (savedNotes) {
-        setStaffNotes(JSON.parse(savedNotes));
-      } else {
-        // Use initial data if no saved data exists
-        setStaffNotes(initialStaffNotes);
-        localStorage.setItem('fergbutcher_staff_notes', JSON.stringify(initialStaffNotes));
-      }
-    } catch (err) {
-      console.error('Error loading staff notes:', err);
-      setError('Failed to load staff notes');
-      setStaffNotes(initialStaffNotes);
-    } finally {
-      setLoading(false);
-    }
+    let cancelled = false;
+    setLoading(true);
+    staffNotesApi.getAll()
+      .then(data => { if (!cancelled) { setStaffNotes(data); setError(null); } })
+      .catch(err => {
+        if (!cancelled) {
+          console.error('Error loading staff notes:', err);
+          setError('Failed to load staff notes.');
+        }
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
-  // Save staff notes to localStorage whenever notes change
-  useEffect(() => {
-    if (!loading && staffNotes.length >= 0) {
-      try {
-        localStorage.setItem('fergbutcher_staff_notes', JSON.stringify(staffNotes));
-      } catch (err) {
-        console.error('Error saving staff notes:', err);
-        setError('Failed to save staff notes');
-      }
-    }
-  }, [staffNotes, loading]);
-
-  const addStaffNote = (orderId: string, staffName: string, content: string) => {
+  // ── addStaffNote ──────────────────────────────────────────
+  const addStaffNote = useCallback((orderId: string, staffName: string, content: string) => {
     try {
       const newNote: StaffNote = {
         id: Date.now().toString(),
         orderId,
         staffName: staffName.trim(),
         timestamp: new Date().toISOString(),
-        content: content.trim()
+        content: content.trim(),
       };
-      
+
+      // Optimistic update
       setStaffNotes(prev => [newNote, ...prev]);
-      setError(null);
+
+      // Persist to DB
+      staffNotesApi.save(newNote).catch(err => {
+        console.error('Failed to save staff note to DB:', err);
+        setError('Failed to save note. Please try again.');
+        setStaffNotes(prev => prev.filter(n => n.id !== newNote.id)); // rollback
+      });
+
       return newNote;
     } catch (err) {
       console.error('Error adding staff note:', err);
       setError('Failed to add staff note');
       return null;
     }
-  };
+  }, []);
 
-  const deleteStaffNote = (noteId: string) => {
+  // ── deleteStaffNote ───────────────────────────────────────
+  const deleteStaffNote = useCallback((noteId: string) => {
     try {
-      setStaffNotes(prev => prev.filter(note => note.id !== noteId));
-      setError(null);
+      const noteToDelete = staffNotes.find(n => n.id === noteId);
+      setStaffNotes(prev => prev.filter(n => n.id !== noteId));
+
+      staffNotesApi.delete(noteId).catch(err => {
+        console.error('Failed to delete staff note from DB:', err);
+        setError('Failed to delete note. Please try again.');
+        if (noteToDelete) {
+          setStaffNotes(prev => [noteToDelete, ...prev]); // rollback
+        }
+      });
+
       return true;
     } catch (err) {
       console.error('Error deleting staff note:', err);
       setError('Failed to delete staff note');
       return false;
     }
-  };
+  }, [staffNotes]);
 
-  const getNotesForOrder = (orderId: string) => {
-    return staffNotes
-      .filter(note => note.orderId === orderId)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  };
+  // ── getNotesForOrder ──────────────────────────────────────
+  const getNotesForOrder = useCallback((orderId: string) =>
+    staffNotes
+      .filter(n => n.orderId === orderId)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+  [staffNotes]);
 
   return {
     staffNotes,
@@ -100,6 +94,6 @@ export const useStaffNotes = () => {
     error,
     addStaffNote,
     deleteStaffNote,
-    getNotesForOrder
+    getNotesForOrder,
   };
 };
