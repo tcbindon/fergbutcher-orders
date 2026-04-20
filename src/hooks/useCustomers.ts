@@ -1,54 +1,18 @@
-import { useState, useEffect } from 'react';
+// src/hooks/useCustomers.ts
+// ============================================================
+// DROP-IN REPLACEMENT for the original useCustomers.ts
+// Identical public API — components need zero changes.
+// Data now lives in MySQL via the SiteGround PHP API.
+// ============================================================
+import { useState, useEffect, useCallback } from 'react';
 import { Customer } from '../types';
 import { useGoogleSheets } from './useGoogleSheets';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
+import { customersApi } from './useApi';
 
-// Mock initial data
-const initialCustomers: Customer[] = [
-  {
-    id: '1',
-    firstName: 'Sarah',
-    lastName: 'Johnson',
-    email: 'sarah.johnson@email.com',
-    phone: '+64 21 123 4567',
-    company: 'Johnson & Co',
-    createdAt: '2024-01-15T10:30:00Z'
-  },
-  {
-    id: '2',
-    firstName: 'Mike',
-    lastName: 'Chen',
-    email: 'mike.chen@email.com',
-    phone: '+64 27 456 7890',
-    createdAt: '2024-01-10T14:20:00Z'
-  },
-  {
-    id: '3',
-    firstName: 'Emma',
-    lastName: 'Wilson',
-    email: 'emma.wilson@email.com',
-    company: 'Wilson Enterprises',
-    createdAt: '2024-01-08T09:15:00Z'
-  },
-  {
-    id: '4',
-    firstName: 'James',
-    lastName: 'Thompson',
-    email: 'james.thompson@email.com',
-    phone: '+64 21 987 6543',
-    company: 'Thompson Holdings',
-    createdAt: '2024-01-05T16:45:00Z'
-  },
-  {
-    id: '5',
-    firstName: 'Lisa',
-    lastName: 'Brown',
-    email: 'lisa.brown@email.com',
-    phone: '+64 22 555 1234',
-    createdAt: '2024-01-03T11:20:00Z'
-  }
-];
+const sortByFirstName = (arr: Customer[]) =>
+  [...arr].sort((a, b) => a.firstName.localeCompare(b.firstName));
 
 export const useCustomers = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -57,89 +21,66 @@ export const useCustomers = () => {
   const { isConnected, syncCustomers } = useGoogleSheets();
   const { addUndoAction } = useUndo();
 
-  // Load customers from localStorage on mount
+  // ── Load all customers from DB on mount ──────────────────
   useEffect(() => {
-    try {
-      const savedCustomers = localStorage.getItem('fergbutcher_customers');
-      if (savedCustomers) {
-        const loadedCustomers = JSON.parse(savedCustomers);
-        // Sort customers alphabetically by first name
-        const sortedCustomers = loadedCustomers.sort((a: Customer, b: Customer) => 
-          a.firstName.localeCompare(b.firstName)
-        );
-        setCustomers(sortedCustomers);
-      } else {
-        // Use initial data if no saved data exists
-        const sortedInitialCustomers = initialCustomers.sort((a, b) => 
-          a.firstName.localeCompare(b.firstName)
-        );
-        setCustomers(sortedInitialCustomers);
-        localStorage.setItem('fergbutcher_customers', JSON.stringify(sortedInitialCustomers));
-      }
-    } catch (err) {
-      console.error('Error loading customers:', err);
-      setError('Failed to load customers');
-      const sortedInitialCustomers = initialCustomers.sort((a, b) => 
-        a.firstName.localeCompare(b.firstName)
-      );
-      setCustomers(sortedInitialCustomers);
-    } finally {
-      setLoading(false);
-    }
+    let cancelled = false;
+    setLoading(true);
+    customersApi.getAll()
+      .then(data => { if (!cancelled) { setCustomers(sortByFirstName(data)); setError(null); } })
+      .catch(err => {
+        if (!cancelled) {
+          console.error('Error loading customers:', err);
+          errorLogger.error('Failed to load customers', err);
+          setError('Failed to load customers. Please check your connection.');
+        }
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
-  // Save customers to localStorage whenever customers change
-  useEffect(() => {
-    if (!loading && customers.length > 0) {
-      try {
-        localStorage.setItem('fergbutcher_customers', JSON.stringify(customers));
-      } catch (err) {
-        console.error('Error saving customers:', err);
-        setError('Failed to save customers');
-      }
-    }
-  }, [customers, loading]);
-
-  const addCustomer = (customerData: Omit<Customer, 'id' | 'createdAt'>) => {
+  // ── addCustomer ───────────────────────────────────────────
+  const addCustomer = useCallback((customerData: Omit<Customer, 'id' | 'createdAt'>) => {
     try {
-      // Generate a shorter, sequential customer ID starting from 1
-      const allCustomers = [...customers, ...initialCustomers];
-      const maxCustomerNumber = allCustomers.reduce((max, customer) => {
-        const customerNum = parseInt(customer.id);
-        return isNaN(customerNum) ? max : Math.max(max, customerNum);
-      }, 0); // Start from 0 so first customer is #1
-      const newCustomerId = (maxCustomerNumber + 1).toString();
-      
+      // Generate sequential ID matching original logic
+      const maxNum = customers.reduce((m, c) => {
+        const n = parseInt(c.id);
+        return isNaN(n) ? m : Math.max(m, n);
+      }, 0);
       const newCustomer: Customer = {
         ...customerData,
-        id: newCustomerId,
-        createdAt: new Date().toISOString()
+        id: (maxNum + 1).toString(),
+        createdAt: new Date().toISOString(),
       };
-      
+
       const previousCustomers = [...customers];
-      setCustomers(prev => [...prev, newCustomer].sort((a, b) => 
-        a.firstName.localeCompare(b.firstName)
-      ));
-      setError(null);
-      
-      // Add undo action
+
+      // Optimistic update
+      setCustomers(prev => sortByFirstName([...prev, newCustomer]));
+
+      // Persist to DB
+      customersApi.save(newCustomer)
+        .then(() => {
+          if (isConnected) {
+            const updated = sortByFirstName([...customers, newCustomer]);
+            syncCustomers(updated);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to save customer to DB:', err);
+          setError('Failed to save customer. Please try again.');
+          setCustomers(previousCustomers); // rollback
+        });
+
       addUndoAction({
         id: `add-customer-${newCustomer.id}`,
         description: `Added customer ${newCustomer.firstName} ${newCustomer.lastName}`,
         undo: () => {
           setCustomers(previousCustomers);
+          customersApi.delete(newCustomer.id).catch(console.error);
           errorLogger.info(`Undid adding customer: ${newCustomer.firstName} ${newCustomer.lastName}`);
         }
       });
-      
-      // Auto-sync to Google Sheets if connected
-      if (isConnected) {
-        const sortedCustomers = [...customers, newCustomer].sort((a, b) => 
-          a.firstName.localeCompare(b.firstName)
-        );
-        syncCustomers(sortedCustomers);
-      }
-      
+
       errorLogger.info(`Customer added: ${newCustomer.firstName} ${newCustomer.lastName}`);
       return newCustomer;
     } catch (err) {
@@ -148,66 +89,62 @@ export const useCustomers = () => {
       setError('Failed to add customer');
       return null;
     }
-  };
+  }, [customers, isConnected, syncCustomers, addUndoAction]);
 
-  const updateCustomer = (id: string, updates: Partial<Omit<Customer, 'id' | 'createdAt'>>) => {
+  // ── updateCustomer ────────────────────────────────────────
+  const updateCustomer = useCallback((id: string, updates: Partial<Omit<Customer, 'id' | 'createdAt'>>) => {
     try {
-      const updatedCustomers = customers.map(customer => 
-        customer.id === id 
-          ? { ...customer, ...updates }
-          : customer
-      );
-      
-      setCustomers(updatedCustomers.sort((a, b) => 
-        a.firstName.localeCompare(b.firstName)
-      ));
-      setError(null);
-      
-      // Auto-sync to Google Sheets if connected
-      if (isConnected) {
-        syncCustomers(updatedCustomers.sort((a, b) => 
-          a.firstName.localeCompare(b.firstName)
-        ));
-      }
-      
+      const updated = customers.map(c => c.id === id ? { ...c, ...updates } : c);
+      setCustomers(sortByFirstName(updated));
+
+      customersApi.update(id, updates)
+        .then(() => {
+          if (isConnected) syncCustomers(sortByFirstName(updated));
+        })
+        .catch(err => {
+          console.error('Failed to update customer in DB:', err);
+          setError('Failed to update customer. Please try again.');
+        });
+
       return true;
     } catch (err) {
       console.error('Error updating customer:', err);
       setError('Failed to update customer');
       return false;
     }
-  };
+  }, [customers, isConnected, syncCustomers]);
 
-  const deleteCustomer = (id: string) => {
+  // ── deleteCustomer ────────────────────────────────────────
+  const deleteCustomer = useCallback((id: string) => {
     try {
-      const customerToDelete = customers.find(c => c.id === id);
-      if (!customerToDelete) return false;
-      
+      const toDelete = customers.find(c => c.id === id);
+      if (!toDelete) return false;
+
       const previousCustomers = [...customers];
-      const remainingCustomers = customers.filter(customer => customer.id !== id);
-      setCustomers(remainingCustomers.sort((a, b) => 
-        a.firstName.localeCompare(b.firstName)
-      ));
-      setError(null);
-      
-      // Add undo action
+      const remaining = sortByFirstName(customers.filter(c => c.id !== id));
+      setCustomers(remaining);
+
+      customersApi.delete(id)
+        .then(() => {
+          if (isConnected) syncCustomers(remaining);
+        })
+        .catch(err => {
+          console.error('Failed to delete customer from DB:', err);
+          setError('Failed to delete customer. Please try again.');
+          setCustomers(previousCustomers); // rollback
+        });
+
       addUndoAction({
         id: `delete-customer-${id}`,
-        description: `Deleted customer ${customerToDelete.firstName} ${customerToDelete.lastName}`,
+        description: `Deleted customer ${toDelete.firstName} ${toDelete.lastName}`,
         undo: () => {
           setCustomers(previousCustomers);
-          errorLogger.info(`Undid deleting customer: ${customerToDelete.firstName} ${customerToDelete.lastName}`);
+          customersApi.save(toDelete).catch(console.error);
+          errorLogger.info(`Undid deleting customer: ${toDelete.firstName} ${toDelete.lastName}`);
         }
       });
-      
-      // Auto-sync to Google Sheets if connected
-      if (isConnected) {
-        syncCustomers(remainingCustomers.sort((a, b) => 
-          a.firstName.localeCompare(b.firstName)
-        ));
-      }
-      
-      errorLogger.info(`Customer deleted: ${customerToDelete.firstName} ${customerToDelete.lastName}`);
+
+      errorLogger.info(`Customer deleted: ${toDelete.firstName} ${toDelete.lastName}`);
       return true;
     } catch (err) {
       console.error('Error deleting customer:', err);
@@ -215,24 +152,38 @@ export const useCustomers = () => {
       setError('Failed to delete customer');
       return false;
     }
-  };
+  }, [customers, isConnected, syncCustomers, addUndoAction]);
 
-  const getCustomerById = (id: string) => {
-    return customers.find(customer => customer.id === id);
-  };
+  // ── Read helpers ──────────────────────────────────────────
+  const getCustomerById = (id: string) => customers.find(c => c.id === id);
 
   const searchCustomers = (searchTerm: string) => {
     if (!searchTerm.trim()) return customers;
-    
     const term = searchTerm.toLowerCase();
-    return customers
-      .filter(customer =>
-      `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(term) ||
-      customer.email.toLowerCase().includes(term) ||
-      customer.company?.toLowerCase().includes(term) ||
-      customer.phone?.includes(term)
-    )
-      .sort((a, b) => a.firstName.localeCompare(b.firstName));
+    return sortByFirstName(
+      customers.filter(c =>
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(term) ||
+        c.email.toLowerCase().includes(term) ||
+        c.company?.toLowerCase().includes(term) ||
+        c.phone?.includes(term)
+      )
+    );
+  };
+
+  // setAllCustomers — used by Settings restore from backup
+  const setAllCustomers = async (newCustomers: Customer[]) => {
+    try {
+      await customersApi.saveAll(newCustomers);
+      setCustomers(sortByFirstName(newCustomers));
+      setError(null);
+      errorLogger.info(`Restored ${newCustomers.length} customers from backup`);
+      return true;
+    } catch (err) {
+      console.error('Error restoring customers:', err);
+      errorLogger.error('Failed to restore customers', err);
+      setError('Failed to restore customers');
+      return false;
+    }
   };
 
   return {
@@ -242,24 +193,8 @@ export const useCustomers = () => {
     addCustomer,
     updateCustomer,
     deleteCustomer,
-    setAllCustomers: (newCustomers: Customer[]) => {
-      try {
-        const sortedCustomers = newCustomers.sort((a, b) => 
-          a.firstName.localeCompare(b.firstName)
-        );
-        setCustomers(sortedCustomers);
-        localStorage.setItem('fergbutcher_customers', JSON.stringify(sortedCustomers));
-        setError(null);
-        errorLogger.info(`Restored ${newCustomers.length} customers from backup`);
-        return true;
-      } catch (err) {
-        console.error('Error setting customers:', err);
-        errorLogger.error('Failed to restore customers', err);
-        setError('Failed to restore customers');
-        return false;
-      }
-    },
+    setAllCustomers,
     getCustomerById,
-    searchCustomers
+    searchCustomers,
   };
 };
