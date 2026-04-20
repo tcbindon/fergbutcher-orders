@@ -1,20 +1,22 @@
 // src/hooks/useApi.ts
 // ============================================================
-// Calls the Netlify proxy function instead of SiteGround
-// directly — this eliminates all CORS issues entirely.
-// The proxy forwards requests server-to-server to SiteGround.
+// Calls the Netlify proxy function — no CORS issues.
+// Cache-busting added to all GET requests.
 // ============================================================
 
-const API_BASE = '/.netlify/functions/api'; // ← Netlify proxy, no CORS
+const API_BASE = '/.netlify/functions/api';
 
-// No API key needed here — it's stored securely in Netlify
-// environment variables and added by the proxy function.
 const headers = {
   'Content-Type': 'application/json',
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(API_BASE + path, { ...options, headers });
+  // Add cache-buster to GET requests to prevent stale responses
+  const isGet = !options.method || options.method === 'GET';
+  const separator = path.includes('?') ? '&' : '?';
+  const url = isGet ? `${API_BASE}${path}${separator}_=${Date.now()}` : `${API_BASE}${path}`;
+
+  const res = await fetch(url, { ...options, headers });
   const json = await res.json();
   if (!res.ok || !json.success) {
     throw new Error(json.error || `HTTP ${res.status}`);
