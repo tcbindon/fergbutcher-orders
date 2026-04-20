@@ -1,28 +1,24 @@
 // netlify/functions/api.js
 // ============================================================
 // Proxy function — forwards all API requests to SiteGround
-// The app calls /.netlify/functions/api/customers etc.
-// This function forwards to orders.fergbutcher.com/api/
-// No CORS issues because this is server-to-server.
+// No CORS issues — this runs server-to-server.
 // ============================================================
-
+ 
 const API_BASE   = 'https://orders.fergbutcher.com/api';
-const API_SECRET = process.env.API_SECRET; // Set this in Netlify environment variables
-
+const API_SECRET = process.env.API_SECRET;
+ 
 exports.handler = async (event) => {
-  // Extract the endpoint from the path
-  // e.g. /.netlify/functions/api/customers → /customers.php
+ 
   const path = event.path
     .replace('/.netlify/functions/api', '')
     .replace(/\/$/, '');
-
-  // Map path to PHP file
+ 
   const endpointMap = {
-    '/customers':    '/customers.php',
-    '/orders':       '/orders.php',
-    '/staff-notes':  '/staff-notes.php',
+    '/customers':   '/customers.php',
+    '/orders':      '/orders.php',
+    '/staff-notes': '/staff-notes.php',
   };
-
+ 
   const phpFile = endpointMap[path];
   if (!phpFile) {
     return {
@@ -31,34 +27,39 @@ exports.handler = async (event) => {
       body: JSON.stringify({ success: false, error: `Unknown endpoint: ${path}` }),
     };
   }
-
-  // Build the full URL including query string
+ 
   const queryString = event.queryStringParameters
     ? '?' + new URLSearchParams(event.queryStringParameters).toString()
     : '';
-
+ 
   const url = API_BASE + phpFile + queryString;
-
+ 
+  // Don't send body for GET/HEAD requests
+  const hasBody = !['GET', 'HEAD'].includes(event.httpMethod) && event.body;
+ 
   try {
     const response = await fetch(url, {
-      method: event.httpMethod,
+      method:  event.httpMethod,
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': API_SECRET,
+        'X-API-Key':    API_SECRET,
       },
-      body: event.body || undefined,
+      body: hasBody ? event.body : undefined,
     });
-
+ 
     const data = await response.text();
-
+ 
     return {
       statusCode: response.status,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type':  'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma':        'no-cache',
         ...corsHeaders(),
       },
       body: data,
     };
+ 
   } catch (err) {
     console.error('Proxy error:', err);
     return {
@@ -68,10 +69,10 @@ exports.handler = async (event) => {
     };
   }
 };
-
+ 
 function corsHeaders() {
   return {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin':  '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
   };
