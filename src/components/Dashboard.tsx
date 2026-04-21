@@ -110,9 +110,10 @@ const Dashboard: React.FC = () => {
     const today = new Date();
     const todayString = today.toISOString().split('T')[0];
     const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+    const offset = (today.getDay() + 6) % 7; // Monday-based: Mon=0, Sun=6
+    startOfWeek.setDate(today.getDate() - offset); // Start of week (Monday)
     const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6); // End of week (Saturday)
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // End of week (Sunday)
     
     const startDateString = startOfWeek.toISOString().split('T')[0];
     const endDateString = endOfWeek.toISOString().split('T')[0];

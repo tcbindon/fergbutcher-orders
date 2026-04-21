@@ -65,7 +65,9 @@ const CalendarView: React.FC = () => {
   };
 
   const getFirstDayOfMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    // Monday-based: Mon=0, Tue=1, ..., Sun=6
+    const jsDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    return (jsDay + 6) % 7;
   };
 
   const getOrdersForDate = (date: string) => {
@@ -126,9 +128,9 @@ const CalendarView: React.FC = () => {
 
   const getWeekDays = (date: Date) => {
     const startOfWeek = new Date(date);
-    const day = startOfWeek.getDay();
-    startOfWeek.setDate(date.getDate() - day);
-    
+    const offset = (startOfWeek.getDay() + 6) % 7; // Monday = 0
+    startOfWeek.setDate(date.getDate() - offset);
+
     const weekDays = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(startOfWeek);
@@ -438,7 +440,7 @@ const CalendarView: React.FC = () => {
             <>
               {/* Day Headers for Month View */}
               <div className="grid grid-cols-7 gap-0 mb-4">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
                   <div key={day} className="text-center text-sm font-medium text-fergbutcher-brown-500 py-2">
                     {day}
                   </div>
@@ -452,7 +454,7 @@ const CalendarView: React.FC = () => {
             <>
               {/* Day Headers for Week View */}
               <div className="grid grid-cols-7 gap-0 mb-4">
-                {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day) => (
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                   <div key={day} className="text-center text-sm font-medium text-fergbutcher-brown-500 py-2">
                     {day}
                   </div>
