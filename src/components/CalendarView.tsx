@@ -13,6 +13,7 @@ const CalendarView: React.FC = () => {
     orders,
     updateOrder,
     deleteOrder,
+    deleteRecurringSeries,
     getDuplicateOrderData,
     addOrder
   } = useOrders();
@@ -497,6 +498,7 @@ const CalendarView: React.FC = () => {
           customers={customers}
           onUpdateOrder={(id, updates) => updateOrder(id, updates)}
           onDeleteOrder={(id) => deleteOrder(id)}
+          onDeleteRecurringSeries={(id) => deleteRecurringSeries(id)}
           onEdit={(order) => {
             setEditingOrder(order);
             setShowDayDetailModal(false);

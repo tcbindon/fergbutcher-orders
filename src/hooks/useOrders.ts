@@ -206,6 +206,58 @@ export const useOrders = () => {
     }
   }, [orders, addUndoAction]);
 
+  // ── deleteRecurringSeries ─────────────────────────────────
+  // Deletes the given order and all other orders in the same
+  // recurring series with a collectionDate >= the given order's
+  // collectionDate (i.e. "this and all future occurrences").
+  const deleteRecurringSeries = useCallback((id: string) => {
+    try {
+      const anchor = orders.find(o => o.id === id);
+      if (!anchor) return { success: false, count: 0 };
+      if (!anchor.parentOrderId) {
+        // Not part of a series — fall back to single delete
+        const ok = deleteOrder(id);
+        return { success: ok, count: ok ? 1 : 0 };
+      }
+
+      const toDelete = orders.filter(
+        o =>
+          o.parentOrderId === anchor.parentOrderId &&
+          o.collectionDate >= anchor.collectionDate
+      );
+
+      if (toDelete.length === 0) return { success: false, count: 0 };
+
+      const previousOrders = [...orders];
+      const deleteIds = new Set(toDelete.map(o => o.id));
+      setOrders(prev => prev.filter(o => !deleteIds.has(o.id)));
+
+      Promise.all(toDelete.map(o => ordersApi.delete(o.id))).catch(err => {
+        console.error('Failed to delete recurring series from DB:', err);
+        setError('Failed to delete recurring orders. Please try again.');
+        setOrders(previousOrders);
+      });
+
+      addUndoAction({
+        id: `delete-recurring-${anchor.parentOrderId}-${anchor.collectionDate}`,
+        description: `Deleted ${toDelete.length} recurring order${toDelete.length !== 1 ? 's' : ''}`,
+        undo: () => {
+          setOrders(previousOrders);
+          toDelete.forEach(o => ordersApi.save(o).catch(console.error));
+          errorLogger.info(`Undid deleting ${toDelete.length} recurring orders`);
+        }
+      });
+
+      errorLogger.info(`Deleted ${toDelete.length} recurring orders from series ${anchor.parentOrderId}`);
+      return { success: true, count: toDelete.length };
+    } catch (err) {
+      console.error('Error deleting recurring series:', err);
+      errorLogger.error('Failed to delete recurring series', err);
+      setError('Failed to delete recurring orders');
+      return { success: false, count: 0 };
+    }
+  }, [orders, addUndoAction, deleteOrder]);
+
   // ── Read helpers (unchanged logic) ───────────────────────
   const getOrderById = (id: string) => orders.find(o => o.id === id);
 
@@ -300,6 +352,7 @@ export const useOrders = () => {
     addOrder,
     updateOrder,
     deleteOrder,
+    deleteRecurringSeries,
     setAllOrders,
     getDuplicateOrderData,
     getOrderById,

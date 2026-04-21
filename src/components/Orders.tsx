@@ -16,8 +16,9 @@ const Orders: React.FC = () => {
     addOrder, 
     updateOrder, 
     deleteOrder,
+    deleteRecurringSeries,
     getDuplicateOrderData,
-    searchOrders 
+    searchOrders
   } = useOrders();
   
   const { customers, loading: customersLoading, addCustomer } = useCustomers();
@@ -114,12 +115,26 @@ const Orders: React.FC = () => {
 
   const handleDeleteOrder = () => {
     if (!deletingOrder) return;
-    
+
     const success = deleteOrder(deletingOrder.id);
     if (success) {
       setDeletingOrder(null);
       // Close detail view if we're viewing the deleted order
       if (viewingOrder?.id === deletingOrder.id) {
+        setViewingOrder(null);
+      }
+    }
+  };
+
+  const handleDeleteRecurringSeries = () => {
+    if (!deletingOrder) return;
+
+    const result = deleteRecurringSeries(deletingOrder.id);
+    if (result.success) {
+      setDeletingOrder(null);
+      if (viewingOrder?.id === deletingOrder.id ||
+          (viewingOrder?.parentOrderId && viewingOrder.parentOrderId === deletingOrder.parentOrderId &&
+           viewingOrder.collectionDate >= deletingOrder.collectionDate)) {
         setViewingOrder(null);
       }
     }
@@ -588,9 +603,14 @@ const Orders: React.FC = () => {
                   <p className="text-fergbutcher-brown-600 text-sm mt-1">
                     This action cannot be undone. All order data will be permanently removed.
                   </p>
+                  {deletingOrder.isRecurring && deletingOrder.parentOrderId && (
+                    <p className="text-fergbutcher-blue-700 text-sm mt-2 bg-fergbutcher-blue-50 border border-fergbutcher-blue-200 rounded p-2">
+                      This is part of a recurring series. You can choose to delete only this order, or this order together with all future occurrences.
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-end flex-wrap gap-3">
                 <button
                   onClick={() => setDeletingOrder(null)}
                   className="px-4 py-2 text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
@@ -601,8 +621,16 @@ const Orders: React.FC = () => {
                   onClick={handleDeleteOrder}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
-                  Delete Order
+                  {deletingOrder.isRecurring && deletingOrder.parentOrderId ? 'Delete This Order Only' : 'Delete Order'}
                 </button>
+                {deletingOrder.isRecurring && deletingOrder.parentOrderId && (
+                  <button
+                    onClick={handleDeleteRecurringSeries}
+                    className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors"
+                  >
+                    Delete This &amp; All Future
+                  </button>
+                )}
               </div>
             </div>
           </div>
