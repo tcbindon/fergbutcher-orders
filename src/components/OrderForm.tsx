@@ -88,7 +88,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
   }, [initialCustomerId, customers]);
 
-  const unitOptions = ['Kilos', 'Grams', 'Packets', 'Pieces', 'ml', 'Litre'];
+  const unitOptions = ['Kilos', 'Grams', 'Packets', 'Pieces', 'Each'];
 
   useEffect(() => {
     if (order || initialData) {

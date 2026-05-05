@@ -49,7 +49,7 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
 
   const unitOptions = [
-    'Kilos', 'Grams', 'Packets', 'Pieces', 'ml', 'Litre'
+    'Kilos', 'Grams', 'Packets', 'Pieces', 'Each'
   ];
 
   useEffect(() => {
