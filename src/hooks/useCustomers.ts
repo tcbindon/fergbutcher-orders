@@ -39,37 +39,26 @@ export const useCustomers = () => {
   }, []);
 
   // ── addCustomer ───────────────────────────────────────────
-  const addCustomer = useCallback((customerData: Omit<Customer, 'id' | 'createdAt'>) => {
+  const addCustomer = useCallback(async (customerData: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> => {
+    const maxNum = customers.reduce((m, c) => {
+      const n = parseInt(c.id);
+      return isNaN(n) ? m : Math.max(m, n);
+    }, 0);
+    const newCustomer: Customer = {
+      ...customerData,
+      id: (maxNum + 1).toString(),
+      createdAt: new Date().toISOString(),
+    };
+
+    const previousCustomers = [...customers];
+    setCustomers(prev => sortByFirstName([...prev, newCustomer]));
+
     try {
-      // Generate sequential ID matching original logic
-      const maxNum = customers.reduce((m, c) => {
-        const n = parseInt(c.id);
-        return isNaN(n) ? m : Math.max(m, n);
-      }, 0);
-      const newCustomer: Customer = {
-        ...customerData,
-        id: (maxNum + 1).toString(),
-        createdAt: new Date().toISOString(),
-      };
+      await customersApi.save(newCustomer);
 
-      const previousCustomers = [...customers];
-
-      // Optimistic update
-      setCustomers(prev => sortByFirstName([...prev, newCustomer]));
-
-      // Persist to DB
-      customersApi.save(newCustomer)
-        .then(() => {
-          if (isConnected) {
-            const updated = sortByFirstName([...customers, newCustomer]);
-            syncCustomers(updated);
-          }
-        })
-        .catch(err => {
-          console.error('Failed to save customer to DB:', err);
-          setError('Failed to save customer. Please try again.');
-          setCustomers(previousCustomers); // rollback
-        });
+      if (isConnected) {
+        syncCustomers(sortByFirstName([...customers, newCustomer]));
+      }
 
       addUndoAction({
         id: `add-customer-${newCustomer.id}`,
@@ -84,9 +73,10 @@ export const useCustomers = () => {
       errorLogger.info(`Customer added: ${newCustomer.firstName} ${newCustomer.lastName}`);
       return newCustomer;
     } catch (err) {
-      console.error('Error adding customer:', err);
+      console.error('Failed to save customer to DB:', err);
       errorLogger.error('Failed to add customer', err);
-      setError('Failed to add customer');
+      setError('Failed to save customer. Please try again.');
+      setCustomers(previousCustomers);
       return null;
     }
   }, [customers, isConnected, syncCustomers, addUndoAction]);

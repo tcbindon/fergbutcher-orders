@@ -9,18 +9,8 @@ interface OrderFormProps {
   onSubmit: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
   isLoading?: boolean;
-  initialData?: any; // For pre-populating when duplicating
-}
-
-interface OrderFormProps {
-  order?: Order;
-  customers: Customer[];
-  onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
-  onSubmit: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  onCancel: () => void;
-  isLoading?: boolean;
-  initialData?: any; // For pre-populating when duplicating
-  showCloseButton?: boolean; // New prop to show close button
+  initialData?: any;
+  showCloseButton?: boolean;
 }
 
 const OrderForm: React.FC<OrderFormProps> = ({
