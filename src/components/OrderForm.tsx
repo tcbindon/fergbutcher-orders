@@ -134,15 +134,11 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
   }, [order, initialData, customers]);
 
-  const validateForm = () => {
+  const validateForm = (overrideCustomerId?: string) => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.customerId) {
-      if (showNewCustomerForm) {
-        newErrors.customerId = "Please click 'Add Customer' to save the new customer before submitting";
-      } else {
-        newErrors.customerId = 'Please select or add a customer';
-      }
+    if (!overrideCustomerId && !formData.customerId) {
+      newErrors.customerId = 'Please select or add a customer';
     }
 
     if (!formData.collectionDate) {
@@ -223,7 +219,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       resolvedCustomerId = newId;
     }
 
-    if (validateForm()) {
+    if (validateForm(resolvedCustomerId)) {
       const validItems = items
         .filter(item => item.description.trim() && item.quantity > 0 && item.unit)
         .map((item, index) => ({
