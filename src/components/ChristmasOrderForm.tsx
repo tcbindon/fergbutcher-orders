@@ -98,7 +98,7 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
     if (searchTerm.trim()) {
       const filtered = customers.filter(customer => {
         const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
-        const email = customer.email.toLowerCase();
+        const email = customer.email?.toLowerCase() ?? '';
         const company = customer.company?.toLowerCase() || '';
         const term = searchTerm.toLowerCase();
         
@@ -262,23 +262,22 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
     if (!onAddCustomer) return;
     
     // Validate new customer data
-    if (!newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.email.trim()) {
-      alert('Please fill in first name, last name, and email for the new customer.');
+    if (!newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.phone.trim()) {
+      alert('Please fill in first name, last name, and mobile number for the new customer.');
       return;
     }
 
-    // Check email format
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCustomerData.email)) {
+    if (newCustomerData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCustomerData.email)) {
       alert('Please enter a valid email address.');
       return;
     }
 
-    // Check if customer already exists
-    const existingCustomer = customers.find(c => 
-      c.email.toLowerCase() === newCustomerData.email.toLowerCase()
+    // Check if customer already exists by phone
+    const existingCustomer = customers.find(c =>
+      c.phone.replace(/\s/g, '') === newCustomerData.phone.replace(/\s/g, '')
     );
     if (existingCustomer) {
-      alert('A customer with this email already exists.');
+      alert('A customer with this phone number already exists.');
       return;
     }
 
@@ -287,8 +286,8 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
       const newCustomer = await onAddCustomer({
         firstName: newCustomerData.firstName.trim(),
         lastName: newCustomerData.lastName.trim(),
-        email: newCustomerData.email.trim().toLowerCase(),
-        phone: newCustomerData.phone.trim() || undefined,
+        email: newCustomerData.email.trim().toLowerCase() || undefined,
+        phone: newCustomerData.phone.trim(),
         company: newCustomerData.company.trim() || undefined
       });
 
@@ -498,7 +497,20 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                      Email *
+                      Mobile Number *
+                    </label>
+                    <input
+                      type="tel"
+                      value={newCustomerData.phone}
+                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                      placeholder="e.g., +64 21 123 4567"
+                      disabled={isLoading || isAddingCustomer}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
+                      Email
                     </label>
                     <input
                       type="email"
@@ -506,19 +518,6 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
                       onChange={(e) => setNewCustomerData(prev => ({ ...prev, email: e.target.value }))}
                       className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
                       placeholder="Email address"
-                      disabled={isLoading || isAddingCustomer}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                      Phone
-                    </label>
-                    <input
-                      type="tel"
-                      value={newCustomerData.phone}
-                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                      placeholder="Phone number"
                       disabled={isLoading || isAddingCustomer}
                     />
                   </div>
@@ -558,7 +557,7 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
                     type="button"
                     onClick={handleAddNewCustomer}
                     className="px-3 py-1 text-xs bg-fergbutcher-green-600 text-white rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
-                    disabled={isLoading || isAddingCustomer || !newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.email.trim()}
+                    disabled={isLoading || isAddingCustomer || !newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.phone.trim()}
                   >
                     {isAddingCustomer ? 'Adding...' : 'Add Customer'}
                   </button>

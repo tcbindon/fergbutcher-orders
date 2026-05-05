@@ -184,10 +184,12 @@ const Customers: React.FC = () => {
                             {customer.firstName} {customer.lastName}
                           </h3>
                           <div className="flex items-center space-x-4 mt-1">
-                            <div className="flex items-center space-x-1 text-fergbutcher-brown-600">
-                              <Mail className="h-4 w-4" />
-                              <span className="text-sm">{customer.email}</span>
-                            </div>
+                            {customer.email && (
+                              <div className="flex items-center space-x-1 text-fergbutcher-brown-600">
+                                <Mail className="h-4 w-4" />
+                                <span className="text-sm">{customer.email}</span>
+                              </div>
+                            )}
                             {customer.phone && (
                               <div className="flex items-center space-x-1 text-fergbutcher-brown-600">
                                 <Phone className="h-4 w-4" />

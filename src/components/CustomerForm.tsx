@@ -28,8 +28,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       setFormData({
         firstName: customer.firstName,
         lastName: customer.lastName,
-        email: customer.email,
-        phone: customer.phone || '',
+        email: customer.email || '',
+        phone: customer.phone,
         company: customer.company || ''
       });
     }
@@ -46,13 +46,13 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       newErrors.lastName = 'Last name is required';
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email address is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
-    if (formData.phone && !/^(\+64|0)[2-9]\d{7,9}$/.test(formData.phone.replace(/\s/g, ''))) {
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Mobile number is required';
+    } else if (!/^(\+64|0)[2-9]\d{7,9}$/.test(formData.phone.replace(/\s/g, ''))) {
       newErrors.phone = 'Please enter a valid NZ mobile number';
     }
 
@@ -67,8 +67,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       onSubmit({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim() || undefined,
+        email: formData.email.trim().toLowerCase() || undefined,
+        phone: formData.phone.trim(),
         company: formData.company.trim() || undefined
       });
     }
@@ -125,7 +125,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       
       <div>
         <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-          Email Address *
+          Email Address
         </label>
         <input
           type="email"
@@ -144,7 +144,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       
       <div>
         <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-          Mobile Number
+          Mobile Number *
         </label>
         <input
           type="tel"

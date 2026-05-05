@@ -1,14 +1,5 @@
 import React from 'react';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Building, 
-  Calendar,
-  Edit,
-  Trash2,
-  ShoppingCart
-} from 'lucide-react';
+import { User, Mail, Phone, Building, Calendar, CreditCard as Edit, Trash2, ShoppingCart } from 'lucide-react';
 import { Customer } from '../types';
 
 interface CustomerDetailProps {
@@ -67,15 +58,17 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
       <div className="p-6">
         <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Contact Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="bg-fergbutcher-green-100 p-2 rounded-lg">
-              <Mail className="h-4 w-4 text-fergbutcher-green-600" />
+          {customer.email && (
+            <div className="flex items-center space-x-3">
+              <div className="bg-fergbutcher-green-100 p-2 rounded-lg">
+                <Mail className="h-4 w-4 text-fergbutcher-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-fergbutcher-brown-600">Email</p>
+                <p className="font-medium text-fergbutcher-black-900">{customer.email}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-fergbutcher-brown-600">Email</p>
-              <p className="font-medium text-fergbutcher-black-900">{customer.email}</p>
-            </div>
-          </div>
+          )}
 
           {customer.phone && (
             <div className="flex items-center space-x-3">

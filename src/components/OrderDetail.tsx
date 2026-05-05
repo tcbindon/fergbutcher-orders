@@ -53,7 +53,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
     addStaffNote(
       order.id, 
       'System', 
-      `📧 ${emailTypeName} email sent to ${customer.email}`
+      `📧 ${emailTypeName} email sent to ${customer.email ?? 'customer'}`
     );
 
     openEmailClient(customer.email, populatedSubject, populatedBody);
@@ -227,7 +227,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
               <p className="font-medium text-fergbutcher-black-900">
                 {customer.firstName} {customer.lastName}
               </p>
-              <p className="text-sm text-fergbutcher-brown-600">{customer.email}</p>
+              {customer.email && <p className="text-sm text-fergbutcher-brown-600">{customer.email}</p>}
               {customer.phone && (
                 <p className="text-sm text-fergbutcher-brown-600">{customer.phone}</p>
               )}
@@ -304,7 +304,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
       )}
 
       {/* Email Customer */}
-      {customer && (
+      {customer && customer.email && (
         <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
           <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-3 flex items-center space-x-2">
             <Mail className="h-5 w-5 text-fergbutcher-green-600" />
