@@ -52,8 +52,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
 
     if (!formData.phone.trim()) {
       newErrors.phone = 'Mobile number is required';
-    } else if (!/^(\+64|0)[2-9]\d{7,9}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Please enter a valid NZ mobile number';
+    } else if (!/^\+?[\d\s\-().]{6,20}$/.test(formData.phone)) {
+      newErrors.phone = 'Please enter a valid phone number';
     }
 
     setErrors(newErrors);
@@ -153,7 +153,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
             errors.phone ? 'border-red-500' : 'border-fergbutcher-brown-300'
           }`}
-          placeholder="e.g., +64 21 123 4567"
+          placeholder="e.g., +64 21 123 4567 or +1 555 000 0000"
           disabled={isLoading}
         />
         {errors.phone && (

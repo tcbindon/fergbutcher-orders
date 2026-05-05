@@ -483,7 +483,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
                     value={newCustomerData.phone}
                     onChange={(e) => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
                     className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                    placeholder="e.g., +64 21 123 4567"
+                    placeholder="e.g., +64 21 123 4567 or +1 555 000 0000"
                     disabled={isLoading || isAddingCustomer}
                   />
                 </div>
