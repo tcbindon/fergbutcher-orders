@@ -5,8 +5,9 @@ import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
+import CustomerForm from './CustomerForm';
 import OrderDetail from './OrderDetail';
-import { Order } from '../types';
+import { Order, Customer } from '../types';
 
 const Orders: React.FC = () => {
   const { 
@@ -35,6 +36,8 @@ const Orders: React.FC = () => {
   const [showingComments, setShowingComments] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPastOrders, setShowPastOrders] = useState(false);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [pendingNewCustomerId, setPendingNewCustomerId] = useState<string | undefined>(undefined);
 
   // Sort orders by collection date (earliest first), then by status priority
   const getSortedOrders = (orders: Order[]) => {
@@ -154,6 +157,19 @@ const Orders: React.FC = () => {
     const success = updateOrder(orderId, { status: newStatus });
     if (success && viewingOrder?.id === orderId) {
       setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+    }
+  };
+
+  const handleAddCustomerFromOrder = async (customerData: Omit<Customer, 'id' | 'createdAt'>) => {
+    setIsSubmitting(true);
+    try {
+      const newCustomer = await addCustomer(customerData);
+      if (newCustomer) {
+        setPendingNewCustomerId(newCustomer.id);
+        setShowAddCustomerModal(false);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -516,11 +532,12 @@ const Orders: React.FC = () => {
             <div className="p-6">
               <OrderForm
                 customers={customers}
-                onAddCustomer={addCustomer}
+                onNewCustomerClick={() => setShowAddCustomerModal(true)}
+                initialCustomerId={pendingNewCustomerId}
                 onSubmit={handleAddOrder}
-                onCancel={() => setShowCreateModal(false)}
+                onCancel={() => { setShowCreateModal(false); setPendingNewCustomerId(undefined); }}
                 isLoading={isSubmitting}
-               showCloseButton={true}
+                showCloseButton={true}
               />
             </div>
           </div>
@@ -540,11 +557,12 @@ const Orders: React.FC = () => {
             <div className="p-6">
               <ChristmasOrderForm
                 customers={customers}
-                onAddCustomer={addCustomer}
+                onNewCustomerClick={() => setShowAddCustomerModal(true)}
+                initialCustomerId={pendingNewCustomerId}
                 onSubmit={handleAddChristmasOrder}
-                onCancel={() => setShowChristmasModal(false)}
+                onCancel={() => { setShowChristmasModal(false); setPendingNewCustomerId(undefined); }}
                 isLoading={isSubmitting}
-               showCloseButton={true}
+                showCloseButton={true}
               />
             </div>
           </div>
@@ -562,9 +580,10 @@ const Orders: React.FC = () => {
                 <ChristmasOrderForm
                   order={editingOrder}
                   customers={customers}
-                  onAddCustomer={addCustomer}
+                  onNewCustomerClick={() => setShowAddCustomerModal(true)}
+                  initialCustomerId={pendingNewCustomerId}
                   onSubmit={handleUpdateOrder}
-                  onCancel={() => setEditingOrder(null)}
+                  onCancel={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}
                   showCloseButton={true}
                 />
@@ -572,9 +591,10 @@ const Orders: React.FC = () => {
                 <OrderForm
                   order={editingOrder}
                   customers={customers}
-                  onAddCustomer={addCustomer}
+                  onNewCustomerClick={() => setShowAddCustomerModal(true)}
+                  initialCustomerId={pendingNewCustomerId}
                   onSubmit={handleUpdateOrder}
-                  onCancel={() => setEditingOrder(null)}
+                  onCancel={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}
                   showCloseButton={true}
                 />
@@ -649,34 +669,57 @@ const Orders: React.FC = () => {
               {duplicatingOrder.orderType === 'christmas' ? (
                 <ChristmasOrderForm
                   customers={customers}
-                  onAddCustomer={addCustomer}
+                  onNewCustomerClick={() => setShowAddCustomerModal(true)}
+                  initialCustomerId={pendingNewCustomerId}
                   onSubmit={(orderData) => {
                     const newOrder = addOrder(orderData);
                     if (newOrder) {
+                      setPendingNewCustomerId(undefined);
                       setDuplicatingOrder(null);
                       alert(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
                     }
                   }}
-                  onCancel={() => setDuplicatingOrder(null)}
+                  onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}
                   showCloseButton={true}
                 />
               ) : (
                 <OrderForm
                   customers={customers}
-                  onAddCustomer={addCustomer}
+                  onNewCustomerClick={() => setShowAddCustomerModal(true)}
+                  initialCustomerId={pendingNewCustomerId}
                   onSubmit={(orderData) => {
                     const newOrder = addOrder(orderData);
                     if (newOrder) {
+                      setPendingNewCustomerId(undefined);
+                      setDuplicatingOrder(null);
                       alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
                     }
                   }}
-                  onCancel={() => setDuplicatingOrder(null)}
+                  onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}
                   initialData={duplicatingOrder}
                   showCloseButton={true}
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Add Customer Modal (triggered from order forms) */}
+      {showAddCustomerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Add New Customer</h3>
+              <p className="text-sm text-fergbutcher-brown-600 mt-1">The new customer will be automatically selected in your order.</p>
+            </div>
+            <div className="p-6">
+              <CustomerForm
+                onSubmit={handleAddCustomerFromOrder}
+                onCancel={() => setShowAddCustomerModal(false)}
+                isLoading={isSubmitting}
+              />
             </div>
           </div>
         </div>

@@ -6,16 +6,19 @@ import { useChristmasProducts } from '../hooks/useChristmasProducts';
 interface ChristmasOrderFormProps {
   order?: Order;
   customers: Customer[];
-  onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
+  onNewCustomerClick?: () => void;
+  initialCustomerId?: string;
   onSubmit: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  showCloseButton?: boolean;
 }
 
 const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
   order,
   customers,
-  onAddCustomer,
+  onNewCustomerClick,
+  initialCustomerId,
   onSubmit,
   onCancel,
   isLoading = false,
@@ -39,15 +42,6 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
     { description: '', quantity: 0, unit: '', isChristmasProduct: false }
   ]);
 
-  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
-  const [newCustomerData, setNewCustomerData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    company: ''
-  });
-  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -118,6 +112,17 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
       setErrors(prev => ({ ...prev, customerId: '' }));
     }
   };
+
+  useEffect(() => {
+    if (!initialCustomerId) return;
+    const customer = customers.find(c => c.id === initialCustomerId);
+    if (customer) {
+      setFormData(prev => ({ ...prev, customerId: customer.id }));
+      setCustomerSearchTerm(`${customer.firstName} ${customer.lastName}`);
+      setShowCustomerSearchResults(false);
+      setErrors(prev => ({ ...prev, customerId: '' }));
+    }
+  }, [initialCustomerId, customers]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -258,58 +263,6 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
     return today.toISOString().split('T')[0];
   };
 
-  const handleAddNewCustomer = async () => {
-    if (!onAddCustomer) return;
-    
-    // Validate new customer data
-    if (!newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.phone.trim()) {
-      alert('Please fill in first name, last name, and mobile number for the new customer.');
-      return;
-    }
-
-    if (newCustomerData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCustomerData.email)) {
-      alert('Please enter a valid email address.');
-      return;
-    }
-
-    // Check if customer already exists by phone
-    const existingCustomer = customers.find(c =>
-      c.phone.replace(/\s/g, '') === newCustomerData.phone.replace(/\s/g, '')
-    );
-    if (existingCustomer) {
-      alert('A customer with this phone number already exists.');
-      return;
-    }
-
-    setIsAddingCustomer(true);
-    try {
-      const newCustomer = await onAddCustomer({
-        firstName: newCustomerData.firstName.trim(),
-        lastName: newCustomerData.lastName.trim(),
-        email: newCustomerData.email.trim().toLowerCase() || undefined,
-        phone: newCustomerData.phone.trim(),
-        company: newCustomerData.company.trim() || undefined
-      });
-
-      if (newCustomer) {
-        setFormData(prev => ({ ...prev, customerId: newCustomer.id }));
-        setShowNewCustomerForm(false);
-        setNewCustomerData({
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          company: ''
-        });
-        if (errors.customerId) {
-          setErrors(prev => ({ ...prev, customerId: '' }));
-        }
-      }
-    } finally {
-      setIsAddingCustomer(false);
-    }
-  };
-
   if (productsLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -418,10 +371,10 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
                 )}
               </div>
               
-              {onAddCustomer && (
+              {onNewCustomerClick && (
                 <button
                   type="button"
-                  onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
+                  onClick={onNewCustomerClick}
                   className="px-3 py-2 bg-fergbutcher-green-100 text-fergbutcher-green-700 rounded-lg hover:bg-fergbutcher-green-200 transition-colors flex items-center space-x-1"
                   disabled={isLoading}
                   title="Add New Customer"
@@ -461,107 +414,6 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
                     </div>
                   ) : null;
                 })()}
-              </div>
-            )}
-            
-            {/* New Customer Form */}
-            {showNewCustomerForm && (
-              <div className="border border-fergbutcher-green-200 rounded-lg p-4 bg-fergbutcher-green-50">
-                <h4 className="font-medium text-fergbutcher-black-900 mb-3">Add New Customer</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                      First Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={newCustomerData.firstName}
-                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                      placeholder="First name"
-                      disabled={isLoading || isAddingCustomer}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                      Last Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={newCustomerData.lastName}
-                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                      placeholder="Last name"
-                      disabled={isLoading || isAddingCustomer}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                      Mobile Number *
-                    </label>
-                    <input
-                      type="tel"
-                      value={newCustomerData.phone}
-                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                      placeholder="e.g., +64 21 123 4567 or +1 555 000 0000"
-                      disabled={isLoading || isAddingCustomer}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={newCustomerData.email}
-                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                      placeholder="Email address"
-                      disabled={isLoading || isAddingCustomer}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-fergbutcher-brown-700 mb-1">
-                      Company
-                    </label>
-                    <input
-                      type="text"
-                      value={newCustomerData.company}
-                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, company: e.target.value }))}
-                      className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                      placeholder="Company name"
-                      disabled={isLoading || isAddingCustomer}
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-2 mt-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowNewCustomerForm(false);
-                      setNewCustomerData({
-                        firstName: '',
-                        lastName: '',
-                        email: '',
-                        phone: '',
-                        company: ''
-                      });
-                    }}
-                    className="px-3 py-1 text-xs text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
-                    disabled={isLoading || isAddingCustomer}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddNewCustomer}
-                    className="px-3 py-1 text-xs bg-fergbutcher-green-600 text-white rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
-                    disabled={isLoading || isAddingCustomer || !newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.phone.trim()}
-                  >
-                    {isAddingCustomer ? 'Adding...' : 'Add Customer'}
-                  </button>
-                </div>
               </div>
             )}
             
