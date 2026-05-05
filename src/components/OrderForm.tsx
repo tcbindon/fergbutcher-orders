@@ -138,7 +138,11 @@ const OrderForm: React.FC<OrderFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.customerId) {
-      newErrors.customerId = 'Please select a customer';
+      if (showNewCustomerForm) {
+        newErrors.customerId = "Please click 'Add Customer' to save the new customer before submitting";
+      } else {
+        newErrors.customerId = 'Please select or add a customer';
+      }
     }
 
     if (!formData.collectionDate) {
@@ -207,9 +211,18 @@ const OrderForm: React.FC<OrderFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    let resolvedCustomerId = formData.customerId;
+
+    // If the new customer form is open and has data, save the customer first
+    if (showNewCustomerForm && (newCustomerData.firstName.trim() || newCustomerData.lastName.trim() || newCustomerData.phone.trim())) {
+      const newId = await handleAddNewCustomer();
+      if (!newId) return; // customer save failed or was blocked by validation
+      resolvedCustomerId = newId;
+    }
+
     if (validateForm()) {
       const validItems = items
         .filter(item => item.description.trim() && item.quantity > 0 && item.unit)
@@ -221,7 +234,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
         }));
 
       onSubmit({
-        customerId: formData.customerId,
+        customerId: resolvedCustomerId,
         items: validItems,
         collectionDate: formData.collectionDate,
         collectionTime: formData.collectionTime || undefined,
@@ -272,18 +285,18 @@ const OrderForm: React.FC<OrderFormProps> = ({
     return today.toISOString().split('T')[0];
   };
 
-  const handleAddNewCustomer = async () => {
-    if (!onAddCustomer) return;
-    
+  const handleAddNewCustomer = async (): Promise<string | null> => {
+    if (!onAddCustomer) return null;
+
     // Validate new customer data
     if (!newCustomerData.firstName.trim() || !newCustomerData.lastName.trim() || !newCustomerData.phone.trim()) {
       alert('Please fill in first name, last name, and mobile number for the new customer.');
-      return;
+      return null;
     }
 
     if (newCustomerData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCustomerData.email)) {
       alert('Please enter a valid email address.');
-      return;
+      return null;
     }
 
     // Check if customer already exists by phone
@@ -292,7 +305,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     );
     if (existingCustomer) {
       alert('A customer with this phone number already exists.');
-      return;
+      return null;
     }
 
     setIsAddingCustomer(true);
@@ -306,21 +319,15 @@ const OrderForm: React.FC<OrderFormProps> = ({
       });
 
       if (newCustomer) {
-        // Select the new customer and close the form
         setFormData(prev => ({ ...prev, customerId: newCustomer.id }));
         setShowNewCustomerForm(false);
-        setNewCustomerData({
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          company: ''
-        });
-        // Clear customer selection error if it exists
+        setNewCustomerData({ firstName: '', lastName: '', email: '', phone: '', company: '' });
         if (errors.customerId) {
           setErrors(prev => ({ ...prev, customerId: '' }));
         }
+        return newCustomer.id;
       }
+      return null;
     } finally {
       setIsAddingCustomer(false);
     }
