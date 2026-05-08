@@ -277,7 +277,7 @@ export const useOrders = () => {
     return orders.filter(o => {
       const customer = customers.find(c => c.id === o.customerId);
       const name = customer ? `${customer.firstName} ${customer.lastName}`.toLowerCase() : '';
-      const phone = customer ? customer.phone.replace(/\s/g, '') : '';
+      const phone = customer?.phone ? customer.phone.replace(/\s/g, '') : '';
       return name.includes(term) ||
         phone.includes(normalised) ||
         (customer?.email && customer.email.toLowerCase().includes(term)) ||
