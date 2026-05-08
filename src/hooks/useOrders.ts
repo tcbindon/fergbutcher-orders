@@ -274,12 +274,15 @@ export const useOrders = () => {
     if (!searchTerm.trim()) return orders;
     const today = new Date().toISOString().split('T')[0];
     const term = searchTerm.toLowerCase();
+    const normalised = term.replace(/\s/g, '');
     return orders
       .filter(o => o.collectionDate >= today)
       .filter(o => {
         const customer = customers.find(c => c.id === o.customerId);
         const name = customer ? `${customer.firstName} ${customer.lastName}`.toLowerCase() : '';
+        const phone = customer ? customer.phone.replace(/\s/g, '') : '';
         return name.includes(term) ||
+          phone.includes(normalised) ||
           o.items.some(i => i.description.toLowerCase().includes(term)) ||
           o.additionalNotes?.toLowerCase().includes(term);
       });
