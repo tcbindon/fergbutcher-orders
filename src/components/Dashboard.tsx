@@ -127,7 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     if (!editingOrder) return;
     setIsSubmitting(true);
     try {
-      const success = updateOrder(editingOrder.id, orderData);
+      const success = updateOrder(editingOrder.id, orderData, customers);
       if (success) {
         setEditingOrder(null);
         if (viewingOrder?.id === editingOrder.id) {
@@ -141,7 +141,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
   const handleDeleteOrder = () => {
     if (!deletingOrder) return;
-    const success = deleteOrder(deletingOrder.id);
+    const success = deleteOrder(deletingOrder.id, customers);
     if (success) {
       setDeletingOrder(null);
       if (viewingOrder?.id === deletingOrder.id) setViewingOrder(null);
@@ -150,7 +150,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
   const handleDeleteRecurringSeries = () => {
     if (!deletingOrder) return;
-    const result = deleteRecurringSeries(deletingOrder.id);
+    const result = deleteRecurringSeries(deletingOrder.id, customers);
     if (result.success) {
       setDeletingOrder(null);
       if (viewingOrder?.id === deletingOrder.id || (viewingOrder?.parentOrderId && viewingOrder.parentOrderId === deletingOrder.parentOrderId && viewingOrder.collectionDate >= deletingOrder.collectionDate)) {
@@ -170,7 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   };
 
   const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
-    const success = updateOrder(orderId, { status: newStatus });
+    const success = updateOrder(orderId, { status: newStatus }, customers);
     if (success && viewingOrder?.id === orderId) {
       setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
     }

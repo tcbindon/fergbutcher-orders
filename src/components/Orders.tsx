@@ -76,13 +76,9 @@ const Orders: React.FC<OrdersProps> = ({ staffName }) => {
   const handleAddOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     setIsSubmitting(true);
     try {
-      const newOrder = addOrder(orderData);
+      const newOrder = addOrder(orderData, customers);
       if (newOrder) {
         setShowCreateModal(false);
-        // Auto-sync to Google Sheets if connected
-        if (newOrder.orderType === 'standard') {
-          // Standard orders sync automatically via existing logic
-        }
       }
     } finally {
       setIsSubmitting(false);
@@ -92,16 +88,9 @@ const Orders: React.FC<OrdersProps> = ({ staffName }) => {
   const handleAddChristmasOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     setIsSubmitting(true);
     try {
-      const newOrder = addOrder(orderData);
+      const newOrder = addOrder(orderData, customers);
       if (newOrder) {
         setShowChristmasModal(false);
-        // Auto-sync to Google Sheets if connected
-        try {
-          await syncOrdersToSheets(customers);
-          console.log('Christmas order synced to Google Sheets');
-        } catch (syncError) {
-          console.error('Failed to sync Christmas order to Google Sheets:', syncError);
-        }
       }
     } finally {
       setIsSubmitting(false);
@@ -109,13 +98,12 @@ const Orders: React.FC<OrdersProps> = ({ staffName }) => {
   };
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
-    
+
     setIsSubmitting(true);
     try {
-      const success = updateOrder(editingOrder.id, orderData);
+      const success = updateOrder(editingOrder.id, orderData, customers);
       if (success) {
         setEditingOrder(null);
-        // Update viewing order if it's the same one
         if (viewingOrder?.id === editingOrder.id) {
           setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
         }
@@ -128,10 +116,9 @@ const Orders: React.FC<OrdersProps> = ({ staffName }) => {
   const handleDeleteOrder = () => {
     if (!deletingOrder) return;
 
-    const success = deleteOrder(deletingOrder.id);
+    const success = deleteOrder(deletingOrder.id, customers);
     if (success) {
       setDeletingOrder(null);
-      // Close detail view if we're viewing the deleted order
       if (viewingOrder?.id === deletingOrder.id) {
         setViewingOrder(null);
       }
@@ -141,7 +128,7 @@ const Orders: React.FC<OrdersProps> = ({ staffName }) => {
   const handleDeleteRecurringSeries = () => {
     if (!deletingOrder) return;
 
-    const result = deleteRecurringSeries(deletingOrder.id);
+    const result = deleteRecurringSeries(deletingOrder.id, customers);
     if (result.success) {
       setDeletingOrder(null);
       if (viewingOrder?.id === deletingOrder.id ||
@@ -163,14 +150,14 @@ const Orders: React.FC<OrdersProps> = ({ staffName }) => {
   };
 
   const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
-    const success = updateOrder(orderId, { status: newStatus });
+    const success = updateOrder(orderId, { status: newStatus }, customers);
     if (success && viewingOrder?.id === orderId) {
       setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
     }
   };
 
   const handleBulkStatusApply = () => {
-    selectedOrderIds.forEach(id => updateOrder(id, { status: bulkStatus }));
+    selectedOrderIds.forEach(id => updateOrder(id, { status: bulkStatus }, customers));
     setSelectedOrderIds(new Set());
   };
 

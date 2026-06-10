@@ -59,7 +59,7 @@ const TodayChecklist: React.FC<TodayChecklistProps> = ({ staffName }) => {
 
   const handleAdvanceStatus = (order: Order) => {
     const next = getNextStatus(order.status);
-    if (next) updateOrder(order.id, { status: next });
+    if (next) updateOrder(order.id, { status: next }, customers);
   };
 
   const renderCard = (order: Order, done = false) => {

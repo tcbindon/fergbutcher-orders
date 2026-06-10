@@ -31,10 +31,10 @@ const CalendarView: React.FC = () => {
 
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
-    
+
     setIsSubmitting(true);
     try {
-      const success = updateOrder(editingOrder.id, orderData);
+      const success = updateOrder(editingOrder.id, orderData, customers);
       if (success) {
         setEditingOrder(null);
       }
@@ -44,7 +44,7 @@ const CalendarView: React.FC = () => {
   };
 
   const handleDeleteOrder = (orderId: string) => {
-    const success = deleteOrder(orderId);
+    const success = deleteOrder(orderId, customers);
     if (success) {
       setDeletingOrder(null);
     }
@@ -498,9 +498,9 @@ const CalendarView: React.FC = () => {
             selectedDayForModal.getDate()
           ))}
           customers={customers}
-          onUpdateOrder={(id, updates) => updateOrder(id, updates)}
-          onDeleteOrder={(id) => deleteOrder(id)}
-          onDeleteRecurringSeries={(id) => deleteRecurringSeries(id)}
+          onUpdateOrder={(id, updates) => updateOrder(id, updates, customers)}
+          onDeleteOrder={(id) => deleteOrder(id, customers)}
+          onDeleteRecurringSeries={(id) => deleteRecurringSeries(id, customers)}
           onEdit={(order) => {
             setEditingOrder(order);
             setShowDayDetailModal(false);

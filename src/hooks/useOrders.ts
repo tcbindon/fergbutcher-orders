@@ -46,8 +46,17 @@ export const useOrders = () => {
     return (max + 1).toString();
   };
 
+  // ── Sync helper ───────────────────────────────────────────
+  const triggerSync = useCallback((allOrders: Order[], customers: Customer[]) => {
+    if (!isConnected) return;
+    const standardOrders  = allOrders.filter(o => o.orderType !== 'christmas');
+    const christmasOrders = allOrders.filter(o => o.orderType === 'christmas');
+    if (standardOrders.length > 0)  syncOrders(standardOrders, customers).catch(console.error);
+    if (christmasOrders.length > 0) syncChristmasOrders(christmasOrders, customers).catch(console.error);
+  }, [isConnected, syncOrders, syncChristmasOrders]);
+
   // ── addOrder ──────────────────────────────────────────────
-  const addOrder = useCallback((orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addOrder = useCallback((orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, customers: Customer[] = []) => {
     try {
       if (orderData.isRecurring && orderData.recurrencePattern && orderData.recurrenceEndDate) {
         // ── Recurring series ──────────────────────────────
@@ -78,12 +87,15 @@ export const useOrders = () => {
         }
 
         const previousOrders = [...orders];
+        const allOrders = [...newOrders, ...orders];
 
         // Optimistic update
         setOrders(prev => [...newOrders, ...prev]);
 
         // Persist to DB (fire and forget with error handling)
-        ordersApi.saveAll(newOrders).catch(err => {
+        ordersApi.saveAll(newOrders)
+          .then(() => triggerSync(allOrders, customers))
+          .catch(err => {
           console.error('Failed to save recurring orders to DB:', err);
           setError('Failed to save orders. Please try again.');
           setOrders(previousOrders); // rollback
@@ -118,12 +130,15 @@ export const useOrders = () => {
         };
 
         const previousOrders = [...orders];
+        const allOrders = [newOrder, ...orders];
 
         // Optimistic update
         setOrders(prev => [newOrder, ...prev]);
 
         // Persist to DB
-        ordersApi.save(newOrder).catch(err => {
+        ordersApi.save(newOrder)
+          .then(() => triggerSync(allOrders, customers))
+          .catch(err => {
           console.error('Failed to save order to DB:', err);
           setError('Failed to save order. Please try again.');
           setOrders(previousOrders); // rollback
@@ -148,20 +163,21 @@ export const useOrders = () => {
       setError('Failed to add order');
       return null;
     }
-  }, [orders, addUndoAction]);
+  }, [orders, addUndoAction, triggerSync]);
 
   // ── updateOrder ───────────────────────────────────────────
-  const updateOrder = useCallback((id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>) => {
+  const updateOrder = useCallback((id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>, customers: Customer[] = []) => {
     try {
       const updatedAt = new Date().toISOString();
-      setOrders(prev =>
-        prev.map(o => o.id === id ? { ...o, ...updates, updatedAt } : o)
-      );
+      const updatedOrders = orders.map(o => o.id === id ? { ...o, ...updates, updatedAt } : o);
+      setOrders(updatedOrders);
 
-      ordersApi.update(id, { ...updates, updatedAt }).catch(err => {
-        console.error('Failed to update order in DB:', err);
-        setError('Failed to update order. Please try again.');
-      });
+      ordersApi.update(id, { ...updates, updatedAt })
+        .then(() => triggerSync(updatedOrders, customers))
+        .catch(err => {
+          console.error('Failed to update order in DB:', err);
+          setError('Failed to update order. Please try again.');
+        });
 
       return true;
     } catch (err) {
@@ -169,22 +185,25 @@ export const useOrders = () => {
       setError('Failed to update order');
       return false;
     }
-  }, []);
+  }, [orders, triggerSync]);
 
   // ── deleteOrder ───────────────────────────────────────────
-  const deleteOrder = useCallback((id: string) => {
+  const deleteOrder = useCallback((id: string, customers: Customer[] = []) => {
     try {
       const orderToDelete = orders.find(o => o.id === id);
       if (!orderToDelete) return false;
 
       const previousOrders = [...orders];
-      setOrders(prev => prev.filter(o => o.id !== id));
+      const remaining = orders.filter(o => o.id !== id);
+      setOrders(remaining);
 
-      ordersApi.delete(id).catch(err => {
-        console.error('Failed to delete order from DB:', err);
-        setError('Failed to delete order. Please try again.');
-        setOrders(previousOrders); // rollback
-      });
+      ordersApi.delete(id)
+        .then(() => triggerSync(remaining, customers))
+        .catch(err => {
+          console.error('Failed to delete order from DB:', err);
+          setError('Failed to delete order. Please try again.');
+          setOrders(previousOrders); // rollback
+        });
 
       addUndoAction({
         id: `delete-order-${id}`,
@@ -204,19 +223,19 @@ export const useOrders = () => {
       setError('Failed to delete order');
       return false;
     }
-  }, [orders, addUndoAction]);
+  }, [orders, addUndoAction, triggerSync]);
 
   // ── deleteRecurringSeries ─────────────────────────────────
   // Deletes the given order and all other orders in the same
   // recurring series with a collectionDate >= the given order's
   // collectionDate (i.e. "this and all future occurrences").
-  const deleteRecurringSeries = useCallback((id: string) => {
+  const deleteRecurringSeries = useCallback((id: string, customers: Customer[] = []) => {
     try {
       const anchor = orders.find(o => o.id === id);
       if (!anchor) return { success: false, count: 0 };
       if (!anchor.parentOrderId) {
         // Not part of a series — fall back to single delete
-        const ok = deleteOrder(id);
+        const ok = deleteOrder(id, customers);
         return { success: ok, count: ok ? 1 : 0 };
       }
 
@@ -230,13 +249,16 @@ export const useOrders = () => {
 
       const previousOrders = [...orders];
       const deleteIds = new Set(toDelete.map(o => o.id));
-      setOrders(prev => prev.filter(o => !deleteIds.has(o.id)));
+      const remaining = orders.filter(o => !deleteIds.has(o.id));
+      setOrders(remaining);
 
-      Promise.all(toDelete.map(o => ordersApi.delete(o.id))).catch(err => {
-        console.error('Failed to delete recurring series from DB:', err);
-        setError('Failed to delete recurring orders. Please try again.');
-        setOrders(previousOrders);
-      });
+      Promise.all(toDelete.map(o => ordersApi.delete(o.id)))
+        .then(() => triggerSync(remaining, customers))
+        .catch(err => {
+          console.error('Failed to delete recurring series from DB:', err);
+          setError('Failed to delete recurring orders. Please try again.');
+          setOrders(previousOrders);
+        });
 
       addUndoAction({
         id: `delete-recurring-${anchor.parentOrderId}-${anchor.collectionDate}`,
@@ -256,7 +278,7 @@ export const useOrders = () => {
       setError('Failed to delete recurring orders');
       return { success: false, count: 0 };
     }
-  }, [orders, addUndoAction, deleteOrder]);
+  }, [orders, addUndoAction, deleteOrder, triggerSync]);
 
   // ── Read helpers (unchanged logic) ───────────────────────
   const getOrderById = (id: string) => orders.find(o => o.id === id);
