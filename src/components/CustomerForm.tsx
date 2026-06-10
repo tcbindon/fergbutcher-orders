@@ -19,7 +19,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     lastName: '',
     email: '',
     phone: '',
-    company: ''
+    company: '',
+    notes: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -30,7 +31,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         lastName: customer.lastName,
         email: customer.email || '',
         phone: customer.phone,
-        company: customer.company || ''
+        company: customer.company || '',
+        notes: customer.notes || ''
       });
     }
   }, [customer]);
@@ -69,7 +71,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         lastName: formData.lastName.trim(),
         email: formData.email.trim().toLowerCase() || undefined,
         phone: formData.phone.trim(),
-        company: formData.company.trim() || undefined
+        company: formData.company.trim() || undefined,
+        notes: formData.notes.trim() || undefined
       });
     }
   };
@@ -173,6 +176,23 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           placeholder="Enter company name"
           disabled={isLoading}
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
+          Standing Preferences / Notes
+        </label>
+        <textarea
+          rows={3}
+          value={formData.notes}
+          onChange={(e) => handleChange('notes', e.target.value)}
+          className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+          placeholder="e.g. Always trim fat, calls 30 mins before pickup, lactose intolerant..."
+          disabled={isLoading}
+        />
+        <p className="text-xs text-fergbutcher-brown-500 mt-1">
+          Permanent notes about this customer — shown as a reminder on every new order
+        </p>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">

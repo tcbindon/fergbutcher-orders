@@ -5,6 +5,7 @@ import { useStaffNotes } from '../hooks/useStaffNotes';
 import OrderDetail from './OrderDetail';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
+import PrintSchedule from './PrintSchedule';
 import {
   ShoppingCart,
   Calendar,
@@ -15,11 +16,17 @@ import {
   Gift,
   AlertTriangle,
   RefreshCw,
-  ChevronDown
+  ChevronDown,
+  Printer,
+  ClipboardList
 } from 'lucide-react';
-import { Order } from '../types';
+import { Order, ViewType } from '../types';
 
-const Dashboard: React.FC = () => {
+interface DashboardProps {
+  onNavigate?: (view: ViewType) => void;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const { customers, addCustomer } = useCustomers();
   const { orders, getOrderStats, updateOrder, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useOrders();
   const { getNotesForOrder } = useStaffNotes();
@@ -30,11 +37,29 @@ const Dashboard: React.FC = () => {
   const [deletingOrder, setDeletingOrder] = React.useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = React.useState<any>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [showPrintSchedule, setShowPrintSchedule] = React.useState(false);
 
-  // Mock data for demonstration
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const dayAfterTomorrow = new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0];
+
+  // Overdue orders: collection date before today, status not collected or cancelled
+  const overdueOrders = orders.filter(
+    o => o.collectionDate < today && o.status !== 'collected' && o.status !== 'cancelled'
+  );
+
+  // Unconfirmed orders approaching: pending status, collection within 2 days
+  const approachingUnconfirmed = orders.filter(
+    o => o.status === 'pending' && o.collectionDate >= today && o.collectionDate <= dayAfterTomorrow
+  );
+
+  const tomorrowCount = orders.filter(
+    o => o.collectionDate === tomorrow && o.status !== 'cancelled'
+  ).length;
+
   const stats = [
     {
-      title: 'Pending Orders',
+      title: "Pending Orders",
       value: orderStats.pending.toLocaleString('en-NZ'),
       change: `${orderStats.pending} awaiting confirmation`,
       changeType: 'neutral' as const,
@@ -42,42 +67,47 @@ const Dashboard: React.FC = () => {
       color: 'fergbutcher-brown'
     },
     {
-      title: 'Today\'s Collections',
+      title: "Today's Collections",
       value: orderStats.todaysTotal.toLocaleString('en-NZ'),
       change: `${orderStats.todaysPending} pending`,
       changeType: 'neutral' as const,
       icon: Calendar,
       color: 'fergbutcher-yellow'
     },
+    {
+      title: "Tomorrow's Orders",
+      value: tomorrowCount.toLocaleString('en-NZ'),
+      change: 'for prep planning today',
+      changeType: 'neutral' as const,
+      icon: Clock,
+      color: 'fergbutcher-green'
+    },
   ];
 
   // Get this week's orders, sorted by collection date then status
   const getThisWeeksOrders = () => {
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
-    const startOfWeek = new Date(today);
-    const offset = (today.getDay() + 6) % 7; // Monday-based: Mon=0, Sun=6
-    startOfWeek.setDate(today.getDate() - offset); // Start of week (Monday)
+    const todayDate = new Date();
+    const todayString = todayDate.toISOString().split('T')[0];
+    const startOfWeek = new Date(todayDate);
+    const offset = (todayDate.getDay() + 6) % 7;
+    startOfWeek.setDate(todayDate.getDate() - offset);
     const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6); // End of week (Sunday)
-    
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+
     const startDateString = startOfWeek.toISOString().split('T')[0];
     const endDateString = endOfWeek.toISOString().split('T')[0];
-    
+
     const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
-    
+
     return orders
       .filter(order => order.collectionDate >= startDateString && order.collectionDate <= endDateString)
-      .filter(order => order.collectionDate >= todayString) // Only show current and future orders
+      .filter(order => order.collectionDate >= todayString)
       .sort((a, b) => {
-        // First sort by collection date (earliest first)
         const dateComparison = new Date(a.collectionDate).getTime() - new Date(b.collectionDate).getTime();
         if (dateComparison !== 0) return dateComparison;
-        
-        // Then sort by status priority
         return statusPriority[a.status] - statusPriority[b.status];
       })
-      .slice(0, 5) // Show only first 5
+      .slice(0, 5)
       .map(order => {
         const customer = customers.find(c => c.id === order.customerId);
         return {
@@ -95,13 +125,11 @@ const Dashboard: React.FC = () => {
 
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
-    
     setIsSubmitting(true);
     try {
       const success = updateOrder(editingOrder.id, orderData);
       if (success) {
         setEditingOrder(null);
-        // Update viewing order if it's the same one
         if (viewingOrder?.id === editingOrder.id) {
           setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
         }
@@ -113,26 +141,19 @@ const Dashboard: React.FC = () => {
 
   const handleDeleteOrder = () => {
     if (!deletingOrder) return;
-
     const success = deleteOrder(deletingOrder.id);
     if (success) {
       setDeletingOrder(null);
-      // Close detail view if we're viewing the deleted order
-      if (viewingOrder?.id === deletingOrder.id) {
-        setViewingOrder(null);
-      }
+      if (viewingOrder?.id === deletingOrder.id) setViewingOrder(null);
     }
   };
 
   const handleDeleteRecurringSeries = () => {
     if (!deletingOrder) return;
-
     const result = deleteRecurringSeries(deletingOrder.id);
     if (result.success) {
       setDeletingOrder(null);
-      if (viewingOrder?.id === deletingOrder.id ||
-          (viewingOrder?.parentOrderId && viewingOrder.parentOrderId === deletingOrder.parentOrderId &&
-           viewingOrder.collectionDate >= deletingOrder.collectionDate)) {
+      if (viewingOrder?.id === deletingOrder.id || (viewingOrder?.parentOrderId && viewingOrder.parentOrderId === deletingOrder.parentOrderId && viewingOrder.collectionDate >= deletingOrder.collectionDate)) {
         setViewingOrder(null);
       }
     }
@@ -142,7 +163,7 @@ const Dashboard: React.FC = () => {
     const duplicateData = getDuplicateOrderData(orderId);
     if (duplicateData) {
       setDuplicatingOrder(duplicateData);
-      setViewingOrder(null); // Close detail view
+      setViewingOrder(null);
     } else {
       alert('Failed to prepare duplicate order. Please try again.');
     }
@@ -157,48 +178,146 @@ const Dashboard: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending':
-        return <Clock className="h-4 w-4 text-amber-500" />;
-      case 'confirmed':
-        return <CheckCircle className="h-4 w-4 text-sky-500" />;
-      case 'prepared':
-        return <CheckCircle className="h-4 w-4 text-teal-500" />;
-      case 'collected':
-        return <Package className="h-4 w-4 text-green-600" />;
-      case 'cancelled':
-        return <XCircle className="h-4 w-4 text-rose-400" />;
-      default:
-        return <Clock className="h-4 w-4 text-fergbutcher-brown-400" />;
+      case 'pending': return <Clock className="h-4 w-4 text-amber-500" />;
+      case 'confirmed': return <CheckCircle className="h-4 w-4 text-sky-500" />;
+      case 'prepared': return <CheckCircle className="h-4 w-4 text-teal-500" />;
+      case 'collected': return <Package className="h-4 w-4 text-green-600" />;
+      case 'cancelled': return <XCircle className="h-4 w-4 text-rose-400" />;
+      default: return <Clock className="h-4 w-4 text-fergbutcher-brown-400" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
-        return 'bg-amber-50 text-amber-800';
-      case 'confirmed':
-        return 'bg-sky-50 text-sky-800';
-      case 'prepared':
-        return 'bg-teal-50 text-teal-800';
-      case 'collected':
-        return 'bg-green-50 text-green-800';
-      case 'cancelled':
-        return 'bg-rose-50 text-rose-700';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'pending': return 'bg-amber-50 text-amber-800';
+      case 'confirmed': return 'bg-sky-50 text-sky-800';
+      case 'prepared': return 'bg-teal-50 text-teal-800';
+      case 'collected': return 'bg-green-50 text-green-800';
+      case 'cancelled': return 'bg-rose-50 text-rose-700';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-fergbutcher-black-900">Dashboard</h1>
-        <p className="text-fergbutcher-brown-600">Welcome back! Here's what's happening with your orders today.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-fergbutcher-black-900">Dashboard</h1>
+          <p className="text-fergbutcher-brown-600">Welcome back! Here's what's happening with your orders today.</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowPrintSchedule(true)}
+            className="flex items-center space-x-2 bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors text-sm font-medium"
+          >
+            <Printer className="h-4 w-4" />
+            <span>Print Today's Orders</span>
+          </button>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('checklist')}
+              className="flex items-center space-x-2 bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors text-sm font-medium"
+            >
+              <ClipboardList className="h-4 w-4" />
+              <span>Today's Checklist</span>
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Attention Required Alerts */}
+      {(overdueOrders.length > 0 || approachingUnconfirmed.length > 0) && (
+        <div className="space-y-3">
+          {overdueOrders.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <h3 className="font-semibold text-red-800">
+                  {overdueOrders.length} Overdue {overdueOrders.length === 1 ? 'Order' : 'Orders'} — Never Collected
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {overdueOrders.slice(0, 5).map(order => {
+                  const customer = customers.find(c => c.id === order.customerId);
+                  return (
+                    <div key={order.id} className="flex items-center justify-between bg-white border border-red-200 rounded-lg px-4 py-2">
+                      <div>
+                        <span className="font-medium text-fergbutcher-black-900">
+                          {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
+                        </span>
+                        <span className="text-sm text-red-600 ml-2">
+                          — was {new Date(order.collectionDate).toLocaleDateString('en-NZ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleStatusChange(order.id, 'collected')}
+                          className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 transition-colors"
+                        >
+                          Mark Collected
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(order.id, 'cancelled')}
+                          className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {overdueOrders.length > 5 && (
+                  <p className="text-sm text-red-600 pl-1">+{overdueOrders.length - 5} more overdue orders</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {approachingUnconfirmed.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                <h3 className="font-semibold text-amber-800">
+                  {approachingUnconfirmed.length} Unconfirmed {approachingUnconfirmed.length === 1 ? 'Order' : 'Orders'} Approaching
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {approachingUnconfirmed.map(order => {
+                  const customer = customers.find(c => c.id === order.customerId);
+                  const isToday = order.collectionDate === today;
+                  return (
+                    <div key={order.id} className="flex items-center justify-between bg-white border border-amber-200 rounded-lg px-4 py-2">
+                      <div>
+                        <span className="font-medium text-fergbutcher-black-900">
+                          {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
+                        </span>
+                        <span className="text-sm text-amber-700 ml-2">
+                          — {isToday ? 'today' : 'tomorrow'}
+                          {customer?.phone && (
+                            <a href={`tel:${customer.phone}`} className="ml-2 text-fergbutcher-green-600 hover:underline" onClick={e => e.stopPropagation()}>
+                              {customer.phone}
+                            </a>
+                          )}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleStatusChange(order.id, 'confirmed')}
+                        className="text-xs bg-sky-100 text-sky-700 px-2 py-1 rounded hover:bg-sky-200 transition-colors"
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -213,10 +332,7 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
               <div className="mt-4 flex items-center">
-                <span className={`text-sm font-medium ${
-                  stat.changeType === 'positive' ? 'text-fergbutcher-green-600' :
-                  stat.changeType === 'negative' ? 'text-fergbutcher-black-600' : 'text-fergbutcher-brown-600'
-                }`}>
+                <span className="text-sm font-medium text-fergbutcher-brown-600">
                   {stat.change}
                 </span>
               </div>
@@ -233,8 +349,8 @@ const Dashboard: React.FC = () => {
         <div className="p-6">
           <div className="space-y-4">
             {thisWeeksOrders.length > 0 ? thisWeeksOrders.map((order) => (
-              <div 
-                key={order.id} 
+              <div
+                key={order.id}
                 className="flex items-center justify-between p-4 bg-fergbutcher-green-50 rounded-lg cursor-pointer hover:bg-fergbutcher-green-100 transition-colors"
                 onClick={() => setViewingOrder(order.fullOrder)}
               >
@@ -245,9 +361,6 @@ const Dashboard: React.FC = () => {
                       <p className="font-medium text-fergbutcher-black-900">{order.customer}</p>
                       {order.fullOrder.orderType === 'christmas' && (
                         <Gift className="h-4 w-4 text-fergbutcher-green-600" />
-                      )}
-                      {order.fullOrder.isRecurring && (
-                        <RefreshCw className="h-4 w-4 text-fergbutcher-blue-600" />
                       )}
                       {order.fullOrder.isRecurring && (
                         <RefreshCw className="h-4 w-4 text-fergbutcher-blue-600" />
@@ -375,11 +488,11 @@ const Dashboard: React.FC = () => {
                     Are you sure you want to delete this order?
                   </p>
                   <p className="text-fergbutcher-brown-600 text-sm mt-1">
-                    This action cannot be undone. All order data will be permanently removed.
+                    This action cannot be undone.
                   </p>
                   {deletingOrder.isRecurring && deletingOrder.parentOrderId && (
                     <p className="text-fergbutcher-blue-700 text-sm mt-2 bg-fergbutcher-blue-50 border border-fergbutcher-blue-200 rounded p-2">
-                      This is part of a recurring series. You can choose to delete only this order, or this order together with all future occurrences.
+                      This is part of a recurring series. You can delete only this order, or this order and all future occurrences.
                     </p>
                   )}
                 </div>
@@ -457,24 +570,34 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Print Today's Schedule */}
+      {showPrintSchedule && (
+        <PrintSchedule
+          date={today}
+          orders={orders}
+          customers={customers}
+          onClose={() => setShowPrintSchedule(false)}
+        />
+      )}
+
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
           <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
-            <button 
+            <button
               onClick={() => window.location.hash = '#orders'}
               className="w-full bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors"
             >
               Create New Order
             </button>
-            <button 
+            <button
               onClick={() => window.location.hash = '#customers'}
               className="w-full bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
             >
               Add Customer
             </button>
-            <button 
+            <button
               onClick={() => window.location.hash = '#calendar'}
               className="w-full bg-fergbutcher-yellow-100 text-fergbutcher-yellow-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-yellow-200 transition-colors"
             >

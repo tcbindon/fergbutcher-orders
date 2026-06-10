@@ -12,36 +12,38 @@ import Customers from './components/Customers';
 import Orders from './components/Orders';
 import CalendarView from './components/CalendarView';
 import Settings from './components/Settings';
+import TodayChecklist from './components/TodayChecklist';
 import { ViewType } from './types';
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const { 
-    showUndoNotification, 
-    lastAction, 
-    performUndo, 
-    hideUndoNotification 
+  const [staffName, setStaffName] = useState('');
+  const {
+    showUndoNotification,
+    lastAction,
+    performUndo,
+    hideUndoNotification
   } = useUndo();
 
   // Check authentication status on mount
   useEffect(() => {
     const authStatus = localStorage.getItem('fergbutcher_authenticated');
+    const savedStaffName = localStorage.getItem('fergbutcher_staff_name');
     setIsAuthenticated(authStatus === 'true');
+    if (savedStaffName) setStaffName(savedStaffName);
   }, []);
 
   // Initialize services
   useEffect(() => {
     errorLogger.info('Application started');
-    
-    // Register keyboard shortcuts
+
     keyboardShortcuts.register({
       key: 'n',
       ctrlKey: true,
       description: 'Create new order',
       action: () => {
         setCurrentView('orders');
-        // Trigger new order creation - this would need to be passed down to Orders component
         errorLogger.debug('Keyboard shortcut: New order');
       }
     });
@@ -98,51 +100,48 @@ function App() {
       }
     });
 
-    // Cleanup function
     return () => {
       keyboardShortcuts.cleanup();
       backupService.cleanup();
     };
   }, [performUndo]);
 
-  // Handle login
-  const handleLogin = () => {
+  const handleLogin = (name: string) => {
     setIsAuthenticated(true);
+    setStaffName(name);
     localStorage.setItem('fergbutcher_authenticated', 'true');
-    errorLogger.info('User logged in');
+    localStorage.setItem('fergbutcher_staff_name', name);
+    errorLogger.info(`User logged in as ${name}`);
   };
 
-  // Handle logout
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setStaffName('');
     localStorage.removeItem('fergbutcher_authenticated');
+    localStorage.removeItem('fergbutcher_staff_name');
     errorLogger.info('User logged out');
   };
 
   // Handle URL hash navigation
   useEffect(() => {
+    const validViews: ViewType[] = ['dashboard', 'checklist', 'customers', 'orders', 'calendar', 'settings'];
     const handleHashChange = () => {
       const hash = window.location.hash.substring(1) as ViewType;
-      if (['dashboard', 'customers', 'orders', 'calendar', 'settings'].includes(hash)) {
+      if (validViews.includes(hash)) {
         setCurrentView(hash);
       }
     };
 
-    // Set initial view from hash
     handleHashChange();
-    
-    // Listen for hash changes
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Update hash when view changes
   const handleViewChange = (view: ViewType) => {
     setCurrentView(view);
     window.location.hash = view;
   };
 
-  // Show login form if not authenticated
   if (!isAuthenticated) {
     return <LoginForm onLoginSuccess={handleLogin} />;
   }
@@ -150,27 +149,28 @@ function App() {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onNavigate={handleViewChange} />;
+      case 'checklist':
+        return <TodayChecklist staffName={staffName} />;
       case 'customers':
         return <Customers />;
       case 'orders':
-        return <Orders />;
+        return <Orders staffName={staffName} />;
       case 'calendar':
         return <CalendarView />;
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard />;
+        return <Dashboard onNavigate={handleViewChange} />;
     }
   };
 
   return (
     <>
-      <Layout currentView={currentView} onViewChange={handleViewChange} onLogout={handleLogout}>
+      <Layout currentView={currentView} onViewChange={handleViewChange} onLogout={handleLogout} staffName={staffName}>
         {renderCurrentView()}
       </Layout>
-      
-      {/* Undo Notification */}
+
       <UndoNotification
         show={showUndoNotification}
         actionDescription={lastAction?.description || ''}

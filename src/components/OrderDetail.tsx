@@ -229,7 +229,9 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
               </p>
               {customer.email && <p className="text-sm text-fergbutcher-brown-600">{customer.email}</p>}
               {customer.phone && (
-                <p className="text-sm text-fergbutcher-brown-600">{customer.phone}</p>
+                <a href={`tel:${customer.phone}`} className="text-sm text-fergbutcher-green-700 hover:underline">
+                  {customer.phone}
+                </a>
               )}
             </div>
           </div>

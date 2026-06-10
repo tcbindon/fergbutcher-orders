@@ -5,6 +5,7 @@ export interface Customer {
   email?: string;
   phone: string;
   company?: string;
+  notes?: string;
   createdAt: string;
 }
 
@@ -69,4 +70,4 @@ export interface EmailTemplate {
 
 export type CalendarViewMode = 'day' | 'week' | 'month';
 
-export type ViewType = 'dashboard' | 'customers' | 'orders' | 'calendar' | 'settings';
+export type ViewType = 'dashboard' | 'checklist' | 'customers' | 'orders' | 'calendar' | 'settings';

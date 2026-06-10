@@ -1,10 +1,11 @@
 import React from 'react';
-import { 
-  Home, 
-  Users, 
-  ShoppingCart, 
-  Calendar, 
-  Settings
+import {
+  Home,
+  Users,
+  ShoppingCart,
+  Calendar,
+  Settings,
+  ClipboardList
 } from 'lucide-react';
 import { ViewType } from '../types';
 
@@ -12,12 +13,14 @@ interface LayoutProps {
   currentView: ViewType;
   onViewChange: (view: ViewType) => void;
   onLogout: () => void;
+  staffName?: string;
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, children }) => {
+const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, staffName, children }) => {
   const navigationItems = [
     { id: 'dashboard' as ViewType, label: 'Dashboard', icon: Home },
+    { id: 'checklist' as ViewType, label: "Today's Checklist", icon: ClipboardList },
     { id: 'customers' as ViewType, label: 'Customers', icon: Users },
     { id: 'orders' as ViewType, label: 'Orders', icon: ShoppingCart },
     { id: 'calendar' as ViewType, label: 'Calendar', icon: Calendar },
@@ -31,9 +34,9 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <img 
-                src="/Fergbutcher_vector-01.png" 
-                alt="Fergbutcher Logo" 
+              <img
+                src="/Fergbutcher_vector-01.png"
+                alt="Fergbutcher Logo"
                 className="h-10 w-auto"
               />
               <div>
@@ -42,9 +45,11 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-fergbutcher-brown-600">
-                Welcome back, Team
-              </div>
+              {staffName && (
+                <div className="text-sm text-fergbutcher-brown-700 font-medium">
+                  {staffName}
+                </div>
+              )}
               <button
                 onClick={onLogout}
                 className="text-sm bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-3 py-1 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
@@ -64,7 +69,7 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentView === item.id;
-                
+
                 return (
                   <li key={item.id}>
                     <button

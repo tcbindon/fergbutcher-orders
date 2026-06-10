@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Mail, Phone, Building, Calendar, CreditCard as Edit, Trash2, ShoppingCart } from 'lucide-react';
+import { User, Mail, Phone, Building, Calendar, CreditCard as Edit, Trash2, ShoppingCart, FileText } from 'lucide-react';
 import { Customer } from '../types';
 
 interface CustomerDetailProps {
@@ -54,6 +54,21 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
         </div>
       </div>
 
+      {/* Standing Preferences */}
+      {customer.notes && (
+        <div className="px-6 py-4 bg-amber-50 border-b border-amber-200">
+          <div className="flex items-start space-x-3">
+            <div className="bg-amber-100 p-2 rounded-lg mt-0.5">
+              <FileText className="h-4 w-4 text-amber-700" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-amber-800 mb-1">Standing Preferences</p>
+              <p className="text-sm text-amber-700">{customer.notes}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Contact Information */}
       <div className="p-6">
         <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Contact Information</h3>
@@ -77,7 +92,12 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               </div>
               <div>
                 <p className="text-sm text-fergbutcher-brown-600">Mobile</p>
-                <p className="font-medium text-fergbutcher-black-900">{customer.phone}</p>
+                <a
+                  href={`tel:${customer.phone}`}
+                  className="font-medium text-fergbutcher-green-700 hover:text-fergbutcher-green-800 hover:underline"
+                >
+                  {customer.phone}
+                </a>
               </div>
             </div>
           )}

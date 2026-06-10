@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Filter, CreditCard as Edit, Eye, Calendar, Clock, CheckCircle, XCircle, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw } from 'lucide-react';
+import { Search, Plus, Filter, CreditCard as Edit, Eye, Calendar, Clock, CheckCircle, XCircle, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
@@ -9,7 +9,11 @@ import CustomerForm from './CustomerForm';
 import OrderDetail from './OrderDetail';
 import { Order, Customer } from '../types';
 
-const Orders: React.FC = () => {
+interface OrdersProps {
+  staffName?: string;
+}
+
+const Orders: React.FC<OrdersProps> = ({ staffName }) => {
   const { 
     orders, 
     loading: ordersLoading, 
@@ -35,25 +39,30 @@ const Orders: React.FC = () => {
   const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [showingComments, setShowingComments] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPastOrders, setShowPastOrders] = useState(false);
+  const [pastFilter, setPastFilter] = useState<'upcoming' | 'last7' | 'all'>('last7');
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [pendingNewCustomerId, setPendingNewCustomerId] = useState<string | undefined>(undefined);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<Order['status']>('confirmed');
 
   // Sort orders by collection date (earliest first), then by status priority
   const getSortedOrders = (orders: Order[]) => {
     const today = new Date().toISOString().split('T')[0];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
     const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
-    
-    const filteredOrders = showPastOrders 
-      ? orders // Show all orders when toggle is on
-      : orders.filter(order => order.collectionDate >= today); // Only show current and future orders by default
-    
+
+    let filteredOrders: Order[];
+    if (pastFilter === 'all') {
+      filteredOrders = orders;
+    } else if (pastFilter === 'last7') {
+      filteredOrders = orders.filter(order => order.collectionDate >= sevenDaysAgo);
+    } else {
+      filteredOrders = orders.filter(order => order.collectionDate >= today);
+    }
+
     return filteredOrders.sort((a, b) => {
-      // First sort by collection date (earliest first)
       const dateComparison = new Date(a.collectionDate).getTime() - new Date(b.collectionDate).getTime();
       if (dateComparison !== 0) return dateComparison;
-      
-      // Then sort by status priority
       return statusPriority[a.status] - statusPriority[b.status];
     });
   };
@@ -157,6 +166,27 @@ const Orders: React.FC = () => {
     const success = updateOrder(orderId, { status: newStatus });
     if (success && viewingOrder?.id === orderId) {
       setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+    }
+  };
+
+  const handleBulkStatusApply = () => {
+    selectedOrderIds.forEach(id => updateOrder(id, { status: bulkStatus }));
+    setSelectedOrderIds(new Set());
+  };
+
+  const toggleSelectOrder = (id: string) => {
+    setSelectedOrderIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.size === filteredOrders.length) {
+      setSelectedOrderIds(new Set());
+    } else {
+      setSelectedOrderIds(new Set(filteredOrders.map(o => o.id)));
     }
   };
 
@@ -267,16 +297,22 @@ const Orders: React.FC = () => {
                   className="w-full pl-10 pr-4 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
                 />
               </div>
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={showPastOrders}
-                    onChange={(e) => setShowPastOrders(e.target.checked)}
-                    className="rounded border-fergbutcher-brown-300 text-fergbutcher-green-600 focus:ring-fergbutcher-green-500"
-                  />
-                  <span className="text-fergbutcher-brown-700">Show past orders</span>
-                </label>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-1 bg-fergbutcher-brown-50 border border-fergbutcher-brown-200 rounded-lg p-1">
+                  {(['upcoming', 'last7', 'all'] as const).map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setPastFilter(val)}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                        pastFilter === val
+                          ? 'bg-white text-fergbutcher-green-700 shadow-sm border border-fergbutcher-brown-200'
+                          : 'text-fergbutcher-brown-600 hover:text-fergbutcher-brown-800'
+                      }`}
+                    >
+                      {val === 'upcoming' ? 'Upcoming' : val === 'last7' ? 'Last 7 days' : 'All'}
+                    </button>
+                  ))}
+                </div>
                 <Filter className="h-4 w-4 text-fergbutcher-brown-400" />
                 <select
                   value={statusFilter}
@@ -296,23 +332,41 @@ const Orders: React.FC = () => {
 
           {/* Orders List */}
           <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200">
-            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
-              <h2 className="text-lg font-semibold text-fergbutcher-black-900">
-                {showPastOrders ? 'All Orders' : 'Current & Upcoming Orders'} ({filteredOrders.length.toLocaleString('en-NZ')})
-              </h2>
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={filteredOrders.length > 0 && selectedOrderIds.size === filteredOrders.length}
+                  onChange={toggleSelectAll}
+                  className="rounded border-fergbutcher-brown-300 text-fergbutcher-green-600 focus:ring-fergbutcher-green-500"
+                />
+                <h2 className="text-lg font-semibold text-fergbutcher-black-900">
+                  {pastFilter === 'all' ? 'All Orders' : pastFilter === 'last7' ? 'Last 7 Days' : 'Current & Upcoming'} ({filteredOrders.length.toLocaleString('en-NZ')})
+                </h2>
+              </div>
+              {selectedOrderIds.size > 0 && (
+                <span className="text-sm text-fergbutcher-green-700 font-medium">{selectedOrderIds.size} selected</span>
+              )}
             </div>
             <div className="divide-y divide-fergbutcher-brown-200 max-h-96 overflow-y-auto">
               {filteredOrders.length > 0 ? (
                 filteredOrders.map((order) => {
                   const customer = customers.find(c => c.id === order.customerId);
                   return (
-                    <div 
-                      key={order.id} 
-                      className="p-6 hover:bg-fergbutcher-green-50 transition-colors cursor-pointer"
+                    <div
+                      key={order.id}
+                      className={`p-6 hover:bg-fergbutcher-green-50 transition-colors cursor-pointer ${selectedOrderIds.has(order.id) ? 'bg-fergbutcher-green-50' : ''}`}
                       onClick={() => setViewingOrder(order)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedOrderIds.has(order.id)}
+                            onChange={(e) => { e.stopPropagation(); toggleSelectOrder(order.id); }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-1 rounded border-fergbutcher-brown-300 text-fergbutcher-green-600 focus:ring-fergbutcher-green-500"
+                          />
                           <div className="bg-fergbutcher-green-100 p-3 rounded-full">
                             {order.orderType === 'christmas' ? (
                               <Gift className="h-6 w-6 text-fergbutcher-green-600" />
@@ -363,6 +417,16 @@ const Orders: React.FC = () => {
                                   <Calendar className="h-4 w-4" />
                                   <span>{new Date(order.collectionDate).toLocaleDateString('en-NZ')}</span>
                                 </div>
+                                {customer?.phone && (
+                                  <a
+                                    href={`tel:${customer.phone}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center space-x-1 text-fergbutcher-green-600 hover:underline"
+                                  >
+                                    <Phone className="h-3 w-3" />
+                                    <span>{customer.phone}</span>
+                                  </a>
+                                )}
                                 {/* Comment Indicator */}
                                 {getNotesForOrder(order.id).length > 0 && (
                                   <div className="relative">
@@ -488,6 +552,36 @@ const Orders: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {selectedOrderIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-white border border-fergbutcher-brown-200 rounded-xl shadow-xl px-6 py-4 flex items-center space-x-4">
+          <span className="font-medium text-fergbutcher-black-900">{selectedOrderIds.size} order{selectedOrderIds.size !== 1 ? 's' : ''} selected</span>
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value as Order['status'])}
+            className="px-3 py-2 border border-fergbutcher-brown-300 rounded-lg text-sm focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+          >
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="prepared">Prepared</option>
+            <option value="collected">Collected</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <button
+            onClick={handleBulkStatusApply}
+            className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors text-sm font-medium"
+          >
+            Apply to {selectedOrderIds.size}
+          </button>
+          <button
+            onClick={() => setSelectedOrderIds(new Set())}
+            className="text-fergbutcher-brown-500 hover:text-fergbutcher-brown-700 text-sm"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* View Order Details Modal */}
       {viewingOrder && (

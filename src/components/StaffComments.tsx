@@ -1,31 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageSquare, Plus, Trash2, User, Clock } from 'lucide-react';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 
 interface StaffCommentsProps {
   orderId: string;
+  staffName?: string;
 }
 
-const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
+const StaffComments: React.FC<StaffCommentsProps> = ({ orderId, staffName: currentStaffName }) => {
   const { getNotesForOrder, addStaffNote, deleteStaffNote, loading, error } = useStaffNotes();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [staffName, setStaffName] = useState('');
+  const [staffName, setStaffName] = useState(currentStaffName || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Keep staff name in sync if prop changes
+  useEffect(() => {
+    if (currentStaffName) setStaffName(currentStaffName);
+  }, [currentStaffName]);
 
   const orderNotes = getNotesForOrder(orderId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newComment.trim() || !staffName.trim()) return;
-    
+
     setIsSubmitting(true);
     try {
       const success = addStaffNote(orderId, staffName, newComment);
       if (success) {
         setNewComment('');
-        setStaffName('');
         setShowAddForm(false);
       }
     } finally {
@@ -106,7 +111,6 @@ const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
               onClick={() => {
                 setShowAddForm(false);
                 setNewComment('');
-                setStaffName('');
               }}
               className="px-3 py-1 text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors text-sm"
               disabled={isSubmitting}

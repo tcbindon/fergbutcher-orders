@@ -313,30 +313,41 @@ const OrderForm: React.FC<OrderFormProps> = ({
             </div>
 
             {formData.customerId && (
-              <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-3">
+              <div className="space-y-2">
+                <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-3">
+                  {(() => {
+                    const selectedCustomer = customers.find(c => c.id === formData.customerId);
+                    return selectedCustomer ? (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-fergbutcher-green-800">
+                            Selected: {selectedCustomer.firstName} {selectedCustomer.lastName}
+                          </div>
+                          <div className="text-sm text-fergbutcher-green-700">
+                            {selectedCustomer.email}
+                            {selectedCustomer.phone && ` • ${selectedCustomer.phone}`}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, customerId: '' }));
+                            setCustomerSearchTerm('');
+                          }}
+                          className="text-fergbutcher-green-600 hover:text-fergbutcher-green-800 text-sm"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
                 {(() => {
                   const selectedCustomer = customers.find(c => c.id === formData.customerId);
-                  return selectedCustomer ? (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium text-fergbutcher-green-800">
-                          Selected: {selectedCustomer.firstName} {selectedCustomer.lastName}
-                        </div>
-                        <div className="text-sm text-fergbutcher-green-700">
-                          {selectedCustomer.email}
-                          {selectedCustomer.phone && ` • ${selectedCustomer.phone}`}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormData(prev => ({ ...prev, customerId: '' }));
-                          setCustomerSearchTerm('');
-                        }}
-                        className="text-fergbutcher-green-600 hover:text-fergbutcher-green-800 text-sm"
-                      >
-                        Clear
-                      </button>
+                  return selectedCustomer?.notes ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">Standing Preferences</p>
+                      <p className="text-sm text-amber-700">{selectedCustomer.notes}</p>
                     </div>
                   ) : null;
                 })()}
