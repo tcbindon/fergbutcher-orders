@@ -1,23 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { MessageSquare, Plus, Trash2, User, Clock } from 'lucide-react';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 
 interface StaffCommentsProps {
   orderId: string;
-  staffName?: string;
 }
 
-const StaffComments: React.FC<StaffCommentsProps> = ({ orderId, staffName: currentStaffName }) => {
+const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
   const { getNotesForOrder, addStaffNote, deleteStaffNote, loading, error } = useStaffNotes();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [staffName, setStaffName] = useState(currentStaffName || '');
+  const [staffName, setStaffName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Keep staff name in sync if prop changes
-  useEffect(() => {
-    if (currentStaffName) setStaffName(currentStaffName);
-  }, [currentStaffName]);
 
   const orderNotes = getNotesForOrder(orderId);
 

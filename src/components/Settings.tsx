@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Keyboard, Clock, FileText, Trash2, Gift, RefreshCw, Users, Plus, X } from 'lucide-react';
+import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Keyboard, Clock, FileText, Trash2, Gift, RefreshCw } from 'lucide-react';
 import { useGoogleSheets } from '../hooks/useGoogleSheets';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
@@ -12,29 +12,6 @@ import errorLogger from '../services/errorLogger';
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('email');
 
-  // Staff members state
-  const DEFAULT_STAFF = ['Sarah', 'James', 'Tom', 'Emma', 'Liam'];
-  const [staffMembers, setStaffMembers] = useState<string[]>(() =>
-    JSON.parse(localStorage.getItem('fergbutcher_staff_members') || JSON.stringify(DEFAULT_STAFF))
-  );
-  const [newStaffName, setNewStaffName] = useState('');
-
-  const saveStaffMembers = (members: string[]) => {
-    setStaffMembers(members);
-    localStorage.setItem('fergbutcher_staff_members', JSON.stringify(members));
-  };
-
-  const addStaffMember = () => {
-    const trimmed = newStaffName.trim();
-    if (!trimmed || staffMembers.includes(trimmed)) return;
-    saveStaffMembers([...staffMembers, trimmed]);
-    setNewStaffName('');
-  };
-
-  const removeStaffMember = (name: string) => {
-    saveStaffMembers(staffMembers.filter(m => m !== name));
-  };
-  
   const { isConnected, isLoading, error, lastSync, syncAll, disconnect } = useGoogleSheets();
   const { customers } = useCustomers();
   const { orders } = useOrders();
@@ -52,7 +29,6 @@ const Settings: React.FC = () => {
 
   const tabs = [
     { id: 'email', label: 'Email Templates', icon: Mail },
-    { id: 'staff', label: 'Staff Members', icon: Users },
     { id: 'christmas', label: 'Christmas Products', icon: Gift },
     { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
     { id: 'sheets', label: 'Google Sheets', icon: ExternalLink },
@@ -132,66 +108,6 @@ const Settings: React.FC = () => {
         </div>
 
         <div className="p-6">
-          {/* Staff Members Tab */}
-          {activeTab === 'staff' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-2">Staff Members</h3>
-                <p className="text-fergbutcher-brown-600">
-                  Manage the list of staff names shown at login. Staff select their name each session so notes and comments are correctly attributed.
-                </p>
-              </div>
-
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newStaffName}
-                  onChange={(e) => setNewStaffName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addStaffMember(); } }}
-                  placeholder="Add staff member name..."
-                  className="flex-1 px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-                />
-                <button
-                  onClick={addStaffMember}
-                  disabled={!newStaffName.trim() || staffMembers.includes(newStaffName.trim())}
-                  className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Add</span>
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {staffMembers.map((name) => (
-                  <div key={name} className="flex items-center justify-between px-4 py-3 bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Users className="h-4 w-4 text-fergbutcher-green-600" />
-                      <span className="font-medium text-fergbutcher-black-900">{name}</span>
-                    </div>
-                    <button
-                      onClick={() => removeStaffMember(name)}
-                      className="p-1 text-fergbutcher-brown-400 hover:text-red-600 hover:bg-red-100 rounded transition-colors"
-                      title="Remove staff member"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-                {staffMembers.length === 0 && (
-                  <p className="text-fergbutcher-brown-500 text-center py-8">
-                    No staff members added yet. Add at least one name to enable the staff picker at login.
-                  </p>
-                )}
-              </div>
-
-              <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-4">
-                <p className="text-sm text-fergbutcher-green-700">
-                  These names appear on the login screen after entering the password. The selected name is shown in the header and auto-fills the staff name field on comments and notes.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Email Templates Tab */}
           {activeTab === 'email' && (
             <div className="space-y-6">

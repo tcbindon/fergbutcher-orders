@@ -18,7 +18,6 @@ import { ViewType } from './types';
 function App() {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [staffName, setStaffName] = useState('');
   const {
     showUndoNotification,
     lastAction,
@@ -29,9 +28,7 @@ function App() {
   // Check authentication status on mount
   useEffect(() => {
     const authStatus = localStorage.getItem('fergbutcher_authenticated');
-    const savedStaffName = localStorage.getItem('fergbutcher_staff_name');
     setIsAuthenticated(authStatus === 'true');
-    if (savedStaffName) setStaffName(savedStaffName);
   }, []);
 
   // Initialize services
@@ -106,19 +103,15 @@ function App() {
     };
   }, [performUndo]);
 
-  const handleLogin = (name: string) => {
+  const handleLogin = () => {
     setIsAuthenticated(true);
-    setStaffName(name);
     localStorage.setItem('fergbutcher_authenticated', 'true');
-    localStorage.setItem('fergbutcher_staff_name', name);
-    errorLogger.info(`User logged in as ${name}`);
+    errorLogger.info('User logged in');
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    setStaffName('');
     localStorage.removeItem('fergbutcher_authenticated');
-    localStorage.removeItem('fergbutcher_staff_name');
     errorLogger.info('User logged out');
   };
 
@@ -151,11 +144,11 @@ function App() {
       case 'dashboard':
         return <Dashboard onNavigate={handleViewChange} />;
       case 'checklist':
-        return <TodayChecklist staffName={staffName} />;
+        return <TodayChecklist />;
       case 'customers':
         return <Customers />;
       case 'orders':
-        return <Orders staffName={staffName} />;
+        return <Orders />;
       case 'calendar':
         return <CalendarView />;
       case 'settings':
@@ -167,7 +160,7 @@ function App() {
 
   return (
     <>
-      <Layout currentView={currentView} onViewChange={handleViewChange} onLogout={handleLogout} staffName={staffName}>
+      <Layout currentView={currentView} onViewChange={handleViewChange} onLogout={handleLogout}>
         {renderCurrentView()}
       </Layout>
 

@@ -13,11 +13,10 @@ interface LayoutProps {
   currentView: ViewType;
   onViewChange: (view: ViewType) => void;
   onLogout: () => void;
-  staffName?: string;
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, staffName, children }) => {
+const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, children }) => {
   const navigationItems = [
     { id: 'dashboard' as ViewType, label: 'Dashboard', icon: Home },
     { id: 'checklist' as ViewType, label: "Today's Checklist", icon: ClipboardList },
@@ -45,11 +44,6 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, st
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              {staffName && (
-                <div className="text-sm text-fergbutcher-brown-700 font-medium">
-                  {staffName}
-                </div>
-              )}
               <button
                 onClick={onLogout}
                 className="text-sm bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-3 py-1 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"

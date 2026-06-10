@@ -5,9 +5,7 @@ import { useCustomers } from '../hooks/useCustomers';
 import PrintSchedule from './PrintSchedule';
 import { Order } from '../types';
 
-interface TodayChecklistProps {
-  staffName?: string;
-}
+interface TodayChecklistProps {}
 
 const STATUS_SEQUENCE: Order['status'][] = ['pending', 'confirmed', 'prepared', 'collected'];
 
@@ -17,7 +15,7 @@ function getNextStatus(current: Order['status']): Order['status'] | null {
   return STATUS_SEQUENCE[idx + 1];
 }
 
-const TodayChecklist: React.FC<TodayChecklistProps> = ({ staffName }) => {
+const TodayChecklist: React.FC<TodayChecklistProps> = () => {
   const { orders, updateOrder, loading } = useOrders();
   const { customers } = useCustomers();
   const [showPrint, setShowPrint] = useState(false);

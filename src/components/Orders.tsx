@@ -9,11 +9,9 @@ import CustomerForm from './CustomerForm';
 import OrderDetail from './OrderDetail';
 import { Order, Customer } from '../types';
 
-interface OrdersProps {
-  staffName?: string;
-}
+interface OrdersProps {}
 
-const Orders: React.FC<OrdersProps> = ({ staffName }) => {
+const Orders: React.FC<OrdersProps> = () => {
   const { 
     orders, 
     loading: ordersLoading, 
