@@ -2,14 +2,12 @@ import React from 'react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import { useStaffNotes } from '../hooks/useStaffNotes';
-import backupService from '../services/backupService';
 import OrderDetail from './OrderDetail';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
-import { 
-  Users, 
-  ShoppingCart, 
-  Calendar, 
+import {
+  ShoppingCart,
+  Calendar,
   Clock,
   CheckCircle,
   XCircle,
@@ -33,57 +31,13 @@ const Dashboard: React.FC = () => {
   const [duplicatingOrder, setDuplicatingOrder] = React.useState<any>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // Calculate time since last backup
-  const getTimeSinceLastBackup = () => {
-    const backups = backupService.getBackupList();
-    if (backups.length === 0) {
-      return { text: 'No backups', type: 'warning' as const };
-    }
-
-    const lastBackup = new Date(backups[0].timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - lastBackup.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    const diffDays = Math.floor(diffHours / 24);
-
-    let text: string;
-    let type: 'positive' | 'neutral' | 'warning';
-
-    if (diffDays > 0) {
-      text = diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
-      type = diffDays > 2 ? 'warning' : 'neutral';
-    } else if (diffHours > 0) {
-      text = diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
-      type = diffHours > 12 ? 'warning' : 'positive';
-    } else if (diffMinutes > 0) {
-      text = diffMinutes === 1 ? '1 minute ago' : `${diffMinutes} minutes ago`;
-      type = 'positive';
-    } else {
-      text = 'Just now';
-      type = 'positive';
-    }
-
-    return { text, type };
-  };
-
-  const backupInfo = getTimeSinceLastBackup();
-
   // Mock data for demonstration
   const stats = [
     {
-      title: 'Total Customers',
-      value: customers.length.toLocaleString('en-NZ'),
-      change: '+12%',
-      changeType: 'positive' as const,
-      icon: Users,
-      color: 'fergbutcher-green'
-    },
-    {
-      title: 'Active Orders',
-      value: (orderStats.pending + orderStats.confirmed).toLocaleString('en-NZ'),
-      change: `${orderStats.pending} pending`,
-      changeType: 'positive' as const,
+      title: 'Pending Orders',
+      value: orderStats.pending.toLocaleString('en-NZ'),
+      change: `${orderStats.pending} awaiting confirmation`,
+      changeType: 'neutral' as const,
       icon: ShoppingCart,
       color: 'fergbutcher-brown'
     },
@@ -95,14 +49,6 @@ const Dashboard: React.FC = () => {
       icon: Calendar,
       color: 'fergbutcher-yellow'
     },
-    {
-      title: 'Last Backup',
-      value: backupInfo.text,
-      change: 'Auto backup at 8:30 PM',
-      changeType: backupInfo.type,
-      icon: Clock,
-      color: 'fergbutcher-black'
-    }
   ];
 
   // Get this week's orders, sorted by collection date then status
@@ -252,7 +198,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -268,12 +214,11 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="mt-4 flex items-center">
                 <span className={`text-sm font-medium ${
-                  stat.changeType === 'positive' ? 'text-fergbutcher-green-600' : 
+                  stat.changeType === 'positive' ? 'text-fergbutcher-green-600' :
                   stat.changeType === 'negative' ? 'text-fergbutcher-black-600' : 'text-fergbutcher-brown-600'
                 }`}>
                   {stat.change}
                 </span>
-                <span className="text-sm text-fergbutcher-brown-500 ml-2">from last week</span>
               </div>
             </div>
           );
