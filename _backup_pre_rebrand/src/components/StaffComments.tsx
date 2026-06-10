@@ -41,7 +41,7 @@ const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
   if (loading) {
     return (
       <div className="text-center py-4">
-        <div className="text-fergbutcher-green-400">Loading comments...</div>
+        <div className="text-fergbutcher-brown-600">Loading comments...</div>
       </div>
     );
   }
@@ -72,7 +72,7 @@ const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
       {showAddForm && (
         <form onSubmit={handleSubmit} className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-4 space-y-3">
           <div>
-            <label className="block text-sm font-medium text-fergbutcher-gold-700 mb-1">
+            <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
               Your Name
             </label>
             <input
@@ -80,13 +80,13 @@ const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
               value={staffName}
               onChange={(e) => setStaffName(e.target.value)}
               placeholder="Enter your name"
-              className="w-full px-3 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent text-sm"
+              className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
               disabled={isSubmitting}
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-fergbutcher-gold-700 mb-1">
+            <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
               Comment
             </label>
             <textarea
@@ -94,7 +94,7 @@ const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Add a comment for other staff members..."
-              className="w-full px-3 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent text-sm"
+              className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
               disabled={isSubmitting}
               required
             />
@@ -106,7 +106,7 @@ const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
                 setShowAddForm(false);
                 setNewComment('');
               }}
-              className="px-3 py-1 text-fergbutcher-gold-700 bg-fergbutcher-gold-100 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors text-sm"
+              className="px-3 py-1 text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors text-sm"
               disabled={isSubmitting}
             >
               Cancel
@@ -126,16 +126,16 @@ const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
       <div className="space-y-3">
         {orderNotes.length > 0 ? (
           orderNotes.map((note) => (
-            <div key={note.id} className="bg-white border border-fergbutcher-gold-300 rounded-lg p-4">
+            <div key={note.id} className="bg-white border border-fergbutcher-brown-200 rounded-lg p-4">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center space-x-2">
-                  <div className="bg-fergbutcher-gold-100 p-1 rounded-full">
-                    <User className="h-4 w-4 text-fergbutcher-gold-700" />
+                  <div className="bg-fergbutcher-brown-100 p-1 rounded-full">
+                    <User className="h-4 w-4 text-fergbutcher-brown-600" />
                   </div>
                   <span className="font-medium text-fergbutcher-black-900 text-sm">{note.staffName}</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-1 text-xs text-fergbutcher-green-400">
+                  <div className="flex items-center space-x-1 text-xs text-fergbutcher-brown-500">
                     <Clock className="h-3 w-3" />
                     <span>
                       {new Date(note.timestamp).toLocaleDateString('en-NZ', {
@@ -148,19 +148,19 @@ const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
                   </div>
                   <button
                     onClick={() => handleDelete(note.id)}
-                    className="p-1 text-fergbutcher-gold-400 hover:text-red-600 hover:bg-red-100 rounded transition-colors"
+                    className="p-1 text-fergbutcher-brown-400 hover:text-red-600 hover:bg-red-100 rounded transition-colors"
                     title="Delete Comment"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
               </div>
-              <p className="text-fergbutcher-gold-700 text-sm leading-relaxed">{note.content}</p>
+              <p className="text-fergbutcher-brown-700 text-sm leading-relaxed">{note.content}</p>
             </div>
           ))
         ) : (
-          <div className="text-center py-6 text-fergbutcher-green-400">
-            <MessageSquare className="h-8 w-8 mx-auto mb-2 text-fergbutcher-gold-300" />
+          <div className="text-center py-6 text-fergbutcher-brown-500">
+            <MessageSquare className="h-8 w-8 mx-auto mb-2 text-fergbutcher-brown-300" />
             <p className="text-sm">No staff comments yet</p>
             <p className="text-xs">Add the first comment to help your team</p>
           </div>

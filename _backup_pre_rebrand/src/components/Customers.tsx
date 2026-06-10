@@ -8,19 +8,18 @@ import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import CustomerDetail from './CustomerDetail';
 import { Customer, Order } from '../types';
-import { getStatusBadge } from '../utils/statusColors';
 
 const Customers: React.FC = () => {
-  const {
-    customers,
-    loading,
-    error,
-    addCustomer,
-    updateCustomer,
+  const { 
+    customers, 
+    loading, 
+    error, 
+    addCustomer, 
+    updateCustomer, 
     deleteCustomer,
-    searchCustomers
+    searchCustomers 
   } = useCustomers();
-
+  
   const { orders, getOrdersByCustomerId, addOrder } = useOrders();
   const { getNotesForOrder } = useStaffNotes();
 
@@ -41,9 +40,26 @@ const Customers: React.FC = () => {
   };
 
   const getCustomerOrders = (customerId: string) => {
-    return getOrdersByCustomerId(customerId).sort((a, b) =>
+    return getOrdersByCustomerId(customerId).sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'confirmed':
+        return 'bg-sky-50 text-sky-800 border-sky-200';
+      case 'prepared':
+        return 'bg-teal-50 text-teal-800 border-teal-200';
+      case 'collected':
+        return 'bg-green-50 text-green-800 border-green-200';
+      case 'cancelled':
+        return 'bg-rose-50 text-rose-700 border-rose-200';
+      default:
+        return 'bg-fergbutcher-brown-100 text-fergbutcher-brown-800 border-fergbutcher-brown-200';
+    }
   };
 
   const handleAddCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt'>) => {
@@ -60,7 +76,7 @@ const Customers: React.FC = () => {
 
   const handleUpdateCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt'>) => {
     if (!editingCustomer) return;
-
+    
     setIsSubmitting(true);
     try {
       const success = updateCustomer(editingCustomer.id, customerData);
@@ -74,7 +90,7 @@ const Customers: React.FC = () => {
 
   const handleDeleteCustomer = () => {
     if (!deletingCustomer) return;
-
+    
     const success = deleteCustomer(deletingCustomer.id);
     if (success) {
       setDeletingCustomer(null);
@@ -85,7 +101,7 @@ const Customers: React.FC = () => {
     const duplicateData = getDuplicateOrderData(orderId);
     if (duplicateData) {
       setDuplicatingOrder(duplicateData);
-      setViewingOrderHistory(null);
+      setViewingOrderHistory(null); // Close order history modal
     } else {
       alert('Failed to prepare duplicate order. Please try again.');
     }
@@ -94,7 +110,7 @@ const Customers: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-fergbutcher-green-400">Loading customers...</div>
+        <div className="text-fergbutcher-brown-600">Loading customers...</div>
       </div>
     );
   }
@@ -105,7 +121,7 @@ const Customers: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-fergbutcher-black-900">Customers</h1>
-          <p className="text-fergbutcher-green-400">Manage your customer database</p>
+          <p className="text-fergbutcher-brown-600">Manage your customer database</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -130,32 +146,32 @@ const Customers: React.FC = () => {
         {/* Customer List - Full Width */}
         <div className="lg:col-span-3 space-y-6">
           {/* Search */}
-          <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-fergbutcher-gold-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-fergbutcher-brown-400 h-4 w-4" />
               <input
                 type="text"
                 placeholder="Search customers by name, email, or company..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
               />
             </div>
           </div>
 
           {/* Customer List */}
-          <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+          <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h2 className="text-lg font-semibold text-fergbutcher-black-900">
                 All Customers ({filteredCustomers.length.toLocaleString('en-NZ')})
               </h2>
             </div>
-            <div className="divide-y divide-fergbutcher-gold-200 max-h-96 overflow-y-auto">
+            <div className="divide-y divide-fergbutcher-brown-200 max-h-96 overflow-y-auto">
               {filteredCustomers.length > 0 ? (
                 filteredCustomers.map((customer) => (
-                  <div
-                    key={customer.id}
-                    className="p-6 hover:bg-fergbutcher-gold-50 transition-colors cursor-pointer"
+                  <div 
+                    key={customer.id} 
+                    className="p-6 hover:bg-fergbutcher-green-50 transition-colors cursor-pointer"
                     onClick={() => setViewingCustomer(customer)}
                   >
                     <div className="flex items-center justify-between">
@@ -169,19 +185,19 @@ const Customers: React.FC = () => {
                           </h3>
                           <div className="flex items-center space-x-4 mt-1">
                             {customer.email && (
-                              <div className="flex items-center space-x-1 text-fergbutcher-green-400">
+                              <div className="flex items-center space-x-1 text-fergbutcher-brown-600">
                                 <Mail className="h-4 w-4" />
                                 <span className="text-sm">{customer.email}</span>
                               </div>
                             )}
                             {customer.phone && (
-                              <div className="flex items-center space-x-1 text-fergbutcher-green-400">
+                              <div className="flex items-center space-x-1 text-fergbutcher-brown-600">
                                 <Phone className="h-4 w-4" />
                                 <span className="text-sm">{customer.phone}</span>
                               </div>
                             )}
                             {customer.company && (
-                              <div className="flex items-center space-x-1 text-fergbutcher-green-400">
+                              <div className="flex items-center space-x-1 text-fergbutcher-brown-600">
                                 <Building className="h-4 w-4" />
                                 <span className="text-sm">{customer.company}</span>
                               </div>
@@ -190,22 +206,22 @@ const Customers: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <button
+                        <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingCustomer(customer);
                           }}
-                          className="p-2 text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
+                          className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
                           title="Edit Customer"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button
+                        <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeletingCustomer(customer);
                           }}
-                          className="p-2 text-fergbutcher-gold-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                          className="p-2 text-fergbutcher-brown-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                           title="Delete Customer"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -216,8 +232,8 @@ const Customers: React.FC = () => {
                 ))
               ) : (
                 <div className="p-12 text-center">
-                  <User className="h-12 w-12 text-fergbutcher-gold-300 mx-auto mb-4" />
-                  <p className="text-fergbutcher-green-400">
+                  <User className="h-12 w-12 text-fergbutcher-brown-300 mx-auto mb-4" />
+                  <p className="text-fergbutcher-brown-500">
                     {searchTerm ? 'No customers found matching your search.' : 'No customers yet.'}
                   </p>
                   {!searchTerm && (
@@ -239,11 +255,11 @@ const Customers: React.FC = () => {
       {viewingCustomer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Customer Details</h3>
               <button
                 onClick={() => setViewingCustomer(null)}
-                className="text-fergbutcher-gold-400 hover:text-fergbutcher-gold-600"
+                className="text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600"
               >
                 ✕
               </button>
@@ -274,18 +290,18 @@ const Customers: React.FC = () => {
       {viewingOrderHistory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-semibold text-fergbutcher-black-900">
                   Order History - {viewingOrderHistory.firstName} {viewingOrderHistory.lastName}
                 </h3>
-                <p className="text-fergbutcher-green-400">
+                <p className="text-fergbutcher-brown-600">
                   {getCustomerOrders(viewingOrderHistory.id).length} total orders
                 </p>
               </div>
               <button
                 onClick={() => setViewingOrderHistory(null)}
-                className="text-fergbutcher-gold-400 hover:text-fergbutcher-gold-600"
+                className="text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600"
               >
                 ✕
               </button>
@@ -294,13 +310,13 @@ const Customers: React.FC = () => {
               {getCustomerOrders(viewingOrderHistory.id).length > 0 ? (
                 <div className="space-y-4">
                   {getCustomerOrders(viewingOrderHistory.id).map((order) => (
-                    <div key={order.id} className="bg-white border border-fergbutcher-gold-300 rounded-lg p-6">
+                    <div key={order.id} className="bg-white border border-fergbutcher-brown-200 rounded-lg p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <h4 className="text-lg font-semibold text-fergbutcher-black-900">
                             Order #{order.id}
                           </h4>
-                          <p className="text-sm text-fergbutcher-green-400">
+                          <p className="text-sm text-fergbutcher-brown-600">
                             Created {new Date(order.createdAt).toLocaleDateString('en-NZ')}
                           </p>
                         </div>
@@ -310,7 +326,7 @@ const Customers: React.FC = () => {
                               Collection: {new Date(order.collectionDate).toLocaleDateString('en-NZ')}
                             </p>
                             {order.collectionTime && (
-                              <p className="text-sm text-fergbutcher-green-400">
+                              <p className="text-sm text-fergbutcher-brown-600">
                                 Time: {order.collectionTime}
                               </p>
                             )}
@@ -324,22 +340,22 @@ const Customers: React.FC = () => {
                           )}
                           <button
                             onClick={() => handleDuplicateOrder(order.id)}
-                            className="p-2 text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
+                            className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
                             title="Duplicate Order (Edit Before Creating)"
                           >
                             <Copy className="h-4 w-4" />
                           </button>
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusBadge(order.status)}`}>
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(order.status)}`}>
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </span>
                         </div>
                       </div>
-
+                      
                       <div className="mb-4">
                         <h5 className="font-medium text-fergbutcher-black-900 mb-2">Items:</h5>
                         <div className="space-y-2">
                           {order.items.map((item, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-fergbutcher-gold-50 rounded-lg">
+                            <div key={index} className="flex items-center justify-between p-3 bg-fergbutcher-green-50 rounded-lg">
                               <span className="text-fergbutcher-black-900">{item.description}</span>
                               <span className="font-semibold text-fergbutcher-black-900">
                                 {item.quantity.toLocaleString('en-NZ')} {item.unit}
@@ -348,7 +364,7 @@ const Customers: React.FC = () => {
                           ))}
                         </div>
                       </div>
-
+                      
                       {order.additionalNotes && (
                         <div className="bg-fergbutcher-yellow-50 border border-fergbutcher-yellow-200 rounded-lg p-3">
                           <p className="text-sm font-medium text-fergbutcher-yellow-800 mb-1">Notes:</p>
@@ -360,9 +376,9 @@ const Customers: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <Package className="h-16 w-16 text-fergbutcher-gold-300 mx-auto mb-4" />
+                  <Package className="h-16 w-16 text-fergbutcher-brown-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-fergbutcher-black-900 mb-2">No Orders Yet</h3>
-                  <p className="text-fergbutcher-green-400">
+                  <p className="text-fergbutcher-brown-600">
                     This customer hasn't placed any orders yet.
                   </p>
                 </div>
@@ -376,7 +392,7 @@ const Customers: React.FC = () => {
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Add New Customer</h3>
             </div>
             <div className="p-6">
@@ -394,7 +410,7 @@ const Customers: React.FC = () => {
       {editingCustomer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Customer</h3>
             </div>
             <div className="p-6">
@@ -413,7 +429,7 @@ const Customers: React.FC = () => {
       {deletingCustomer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Delete Customer</h3>
             </div>
             <div className="p-6">
@@ -425,7 +441,7 @@ const Customers: React.FC = () => {
                   <p className="text-fergbutcher-black-900 font-medium">
                     Are you sure you want to delete {deletingCustomer.firstName} {deletingCustomer.lastName}?
                   </p>
-                  <p className="text-fergbutcher-green-400 text-sm mt-1">
+                  <p className="text-fergbutcher-brown-600 text-sm mt-1">
                     This action cannot be undone. All associated data will be permanently removed.
                   </p>
                 </div>
@@ -433,7 +449,7 @@ const Customers: React.FC = () => {
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => setDeletingCustomer(null)}
-                  className="px-4 py-2 text-fergbutcher-gold-700 bg-fergbutcher-gold-100 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors"
+                  className="px-4 py-2 text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
                 >
                   Cancel
                 </button>
@@ -453,9 +469,9 @@ const Customers: React.FC = () => {
       {duplicatingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
-              <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
+              <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
             </div>
             <div className="p-6">
               <OrderForm

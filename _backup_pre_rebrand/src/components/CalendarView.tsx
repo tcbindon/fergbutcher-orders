@@ -7,7 +7,6 @@ import ChristmasOrderForm from './ChristmasOrderForm';
 import { CalendarViewMode, Order } from '../types';
 import DayOrdersModal from './DayOrdersModal';
 import PrintSchedule from './PrintSchedule';
-import { getStatusDot, STATUS_DOT } from '../utils/statusColors';
 
 const CalendarView: React.FC = () => {
   const {
@@ -75,6 +74,23 @@ const CalendarView: React.FC = () => {
     return orders.filter(order => order.collectionDate === date);
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-amber-300';
+      case 'confirmed':
+        return 'bg-sky-300';
+      case 'prepared':
+        return 'bg-teal-300';
+      case 'collected':
+        return 'bg-green-400';
+      case 'cancelled':
+        return 'bg-rose-300';
+      default:
+        return 'bg-gray-300';
+    }
+  };
+
   const navigateDate = (direction: 'prev' | 'next') => {
     setCurrentDate(prev => {
       const newDate = new Date(prev);
@@ -129,10 +145,12 @@ const CalendarView: React.FC = () => {
     const firstDay = getFirstDayOfMonth(currentDate);
     const days = [];
 
+    // Empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
       days.push(<div key={`empty-${i}`} className="h-32"></div>);
     }
 
+    // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dateString = formatDateString(currentDate.getFullYear(), currentDate.getMonth(), day);
       const dayOrders = getOrdersForDate(dateString);
@@ -142,12 +160,12 @@ const CalendarView: React.FC = () => {
       days.push(
         <div
           key={day}
-          className={`h-32 border border-fergbutcher-gold-200 p-2 cursor-pointer hover:bg-fergbutcher-gold-50 transition-colors ${
-            isToday ? 'bg-fergbutcher-gold-50 border-fergbutcher-gold-400' : ''
+          className={`h-32 border border-fergbutcher-brown-200 p-2 cursor-pointer hover:bg-fergbutcher-green-50 transition-colors ${
+            isToday ? 'bg-fergbutcher-green-50 border-fergbutcher-green-200' : ''
           }`}
           onClick={() => handleDayClick(dayDate)}
         >
-          <div className={`text-sm font-medium mb-2 ${isToday ? 'text-fergbutcher-green-600 font-bold' : 'text-fergbutcher-black-900'}`}>
+          <div className={`text-sm font-medium mb-2 ${isToday ? 'text-fergbutcher-green-600' : 'text-fergbutcher-black-900'}`}>
             {day}
           </div>
           <div className="space-y-1">
@@ -156,7 +174,7 @@ const CalendarView: React.FC = () => {
               return (
                 <div
                   key={order.id}
-                  className={`text-xs px-2 py-1 rounded text-white truncate flex items-center space-x-1 ${getStatusDot(order.status)}`}
+                  className={`text-xs px-2 py-1 rounded text-white truncate flex items-center space-x-1 ${getStatusColor(order.status)}`}
                 >
                   {order.orderType === 'christmas' && <Gift className="h-3 w-3 flex-shrink-0" />}
                   {order.isRecurring && <RefreshCw className="h-3 w-3 flex-shrink-0" />}
@@ -165,7 +183,7 @@ const CalendarView: React.FC = () => {
               );
             })}
             {dayOrders.length > 3 && (
-              <div className="text-xs text-fergbutcher-gold-600 px-2">
+              <div className="text-xs text-fergbutcher-brown-500 px-2">
                 +{dayOrders.length - 3} more
               </div>
             )}
@@ -183,25 +201,25 @@ const CalendarView: React.FC = () => {
 
   const renderWeekView = () => {
     const weekDays = getWeekDays(currentDate);
-
+    
     return (
       <div className="grid grid-cols-7 gap-0">
         {weekDays.map((day, index) => {
           const dateString = formatDateString(day.getFullYear(), day.getMonth(), day.getDate());
           const dayOrders = getOrdersForDate(dateString);
           const isToday = new Date().toDateString() === day.toDateString();
-
+          
           return (
             <div
               key={index}
-              className={`min-h-96 border border-fergbutcher-gold-200 p-3 cursor-pointer hover:bg-fergbutcher-gold-50 transition-colors ${
-                isToday ? 'bg-fergbutcher-gold-50 border-fergbutcher-gold-400' : ''
+              className={`min-h-96 border border-fergbutcher-brown-200 p-3 cursor-pointer hover:bg-fergbutcher-green-50 transition-colors ${
+                isToday ? 'bg-fergbutcher-green-50 border-fergbutcher-green-200' : ''
               }`}
               onClick={() => handleDayClick(day)}
             >
               <div className={`text-lg font-semibold mb-3 ${isToday ? 'text-fergbutcher-green-600' : 'text-fergbutcher-black-900'}`}>
                 {day.getDate()}
-                <div className="text-xs font-normal text-fergbutcher-green-400">
+                <div className="text-xs font-normal text-fergbutcher-brown-600">
                   {day.toLocaleDateString('en-NZ', { weekday: 'short' })}
                 </div>
               </div>
@@ -211,7 +229,7 @@ const CalendarView: React.FC = () => {
                   return (
                     <div
                       key={order.id}
-                      className={`text-xs px-2 py-2 rounded text-white ${getStatusDot(order.status)}`}
+                      className={`text-xs px-2 py-2 rounded text-white ${getStatusColor(order.status)}`}
                     >
                       <div className="font-medium truncate flex items-center space-x-1">
                         {order.orderType === 'christmas' && <Gift className="h-3 w-3 flex-shrink-0" />}
@@ -236,24 +254,24 @@ const CalendarView: React.FC = () => {
     const dateString = formatDateString(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
     const dayOrders = getOrdersForDate(dateString);
     const isToday = new Date().toDateString() === currentDate.toDateString();
-
+    
     return (
       <div className="space-y-4">
-        <div className={`text-center p-6 rounded-lg ${isToday ? 'bg-fergbutcher-gold-50 border border-fergbutcher-gold-400' : 'bg-fergbutcher-gold-50 border border-fergbutcher-gold-200'}`}>
+        <div className={`text-center p-6 rounded-lg ${isToday ? 'bg-fergbutcher-green-50 border border-fergbutcher-green-200' : 'bg-fergbutcher-brown-50 border border-fergbutcher-brown-200'}`}>
           <h2 className={`text-2xl font-bold ${isToday ? 'text-fergbutcher-green-600' : 'text-fergbutcher-black-900'}`}>
-            {currentDate.toLocaleDateString('en-NZ', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
+            {currentDate.toLocaleDateString('en-NZ', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
             })}
             {isToday && <span className="ml-2 text-sm bg-fergbutcher-green-600 text-white px-2 py-1 rounded-full">Today</span>}
           </h2>
-          <p className="text-fergbutcher-green-400 mt-2">
+          <p className="text-fergbutcher-brown-600 mt-2">
             {dayOrders.length} order{dayOrders.length !== 1 ? 's' : ''} scheduled for collection
           </p>
         </div>
-
+        
         {dayOrders.length > 0 ? (
           <div className="space-y-3">
             {dayOrders
@@ -270,12 +288,12 @@ const CalendarView: React.FC = () => {
                 return (
                   <div
                     key={order.id}
-                    className="bg-white border border-fergbutcher-gold-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                    className="bg-white border border-fergbutcher-brown-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => handleDayClick(currentDate)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-4 h-4 rounded-full ${getStatusDot(order.status)}`}></div>
+                        <div className={`w-4 h-4 rounded-full ${getStatusColor(order.status)}`}></div>
                         <div>
                           <div className="flex items-center space-x-2">
                             <h3 className="font-semibold text-fergbutcher-black-900">
@@ -285,16 +303,16 @@ const CalendarView: React.FC = () => {
                               <Gift className="h-4 w-4 text-fergbutcher-green-600" />
                             )}
                             {order.isRecurring && (
-                              <RefreshCw className="h-4 w-4 text-fergbutcher-gold-500" />
+                              <RefreshCw className="h-4 w-4 text-fergbutcher-blue-600" />
                             )}
                           </div>
-                          <p className="text-sm text-fergbutcher-green-400 flex items-center space-x-1">
+                          <p className="text-sm text-fergbutcher-brown-600 flex items-center space-x-1">
                             <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
                             {order.orderType === 'christmas' && (
                               <span className="text-fergbutcher-green-600">• Christmas</span>
                             )}
                             {order.isRecurring && (
-                              <span className="text-fergbutcher-gold-600">• Recurring</span>
+                              <span className="text-fergbutcher-blue-600">• Recurring</span>
                             )}
                           </p>
                         </div>
@@ -311,8 +329,8 @@ const CalendarView: React.FC = () => {
           </div>
         ) : (
           <div className="text-center py-12">
-            <CalendarIcon className="h-16 w-16 text-fergbutcher-gold-300 mx-auto mb-4" />
-            <p className="text-fergbutcher-green-400">No orders scheduled for this day</p>
+            <CalendarIcon className="h-16 w-16 text-fergbutcher-brown-300 mx-auto mb-4" />
+            <p className="text-fergbutcher-brown-500">No orders scheduled for this day</p>
           </div>
         )}
       </div>
@@ -322,11 +340,11 @@ const CalendarView: React.FC = () => {
   const getViewTitle = () => {
     switch (viewMode) {
       case 'day':
-        return currentDate.toLocaleDateString('en-NZ', {
+        return currentDate.toLocaleDateString('en-NZ', { 
           weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
         });
       case 'week':
         const weekDays = getWeekDays(currentDate);
@@ -349,11 +367,11 @@ const CalendarView: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-fergbutcher-black-900">Calendar</h1>
-          <p className="text-fergbutcher-green-400">View orders by collection date</p>
+          <p className="text-fergbutcher-brown-600">View orders by collection date</p>
         </div>
         <div className="flex items-center space-x-4">
           {/* View Mode Buttons */}
-          <div className="flex items-center bg-fergbutcher-gold-100 rounded-lg p-1">
+          <div className="flex items-center bg-fergbutcher-brown-100 rounded-lg p-1">
             {(['day', 'week', 'month'] as CalendarViewMode[]).map((mode) => (
               <button
                 key={mode}
@@ -361,40 +379,36 @@ const CalendarView: React.FC = () => {
                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                   viewMode === mode
                     ? 'bg-fergbutcher-green-600 text-white'
-                    : 'text-fergbutcher-gold-700 hover:text-fergbutcher-black-900'
+                    : 'text-fergbutcher-brown-700 hover:text-fergbutcher-black-900'
                 }`}
               >
                 {mode.charAt(0).toUpperCase() + mode.slice(1)}
               </button>
             ))}
           </div>
-
+          
           {/* Legend */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-1">
-              <div className={`w-3 h-3 rounded ${STATUS_DOT.pending}`}></div>
-              <span className="text-sm text-fergbutcher-green-400">Pending</span>
+              <div className="w-3 h-3 bg-fergbutcher-green-500 rounded"></div>
+              <span className="text-sm text-fergbutcher-brown-600">Confirmed</span>
             </div>
             <div className="flex items-center space-x-1">
-              <div className={`w-3 h-3 rounded ${STATUS_DOT.confirmed}`}></div>
-              <span className="text-sm text-fergbutcher-green-400">Confirmed</span>
+              <div className="w-3 h-3 bg-fergbutcher-yellow-500 rounded"></div>
+              <span className="text-sm text-fergbutcher-brown-600">Pending</span>
             </div>
             <div className="flex items-center space-x-1">
-              <div className={`w-3 h-3 rounded ${STATUS_DOT.prepared}`}></div>
-              <span className="text-sm text-fergbutcher-green-400">Prepared</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className={`w-3 h-3 rounded ${STATUS_DOT.collected}`}></div>
-              <span className="text-sm text-fergbutcher-green-400">Collected</span>
+              <div className="w-3 h-3 bg-fergbutcher-brown-500 rounded"></div>
+              <span className="text-sm text-fergbutcher-brown-600">Collected</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Calendar */}
-      <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300">
+      <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200">
         {/* Calendar Header */}
-        <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center">
+        <div className="px-6 py-4 border-b border-fergbutcher-brown-200 flex justify-between items-center">
           <h2 className="text-lg font-semibold text-fergbutcher-black-900">
             {getViewTitle()}
           </h2>
@@ -407,7 +421,7 @@ const CalendarView: React.FC = () => {
             </button>
             <button
               onClick={() => setCurrentDate(new Date())}
-              className="px-3 py-1 text-sm bg-fergbutcher-green-100 text-fergbutcher-green-600 rounded-lg hover:bg-fergbutcher-green-200 transition-colors"
+              className="px-3 py-1 text-sm bg-fergbutcher-green-100 text-fergbutcher-green-700 rounded-lg hover:bg-fergbutcher-green-200 transition-colors"
             >
               Today
             </button>
@@ -424,9 +438,10 @@ const CalendarView: React.FC = () => {
         <div className="p-6">
           {viewMode === 'month' && (
             <>
+              {/* Day Headers for Month View */}
               <div className="grid grid-cols-7 gap-0 mb-4">
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                  <div key={day} className="text-center text-sm font-medium text-fergbutcher-green-400 py-2">
+                  <div key={day} className="text-center text-sm font-medium text-fergbutcher-brown-500 py-2">
                     {day}
                   </div>
                 ))}
@@ -434,12 +449,13 @@ const CalendarView: React.FC = () => {
               {renderMonthView()}
             </>
           )}
-
+          
           {viewMode === 'week' && (
             <>
+              {/* Day Headers for Week View */}
               <div className="grid grid-cols-7 gap-0 mb-4">
                 {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
-                  <div key={day} className="text-center text-sm font-medium text-fergbutcher-green-400 py-2">
+                  <div key={day} className="text-center text-sm font-medium text-fergbutcher-brown-500 py-2">
                     {day}
                   </div>
                 ))}
@@ -447,14 +463,14 @@ const CalendarView: React.FC = () => {
               {renderWeekView()}
             </>
           )}
-
+          
           {viewMode === 'day' && renderDayView()}
         </div>
-
+        
         {/* Print Button */}
-        <div className="px-6 py-4 border-t border-fergbutcher-gold-300 bg-fergbutcher-gold-50">
+        <div className="px-6 py-4 border-t border-fergbutcher-brown-200 bg-fergbutcher-green-50">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-fergbutcher-green-400">
+            <span className="text-sm text-fergbutcher-brown-600">
               Print collection schedules for easy reference
             </span>
             <button
@@ -516,7 +532,7 @@ const CalendarView: React.FC = () => {
       {editingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
             </div>
             <div className="p-6">
@@ -550,9 +566,9 @@ const CalendarView: React.FC = () => {
       {duplicatingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
-              <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
+              <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
             </div>
             <div className="p-6">
               {duplicatingOrder.orderType === 'christmas' ? (

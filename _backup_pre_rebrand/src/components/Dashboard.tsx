@@ -6,11 +6,12 @@ import OrderDetail from './OrderDetail';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import PrintSchedule from './PrintSchedule';
-import { getStatusBadge, getStatusIcon } from '../utils/statusColors';
 import {
   ShoppingCart,
   Calendar,
   Clock,
+  CheckCircle,
+  XCircle,
   Package,
   Gift,
   AlertTriangle,
@@ -42,10 +43,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
   const dayAfterTomorrow = new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0];
 
+  // Overdue orders: collection date before today, status not collected or cancelled
   const overdueOrders = orders.filter(
     o => o.collectionDate < today && o.status !== 'collected' && o.status !== 'cancelled'
   );
 
+  // Unconfirmed orders approaching: pending status, collection within 2 days
   const approachingUnconfirmed = orders.filter(
     o => o.status === 'pending' && o.collectionDate >= today && o.collectionDate <= dayAfterTomorrow
   );
@@ -59,28 +62,29 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       title: "Pending Orders",
       value: orderStats.pending.toLocaleString('en-NZ'),
       change: `${orderStats.pending} awaiting confirmation`,
+      changeType: 'neutral' as const,
       icon: ShoppingCart,
-      iconBg: 'bg-fergbutcher-gold-100',
-      iconColor: 'text-fergbutcher-gold-700',
+      color: 'fergbutcher-brown'
     },
     {
       title: "Today's Collections",
       value: orderStats.todaysTotal.toLocaleString('en-NZ'),
       change: `${orderStats.todaysPending} pending`,
+      changeType: 'neutral' as const,
       icon: Calendar,
-      iconBg: 'bg-fergbutcher-green-100',
-      iconColor: 'text-fergbutcher-green-600',
+      color: 'fergbutcher-yellow'
     },
     {
       title: "Tomorrow's Orders",
       value: tomorrowCount.toLocaleString('en-NZ'),
       change: 'for prep planning today',
+      changeType: 'neutral' as const,
       icon: Clock,
-      iconBg: 'bg-fergbutcher-green-50',
-      iconColor: 'text-fergbutcher-green-400',
+      color: 'fergbutcher-green'
     },
   ];
 
+  // Get this week's orders, sorted by collection date then status
   const getThisWeeksOrders = () => {
     const todayDate = new Date();
     const todayString = todayDate.toISOString().split('T')[0];
@@ -92,6 +96,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
     const startDateString = startOfWeek.toISOString().split('T')[0];
     const endDateString = endOfWeek.toISOString().split('T')[0];
+
     const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
 
     return orders
@@ -171,18 +176,40 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     }
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return <Clock className="h-4 w-4 text-amber-500" />;
+      case 'confirmed': return <CheckCircle className="h-4 w-4 text-sky-500" />;
+      case 'prepared': return <CheckCircle className="h-4 w-4 text-teal-500" />;
+      case 'collected': return <Package className="h-4 w-4 text-green-600" />;
+      case 'cancelled': return <XCircle className="h-4 w-4 text-rose-400" />;
+      default: return <Clock className="h-4 w-4 text-fergbutcher-brown-400" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-amber-50 text-amber-800';
+      case 'confirmed': return 'bg-sky-50 text-sky-800';
+      case 'prepared': return 'bg-teal-50 text-teal-800';
+      case 'collected': return 'bg-green-50 text-green-800';
+      case 'cancelled': return 'bg-rose-50 text-rose-700';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-fergbutcher-black-900">Dashboard</h1>
-          <p className="text-fergbutcher-green-400">Welcome back! Here's what's happening with your orders today.</p>
+          <p className="text-fergbutcher-brown-600">Welcome back! Here's what's happening with your orders today.</p>
         </div>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowPrintSchedule(true)}
-            className="flex items-center space-x-2 bg-fergbutcher-gold-100 text-fergbutcher-gold-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors text-sm font-medium"
+            className="flex items-center space-x-2 bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors text-sm font-medium"
           >
             <Printer className="h-4 w-4" />
             <span>Print Today's Orders</span>
@@ -226,7 +253,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleStatusChange(order.id, 'collected')}
-                          className="text-xs bg-fergbutcher-green-100 text-fergbutcher-green-600 px-2 py-1 rounded hover:bg-fergbutcher-green-200 transition-colors"
+                          className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 transition-colors"
                         >
                           Mark Collected
                         </button>
@@ -248,10 +275,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           )}
 
           {approachingUnconfirmed.length > 0 && (
-            <div className="bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded-xl p-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
               <div className="flex items-center space-x-2 mb-3">
-                <AlertTriangle className="h-5 w-5 text-fergbutcher-gold-600" />
-                <h3 className="font-semibold text-fergbutcher-gold-700">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                <h3 className="font-semibold text-amber-800">
                   {approachingUnconfirmed.length} Unconfirmed {approachingUnconfirmed.length === 1 ? 'Order' : 'Orders'} Approaching
                 </h3>
               </div>
@@ -260,12 +287,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   const customer = customers.find(c => c.id === order.customerId);
                   const isToday = order.collectionDate === today;
                   return (
-                    <div key={order.id} className="flex items-center justify-between bg-white border border-fergbutcher-gold-300 rounded-lg px-4 py-2">
+                    <div key={order.id} className="flex items-center justify-between bg-white border border-amber-200 rounded-lg px-4 py-2">
                       <div>
                         <span className="font-medium text-fergbutcher-black-900">
                           {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
                         </span>
-                        <span className="text-sm text-fergbutcher-gold-700 ml-2">
+                        <span className="text-sm text-amber-700 ml-2">
                           — {isToday ? 'today' : 'tomorrow'}
                           {customer?.phone && (
                             <a href={`tel:${customer.phone}`} className="ml-2 text-fergbutcher-green-600 hover:underline" onClick={e => e.stopPropagation()}>
@@ -276,7 +303,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                       </div>
                       <button
                         onClick={() => handleStatusChange(order.id, 'confirmed')}
-                        className="text-xs bg-fergbutcher-green-50 text-fergbutcher-green-600 px-2 py-1 rounded hover:bg-fergbutcher-green-100 transition-colors border border-fergbutcher-green-200"
+                        className="text-xs bg-sky-100 text-sky-700 px-2 py-1 rounded hover:bg-sky-200 transition-colors"
                       >
                         Confirm
                       </button>
@@ -294,18 +321,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.title} className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6">
+            <div key={stat.title} className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-fergbutcher-green-400">{stat.title}</p>
+                  <p className="text-sm font-medium text-fergbutcher-brown-600">{stat.title}</p>
                   <p className="text-2xl font-bold text-fergbutcher-black-900 mt-1">{stat.value}</p>
                 </div>
-                <div className={`p-3 rounded-lg ${stat.iconBg}`}>
-                  <Icon className={`h-6 w-6 ${stat.iconColor}`} />
+                <div className={`p-3 rounded-lg bg-${stat.color}-100`}>
+                  <Icon className={`h-6 w-6 text-${stat.color}-600`} />
                 </div>
               </div>
-              <div className="mt-4">
-                <span className="text-sm font-medium text-fergbutcher-green-400">
+              <div className="mt-4 flex items-center">
+                <span className="text-sm font-medium text-fergbutcher-brown-600">
                   {stat.change}
                 </span>
               </div>
@@ -315,8 +342,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       </div>
 
       {/* This Week's Orders */}
-      <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300">
-        <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+      <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200">
+        <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
           <h2 className="text-lg font-semibold text-fergbutcher-black-900">This Week's Orders</h2>
         </div>
         <div className="p-6">
@@ -324,7 +351,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             {thisWeeksOrders.length > 0 ? thisWeeksOrders.map((order) => (
               <div
                 key={order.id}
-                className="flex items-center justify-between p-4 bg-fergbutcher-gold-50 rounded-lg cursor-pointer hover:bg-fergbutcher-gold-100 transition-colors"
+                className="flex items-center justify-between p-4 bg-fergbutcher-green-50 rounded-lg cursor-pointer hover:bg-fergbutcher-green-100 transition-colors"
                 onClick={() => setViewingOrder(order.fullOrder)}
               >
                 <div className="flex items-center space-x-4">
@@ -336,10 +363,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                         <Gift className="h-4 w-4 text-fergbutcher-green-600" />
                       )}
                       {order.fullOrder.isRecurring && (
-                        <RefreshCw className="h-4 w-4 text-fergbutcher-green-400" />
+                        <RefreshCw className="h-4 w-4 text-fergbutcher-blue-600" />
                       )}
                     </div>
-                    <p className="text-sm text-fergbutcher-green-400">{order.items}</p>
+                    <p className="text-sm text-fergbutcher-brown-600">{order.items}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -355,7 +382,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                           handleStatusChange(order.fullOrder.id, e.target.value as Order['status']);
                         }}
                         onClick={(e) => e.stopPropagation()}
-                        className={`appearance-none pr-8 pl-3 py-1 rounded-full text-xs font-medium border cursor-pointer ${getStatusBadge(order.status)}`}
+                        className={`appearance-none pr-8 pl-3 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getStatusColor(order.status)}`}
                       >
                         <option value="pending">Pending</option>
                         <option value="confirmed">Confirmed</option>
@@ -370,8 +397,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               </div>
             )) : (
               <div className="text-center py-8">
-                <Package className="h-12 w-12 text-fergbutcher-gold-400 mx-auto mb-4" />
-                <p className="text-fergbutcher-green-400">No orders scheduled for this week</p>
+                <Package className="h-12 w-12 text-fergbutcher-brown-300 mx-auto mb-4" />
+                <p className="text-fergbutcher-brown-500">No orders scheduled for this week</p>
               </div>
             )}
           </div>
@@ -382,11 +409,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       {viewingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
               <button
                 onClick={() => setViewingOrder(null)}
-                className="text-fergbutcher-gold-500 hover:text-fergbutcher-black-900"
+                className="text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600"
               >
                 ✕
               </button>
@@ -415,7 +442,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       {editingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
             </div>
             <div className="p-6">
@@ -448,7 +475,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       {deletingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Delete Order</h3>
             </div>
             <div className="p-6">
@@ -460,11 +487,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   <p className="text-fergbutcher-black-900 font-medium">
                     Are you sure you want to delete this order?
                   </p>
-                  <p className="text-fergbutcher-green-400 text-sm mt-1">
+                  <p className="text-fergbutcher-brown-600 text-sm mt-1">
                     This action cannot be undone.
                   </p>
                   {deletingOrder.isRecurring && deletingOrder.parentOrderId && (
-                    <p className="text-fergbutcher-gold-700 text-sm mt-2 bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded p-2">
+                    <p className="text-fergbutcher-blue-700 text-sm mt-2 bg-fergbutcher-blue-50 border border-fergbutcher-blue-200 rounded p-2">
                       This is part of a recurring series. You can delete only this order, or this order and all future occurrences.
                     </p>
                   )}
@@ -473,7 +500,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               <div className="flex justify-end flex-wrap gap-3">
                 <button
                   onClick={() => setDeletingOrder(null)}
-                  className="px-4 py-2 text-fergbutcher-gold-700 bg-fergbutcher-gold-100 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors"
+                  className="px-4 py-2 text-fergbutcher-brown-700 bg-fergbutcher-brown-100 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
                 >
                   Cancel
                 </button>
@@ -501,9 +528,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       {duplicatingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-brown-200">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
-              <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
+              <p className="text-fergbutcher-brown-600 text-sm">Review and modify the order details before creating</p>
             </div>
             <div className="p-6">
               {duplicatingOrder.orderType === 'christmas' ? (
@@ -555,7 +582,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
           <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
             <button
@@ -566,7 +593,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             </button>
             <button
               onClick={() => window.location.hash = '#customers'}
-              className="w-full bg-fergbutcher-gold-100 text-fergbutcher-gold-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors"
+              className="w-full bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
             >
               Add Customer
             </button>
@@ -579,38 +606,38 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
           <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Today's Collections</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-fergbutcher-green-400">Confirmed</span>
+              <span className="text-sm text-fergbutcher-brown-600">Confirmed</span>
               <span className="font-medium text-fergbutcher-green-600">{orderStats.todaysConfirmed}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-fergbutcher-green-400">Pending</span>
-              <span className="font-medium text-fergbutcher-gold-600">{orderStats.todaysPending}</span>
+              <span className="text-sm text-fergbutcher-brown-600">Pending</span>
+              <span className="font-medium text-fergbutcher-yellow-600">{orderStats.todaysPending}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-fergbutcher-green-400">Total</span>
+              <span className="text-sm text-fergbutcher-brown-600">Total</span>
               <span className="font-bold text-fergbutcher-black-900">{orderStats.todaysTotal}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-brown-200 p-6">
           <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">System Status</h3>
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-fergbutcher-green-500 rounded-full"></div>
-              <span className="text-sm text-fergbutcher-green-400">Google Sheets Connected</span>
+              <span className="text-sm text-fergbutcher-brown-600">Google Sheets Connected</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-fergbutcher-green-500 rounded-full"></div>
-              <span className="text-sm text-fergbutcher-green-400">Email Service Active</span>
+              <span className="text-sm text-fergbutcher-brown-600">Email Service Active</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-fergbutcher-gold-400 rounded-full"></div>
-              <span className="text-sm text-fergbutcher-green-400">Last Backup: 2 hours ago</span>
+              <div className="w-2 h-2 bg-fergbutcher-brown-500 rounded-full"></div>
+              <span className="text-sm text-fergbutcher-brown-600">Last Backup: 2 hours ago</span>
             </div>
           </div>
         </div>

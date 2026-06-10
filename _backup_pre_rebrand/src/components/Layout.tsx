@@ -27,46 +27,39 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
   ];
 
   return (
-    <div className="min-h-screen bg-fergbutcher-gold-50 flex flex-col">
+    <div className="min-h-screen bg-fergbutcher-green-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-fergbutcher-gold-400">
-        <div className="px-6">
+      <header className="bg-white shadow-sm border-b border-fergbutcher-brown-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               <img
-                src="/2025_Fergbutcher_Logo_Pos_(1).jpg"
+                src="/Fergbutcher_vector-01.png"
                 alt="Fergbutcher Logo"
                 className="h-10 w-auto"
               />
               <div>
-                <p className="text-sm text-fergbutcher-green-400 font-medium">Pre-Order Management</p>
+                <h1 className="text-xl font-bold text-fergbutcher-black-900">Fergbutcher</h1>
+                <p className="text-sm text-fergbutcher-brown-600">Pre-Order Management</p>
               </div>
             </div>
-            <button
-              onClick={onLogout}
-              className="text-sm bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors font-medium"
-            >
-              Logout
-            </button>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={onLogout}
+                className="text-sm bg-fergbutcher-brown-100 text-fergbutcher-brown-700 px-3 py-1 rounded-lg hover:bg-fergbutcher-brown-200 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="flex flex-1">
-        {/* Sidebar — dark forest green */}
-        <nav className="w-64 bg-fergbutcher-green-600 flex flex-col flex-shrink-0">
-          {/* Logo area */}
-          <div className="p-6 border-b border-white/10 flex items-center justify-center">
-            <img
-              src="/2025_Fergbutcher_Logo_Rev_Sand_(1).png"
-              alt="Fergbutcher"
-              className="h-20 w-auto"
-            />
-          </div>
-
-          {/* Navigation */}
-          <div className="flex-1 p-4">
-            <ul className="space-y-1">
+      <div className="flex">
+        {/* Sidebar */}
+        <nav className="w-64 bg-white shadow-sm min-h-screen border-r border-fergbutcher-brown-200">
+          <div className="p-4">
+            <ul className="space-y-2">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentView === item.id;
@@ -75,29 +68,24 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
                   <li key={item.id}>
                     <button
                       onClick={() => onViewChange(item.id)}
-                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all ${
+                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
                         isActive
-                          ? 'bg-white/15 text-white border-l-4 border-fergbutcher-gold-400'
-                          : 'text-white/70 hover:bg-white/10 hover:text-white border-l-4 border-transparent'
+                          ? 'bg-fergbutcher-green-50 text-fergbutcher-green-700 border border-fergbutcher-green-200'
+                          : 'text-fergbutcher-black-700 hover:bg-fergbutcher-green-50 hover:text-fergbutcher-black-900'
                       }`}
                     >
-                      <Icon className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-fergbutcher-gold-400' : 'text-white/60'}`} />
-                      <span className="font-medium text-sm">{item.label}</span>
+                      <Icon className={`h-5 w-5 ${isActive ? 'text-fergbutcher-green-600' : 'text-fergbutcher-brown-400'}`} />
+                      <span className="font-medium">{item.label}</span>
                     </button>
                   </li>
                 );
               })}
             </ul>
           </div>
-
-          {/* Sidebar footer */}
-          <div className="p-4 border-t border-white/10">
-            <p className="text-xs text-white/40 text-center">Pre-Order Management</p>
-          </div>
         </nav>
 
         {/* Main Content */}
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-6">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

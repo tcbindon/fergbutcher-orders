@@ -29,35 +29,41 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-fergbutcher-gold-50 flex items-center justify-center">
+    <div className="min-h-screen bg-fergbutcher-green-50 flex items-center justify-center">
       <div className="max-w-md w-full mx-4">
-        <div className="bg-white rounded-xl shadow-lg border border-fergbutcher-gold-300 p-8">
+        <div className="bg-white rounded-xl shadow-lg border border-fergbutcher-brown-200 p-8">
           <div className="text-center mb-8">
-            <img
-              src="/2025_Fergbutcher_Logo_Pos_(1).jpg"
-              alt="Fergbutcher Logo"
-              className="h-24 w-auto mx-auto mb-4"
-            />
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              <img
+                src="/Fergbutcher_vector-01.png"
+                alt="Fergbutcher Logo"
+                className="h-12 w-auto"
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-fergbutcher-black-900">Fergbutcher</h1>
+                <p className="text-fergbutcher-brown-600">Pre-Order Management</p>
+              </div>
+            </div>
             <h2 className="text-xl font-semibold text-fergbutcher-black-900">Staff Login</h2>
-            <p className="text-fergbutcher-green-400 text-sm mt-1">
-              Pre-Order Management System
+            <p className="text-fergbutcher-brown-600 text-sm mt-2">
+              Please sign in to access the order management system
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-fergbutcher-black-900 mb-2">
+              <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
                 Username
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-fergbutcher-gold-500" />
+                  <User className="h-5 w-5 text-fergbutcher-brown-400" />
                 </div>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
                   placeholder="Enter username"
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -68,18 +74,18 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-fergbutcher-black-900 mb-2">
+              <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
                 Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-fergbutcher-gold-500" />
+                  <Lock className="h-5 w-5 text-fergbutcher-brown-400" />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent"
+                  className="w-full pl-10 pr-12 py-3 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
                   placeholder="Enter password"
                   required
                   disabled={isLoading}
@@ -91,9 +97,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
                   disabled={isLoading}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-fergbutcher-gold-500 hover:text-fergbutcher-gold-700" />
+                    <EyeOff className="h-5 w-5 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600" />
                   ) : (
-                    <Eye className="h-5 w-5 text-fergbutcher-gold-500 hover:text-fergbutcher-gold-700" />
+                    <Eye className="h-5 w-5 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600" />
                   )}
                 </button>
               </div>
@@ -115,8 +121,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
           </form>
 
           <div className="mt-8 text-center">
-            <p className="text-xs text-fergbutcher-gold-600">
-              Arrowtown · New Zealand
+            <p className="text-xs text-fergbutcher-brown-500">
+              Fergbutcher Pre-Order Management System v1.0.0-beta
             </p>
           </div>
         </div>

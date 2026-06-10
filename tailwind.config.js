@@ -5,44 +5,48 @@ export default {
     extend: {
       colors: {
         fergbutcher: {
+          // Pantone 5605 C (#22372B) and 5605 U (#5E695E) — the brand greens
           green: {
-            50: '#f0f4f0',
-            100: '#d9e5d9',
-            200: '#b3ccb3',
-            300: '#8cb28c',
-            400: '#669966',
-            500: '#4d7f4d',
-            600: '#2d4f2d',
-            700: '#1e3a1e',
-            800: '#0f250f',
-            900: '#0a1a0a',
+            50:  '#eef2ef',
+            100: '#d5e1d7',
+            200: '#adc3b0',
+            300: '#7ea388',
+            400: '#5E695E', // Pantone 5605 U — muted sage
+            500: '#3d5442',
+            600: '#22372B', // Pantone 5605 C — PRIMARY brand green
+            700: '#1a2b22',
+            800: '#111e17',
+            900: '#09110d',
           },
-          blue: {
-            50: '#eff6ff',
-            100: '#dbeafe',
-            200: '#bfdbfe',
-            300: '#93c5fd',
-            400: '#60a5fa',
-            500: '#3b82f6',
-            600: '#2563eb',
-            700: '#1d4ed8',
-            800: '#1e40af',
-            900: '#1e3a8a',
+          // Pantone 4525 C (#C5B783) and 4525 U (#C1B58C) — the brand gold/khaki
+          gold: {
+            50:  '#faf9f3', // warm cream — PAGE BACKGROUND
+            100: '#f3edd8',
+            200: '#e5dab4',
+            300: '#C1B58C', // Pantone 4525 U
+            400: '#C5B783', // Pantone 4525 C — PRIMARY brand accent
+            500: '#b3a46a',
+            600: '#9b8c52',
+            700: '#7d7040', // body text on light backgrounds
+            800: '#5f5430',
+            900: '#3d3720',
           },
-          brown: {
-            50: '#faf8f5',
-            100: '#f4f0e8',
-            200: '#e8ddd0',
-            300: '#d6c4a8',
-            400: '#c4a67e',
-            500: '#b8925f',
-            600: '#a67c4a',
-            700: '#8b653e',
-            800: '#715237',
-            900: '#5c4430',
+          // Neutral near-black for headings and primary text
+          black: {
+            50:  '#f6f6f6',
+            100: '#e7e7e7',
+            200: '#d1d1d1',
+            300: '#b0b0b0',
+            400: '#888888',
+            500: '#6d6d6d',
+            600: '#5d5d5d',
+            700: '#4f4f4f',
+            800: '#454545',
+            900: '#1a1a1a',
           },
+          // Utility yellow — warning states only, not brand
           yellow: {
-            50: '#fffef0',
+            50:  '#fffef0',
             100: '#fffadc',
             200: '#fff3b8',
             300: '#ffe885',
@@ -53,19 +57,6 @@ export default {
             800: '#a35f08',
             900: '#854e0b',
           },
-          black: {
-            50: '#f6f6f6',
-            100: '#e7e7e7',
-            200: '#d1d1d1',
-            300: '#b0b0b0',
-            400: '#888888',
-            500: '#6d6d6d',
-            600: '#5d5d5d',
-            700: '#4f4f4f',
-            800: '#454545',
-            900: '#3d3d3d',
-            950: '#1a1a1a',
-          }
         }
       },
       fontFamily: {
