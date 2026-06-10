@@ -69,6 +69,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
                   placeholder="Enter username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
                   required
                   disabled={isLoading}
                 />
