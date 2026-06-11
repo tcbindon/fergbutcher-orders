@@ -348,8 +348,8 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
         {/* Footer */}
         {orders.length > 0 && (
           <div className="px-6 py-4 border-t border-fergbutcher-gold-300 bg-fergbutcher-gold-50">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <div className="flex items-center space-x-1">
                   <div className={`w-3 h-3 rounded-full ${STATUS_DOT.pending}`}></div>
                   <span className="text-fergbutcher-green-400">

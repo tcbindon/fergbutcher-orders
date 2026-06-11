@@ -38,14 +38,14 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={onEdit}
-              className="p-2 text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
+              className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
               title="Edit Customer"
             >
               <Edit className="h-5 w-5" />
             </button>
             <button
               onClick={onDelete}
-              className="p-2 text-fergbutcher-gold-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+              className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-fergbutcher-gold-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
               title="Delete Customer"
             >
               <Trash2 className="h-5 w-5" />

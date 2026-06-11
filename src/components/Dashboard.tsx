@@ -174,26 +174,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-fergbutcher-black-900">Dashboard</h1>
           <p className="text-fergbutcher-green-400">Welcome back! Here's what's happening with your orders today.</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowPrintSchedule(true)}
-            className="flex items-center space-x-2 bg-fergbutcher-gold-100 text-fergbutcher-gold-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors text-sm font-medium"
+            className="flex items-center space-x-2 bg-fergbutcher-gold-100 text-fergbutcher-gold-700 px-3 py-2 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors text-sm font-medium"
           >
             <Printer className="h-4 w-4" />
-            <span>Print Today's Orders</span>
+            <span className="hidden sm:inline">Print Today's Orders</span>
+            <span className="sm:hidden">Print</span>
           </button>
           {onNavigate && (
             <button
               onClick={() => onNavigate('checklist')}
-              className="flex items-center space-x-2 bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors text-sm font-medium"
+              className="flex items-center space-x-2 bg-fergbutcher-green-600 text-white px-3 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors text-sm font-medium"
             >
               <ClipboardList className="h-4 w-4" />
-              <span>Today's Checklist</span>
+              <span className="hidden sm:inline">Today's Checklist</span>
+              <span className="sm:hidden">Checklist</span>
             </button>
           )}
         </div>
@@ -214,25 +216,25 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 {overdueOrders.slice(0, 5).map(order => {
                   const customer = customers.find(c => c.id === order.customerId);
                   return (
-                    <div key={order.id} className="flex items-center justify-between bg-white border border-red-200 rounded-lg px-4 py-2">
-                      <div>
-                        <span className="font-medium text-fergbutcher-black-900">
+                    <div key={order.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-red-200 rounded-lg px-4 py-2 gap-2">
+                      <div className="min-w-0">
+                        <span className="font-medium text-fergbutcher-black-900 truncate block">
                           {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
                         </span>
-                        <span className="text-sm text-red-600 ml-2">
-                          — was {new Date(order.collectionDate).toLocaleDateString('en-NZ')}
+                        <span className="text-sm text-red-600">
+                          was {new Date(order.collectionDate).toLocaleDateString('en-NZ')}
                         </span>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                           onClick={() => handleStatusChange(order.id, 'collected')}
-                          className="text-xs bg-fergbutcher-green-100 text-fergbutcher-green-600 px-2 py-1 rounded hover:bg-fergbutcher-green-200 transition-colors"
+                          className="text-xs bg-fergbutcher-green-100 text-fergbutcher-green-600 px-3 py-1.5 rounded hover:bg-fergbutcher-green-200 transition-colors min-h-[36px]"
                         >
                           Mark Collected
                         </button>
                         <button
                           onClick={() => handleStatusChange(order.id, 'cancelled')}
-                          className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                          className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded hover:bg-red-200 transition-colors min-h-[36px]"
                         >
                           Cancel
                         </button>
@@ -260,13 +262,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   const customer = customers.find(c => c.id === order.customerId);
                   const isToday = order.collectionDate === today;
                   return (
-                    <div key={order.id} className="flex items-center justify-between bg-white border border-fergbutcher-gold-300 rounded-lg px-4 py-2">
-                      <div>
-                        <span className="font-medium text-fergbutcher-black-900">
+                    <div key={order.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-fergbutcher-gold-300 rounded-lg px-4 py-2 gap-2">
+                      <div className="min-w-0">
+                        <span className="font-medium text-fergbutcher-black-900 truncate block">
                           {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
                         </span>
-                        <span className="text-sm text-fergbutcher-gold-700 ml-2">
-                          — {isToday ? 'today' : 'tomorrow'}
+                        <span className="text-sm text-fergbutcher-gold-700">
+                          {isToday ? 'today' : 'tomorrow'}
                           {customer?.phone && (
                             <a href={`tel:${customer.phone}`} className="ml-2 text-fergbutcher-green-600 hover:underline" onClick={e => e.stopPropagation()}>
                               {customer.phone}
@@ -276,7 +278,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                       </div>
                       <button
                         onClick={() => handleStatusChange(order.id, 'confirmed')}
-                        className="text-xs bg-fergbutcher-green-50 text-fergbutcher-green-600 px-2 py-1 rounded hover:bg-fergbutcher-green-100 transition-colors border border-fergbutcher-green-200"
+                        className="text-xs bg-fergbutcher-green-50 text-fergbutcher-green-600 px-3 py-1.5 rounded hover:bg-fergbutcher-green-100 transition-colors border border-fergbutcher-green-200 flex-shrink-0 min-h-[36px]"
                       >
                         Confirm
                       </button>
@@ -324,47 +326,45 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             {thisWeeksOrders.length > 0 ? thisWeeksOrders.map((order) => (
               <div
                 key={order.id}
-                className="flex items-center justify-between p-4 bg-fergbutcher-gold-50 rounded-lg cursor-pointer hover:bg-fergbutcher-gold-100 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-fergbutcher-gold-50 rounded-lg cursor-pointer hover:bg-fergbutcher-gold-100 transition-colors gap-3"
                 onClick={() => setViewingOrder(order.fullOrder)}
               >
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3 min-w-0">
                   {getStatusIcon(order.status)}
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <p className="font-medium text-fergbutcher-black-900">{order.customer}</p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-fergbutcher-black-900 truncate">{order.customer}</p>
                       {order.fullOrder.orderType === 'christmas' && (
-                        <Gift className="h-4 w-4 text-fergbutcher-green-600" />
+                        <Gift className="h-4 w-4 text-fergbutcher-green-600 flex-shrink-0" />
                       )}
                       {order.fullOrder.isRecurring && (
-                        <RefreshCw className="h-4 w-4 text-fergbutcher-green-400" />
+                        <RefreshCw className="h-4 w-4 text-fergbutcher-green-400 flex-shrink-0" />
                       )}
                     </div>
-                    <p className="text-sm text-fergbutcher-green-400">{order.items}</p>
+                    <p className="text-sm text-fergbutcher-green-400 truncate">{order.items}</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-fergbutcher-black-900">
-                      {new Date(order.collection).toLocaleDateString('en-NZ')}
-                    </p>
-                    <div className="relative">
-                      <select
-                        value={order.status}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleStatusChange(order.fullOrder.id, e.target.value as Order['status']);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`appearance-none pr-8 pl-3 py-1 rounded-full text-xs font-medium border cursor-pointer ${getStatusBadge(order.status)}`}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="prepared">Prepared</option>
-                        <option value="collected">Collected</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 pointer-events-none" />
-                    </div>
+                <div className="flex items-center justify-between sm:justify-end sm:flex-col sm:items-end gap-2 flex-shrink-0">
+                  <p className="text-sm font-medium text-fergbutcher-black-900">
+                    {new Date(order.collection).toLocaleDateString('en-NZ')}
+                  </p>
+                  <div className="relative">
+                    <select
+                      value={order.status}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleStatusChange(order.fullOrder.id, e.target.value as Order['status']);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`appearance-none pr-8 pl-3 py-1 rounded-full text-xs font-medium border cursor-pointer ${getStatusBadge(order.status)}`}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="confirmed">Confirmed</option>
+                      <option value="prepared">Prepared</option>
+                      <option value="collected">Collected</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 pointer-events-none" />
                   </div>
                 </div>
               </div>

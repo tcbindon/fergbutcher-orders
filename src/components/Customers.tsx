@@ -195,7 +195,7 @@ const Customers: React.FC = () => {
                             e.stopPropagation();
                             setEditingCustomer(customer);
                           }}
-                          className="p-2 text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
+                          className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
                           title="Edit Customer"
                         >
                           <Edit className="h-4 w-4" />
@@ -205,7 +205,7 @@ const Customers: React.FC = () => {
                             e.stopPropagation();
                             setDeletingCustomer(customer);
                           }}
-                          className="p-2 text-fergbutcher-gold-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                          className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-fergbutcher-gold-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                           title="Delete Customer"
                         >
                           <Trash2 className="h-4 w-4" />

@@ -111,7 +111,7 @@ const TodayChecklist: React.FC<TodayChecklistProps> = () => {
             {next && !done && (
               <button
                 onClick={() => handleAdvanceStatus(order)}
-                className="bg-fergbutcher-green-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-fergbutcher-green-700 transition-colors whitespace-nowrap"
+                className="bg-fergbutcher-green-600 text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors whitespace-nowrap min-h-[44px] flex items-center"
               >
                 Mark {next}
               </button>

@@ -191,25 +191,25 @@ const Orders: React.FC<OrdersProps> = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-fergbutcher-black-900">Orders</h1>
           <p className="text-fergbutcher-green-400">Manage all customer orders</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowChristmasModal(true)}
-            className="bg-gradient-to-r from-fergbutcher-green-600 to-fergbutcher-gold-600 text-white px-4 py-2 rounded-lg hover:from-fergbutcher-green-700 hover:to-fergbutcher-gold-700 transition-all flex items-center space-x-2 shadow-lg"
+            className="bg-gradient-to-r from-fergbutcher-green-600 to-fergbutcher-gold-600 text-white px-3 py-2 rounded-lg hover:from-fergbutcher-green-700 hover:to-fergbutcher-gold-700 transition-all flex items-center space-x-2 shadow-lg text-sm"
           >
             <Gift className="h-4 w-4" />
-            <span>Christmas Order</span>
+            <span>Christmas</span>
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2"
+            className="bg-fergbutcher-green-600 text-white px-3 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2 text-sm"
           >
             <Plus className="h-4 w-4" />
-            <span>Standard Order</span>
+            <span>New Order</span>
           </button>
         </div>
       </div>
@@ -226,9 +226,9 @@ const Orders: React.FC<OrdersProps> = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-3 space-y-6">
           {/* Search and Filters */}
-          <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
+          <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-4">
+            <div className="flex flex-col gap-3">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-fergbutcher-gold-500 h-4 w-4" />
                 <input
                   type="text"
@@ -238,35 +238,37 @@ const Orders: React.FC<OrdersProps> = () => {
                   className="w-full pl-10 pr-4 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent"
                 />
               </div>
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-1 bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded-lg p-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded-lg p-1">
                   {(['upcoming', 'last7', 'all'] as const).map((val) => (
                     <button
                       key={val}
                       onClick={() => setPastFilter(val)}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                         pastFilter === val
                           ? 'bg-white text-fergbutcher-green-600 shadow-sm border border-fergbutcher-gold-300'
                           : 'text-fergbutcher-gold-700 hover:text-fergbutcher-black-900'
                       }`}
                     >
-                      {val === 'upcoming' ? 'Upcoming' : val === 'last7' ? 'Last 7 days' : 'All'}
+                      {val === 'upcoming' ? 'Upcoming' : val === 'last7' ? 'Last 7d' : 'All'}
                     </button>
                   ))}
                 </div>
-                <Filter className="h-4 w-4 text-fergbutcher-gold-500" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="prepared">Prepared</option>
-                  <option value="collected">Collected</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                <div className="flex items-center gap-1 flex-1 min-w-[140px]">
+                  <Filter className="h-4 w-4 text-fergbutcher-gold-500 flex-shrink-0" />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="flex-1 px-2 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent text-sm"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="prepared">Prepared</option>
+                    <option value="collected">Collected</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -296,124 +298,117 @@ const Orders: React.FC<OrdersProps> = () => {
                   return (
                     <div
                       key={order.id}
-                      className={`p-6 hover:bg-fergbutcher-gold-50 transition-colors cursor-pointer ${selectedOrderIds.has(order.id) ? 'bg-fergbutcher-gold-50' : ''}`}
+                      className={`p-4 hover:bg-fergbutcher-gold-50 transition-colors cursor-pointer ${selectedOrderIds.has(order.id) ? 'bg-fergbutcher-gold-50' : ''}`}
                       onClick={() => setViewingOrder(order)}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedOrderIds.has(order.id)}
-                            onChange={(e) => { e.stopPropagation(); toggleSelectOrder(order.id); }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="mt-1 rounded border-fergbutcher-gold-300 text-fergbutcher-green-600 focus:ring-fergbutcher-green-600"
-                          />
-                          <div className="bg-fergbutcher-green-100 p-3 rounded-full">
-                            {order.orderType === 'christmas' ? (
-                              <Gift className="h-6 w-6 text-fergbutcher-green-600" />
-                            ) : (
-                              <User className="h-6 w-6 text-fergbutcher-green-600" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <h3 className="text-lg font-semibold text-fergbutcher-black-900">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrderIds.has(order.id)}
+                          onChange={(e) => { e.stopPropagation(); toggleSelectOrder(order.id); }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1 rounded border-fergbutcher-gold-300 text-fergbutcher-green-600 focus:ring-fergbutcher-green-600 flex-shrink-0"
+                        />
+                        <div className="bg-fergbutcher-green-100 p-2.5 rounded-full flex-shrink-0">
+                          {order.orderType === 'christmas' ? (
+                            <Gift className="h-5 w-5 text-fergbutcher-green-600" />
+                          ) : (
+                            <User className="h-5 w-5 text-fergbutcher-green-600" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                              <h3 className="text-base font-semibold text-fergbutcher-black-900 truncate">
                                 {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
                               </h3>
                               {order.orderType === 'christmas' && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-fergbutcher-green-100 to-fergbutcher-gold-100 text-fergbutcher-green-700 border border-fergbutcher-green-200">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-fergbutcher-green-100 to-fergbutcher-gold-100 text-fergbutcher-green-700 border border-fergbutcher-green-200 flex-shrink-0">
                                   <Gift className="h-3 w-3 mr-1" />
                                   Christmas
                                 </span>
                               )}
                               {order.isRecurring && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-fergbutcher-gold-100 text-fergbutcher-gold-700 border border-fergbutcher-gold-300">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-fergbutcher-gold-100 text-fergbutcher-gold-700 border border-fergbutcher-gold-300 flex-shrink-0">
                                   <RefreshCw className="h-3 w-3 mr-1" />
                                   Recurring
                                 </span>
                               )}
-                              <div className="relative">
-                                <select
-                                  value={order.status}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    handleStatusChange(order.id, e.target.value as Order['status']);
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className={`appearance-none pr-8 pl-3 py-1 rounded-full text-xs font-medium border cursor-pointer ${getStatusBadge(order.status)}`}
-                                >
-                                  <option value="pending">Pending</option>
-                                  <option value="confirmed">Confirmed</option>
-                                  <option value="prepared">Prepared</option>
-                                  <option value="collected">Collected</option>
-                                  <option value="cancelled">Cancelled</option>
-                                </select>
-                                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 pointer-events-none" />
-                              </div>
                             </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {statusIcon(order.status)}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEditingOrder(order); }}
+                                className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-fergbutcher-gold-500 hover:text-fergbutcher-black-900 hover:bg-fergbutcher-gold-100 rounded-lg transition-colors"
+                                title="Edit Order"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
 
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-4 text-sm text-fergbutcher-green-400">
-                                <div className="flex items-center space-x-1">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>{new Date(order.collectionDate).toLocaleDateString('en-NZ')}</span>
-                                </div>
-                                {customer?.phone && (
-                                  <a
-                                    href={`tel:${customer.phone}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center space-x-1 text-fergbutcher-green-600 hover:underline"
+                          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                            <div className="relative">
+                              <select
+                                value={order.status}
+                                onChange={(e) => { e.stopPropagation(); handleStatusChange(order.id, e.target.value as Order['status']); }}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`appearance-none pr-7 pl-3 py-1 rounded-full text-xs font-medium border cursor-pointer ${getStatusBadge(order.status)}`}
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="prepared">Prepared</option>
+                                <option value="collected">Collected</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                              <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 pointer-events-none" />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fergbutcher-green-400">
+                              <div className="flex items-center space-x-1">
+                                <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                                <span>{new Date(order.collectionDate).toLocaleDateString('en-NZ')}</span>
+                              </div>
+                              {customer?.phone && (
+                                <a
+                                  href={`tel:${customer.phone}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center space-x-1 text-fergbutcher-green-600 hover:underline"
+                                >
+                                  <Phone className="h-3 w-3" />
+                                  <span>{customer.phone}</span>
+                                </a>
+                              )}
+                              {getNotesForOrder(order.id).length > 0 && (
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setShowingComments(showingComments === order.id ? null : order.id); }}
+                                    className="p-1 text-fergbutcher-green-600 hover:text-fergbutcher-green-700 hover:bg-fergbutcher-green-100 rounded-full transition-colors"
+                                    title={`${getNotesForOrder(order.id).length} staff comment${getNotesForOrder(order.id).length !== 1 ? 's' : ''}`}
                                   >
-                                    <Phone className="h-3 w-3" />
-                                    <span>{customer.phone}</span>
-                                  </a>
-                                )}
-                                {getNotesForOrder(order.id).length > 0 && (
-                                  <div className="relative">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setShowingComments(showingComments === order.id ? null : order.id);
-                                      }}
-                                      className="p-1 text-fergbutcher-green-600 hover:text-fergbutcher-green-700 hover:bg-fergbutcher-green-100 rounded-full transition-colors"
-                                      title={`${getNotesForOrder(order.id).length} staff comment${getNotesForOrder(order.id).length !== 1 ? 's' : ''}`}
-                                    >
-                                      <MessageSquare className="h-4 w-4" />
-                                      <span className="absolute -top-1 -right-1 bg-fergbutcher-green-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                                        {getNotesForOrder(order.id).length}
-                                      </span>
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="text-sm text-fergbutcher-black-900">
-                                <strong>Items:</strong> {order.items.map(item =>
-                                  `${item.description} (${item.quantity.toLocaleString('en-NZ')} ${item.unit})`
-                                ).join(', ')}
-                              </div>
-
-                              {order.additionalNotes && (
-                                <div className="text-sm text-fergbutcher-green-400">
-                                  <strong>Notes:</strong> {order.additionalNotes}
+                                    <MessageSquare className="h-4 w-4" />
+                                    <span className="absolute -top-1 -right-1 bg-fergbutcher-green-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                                      {getNotesForOrder(order.id).length}
+                                    </span>
+                                  </button>
                                 </div>
                               )}
                             </div>
-                          </div>
-                        </div>
 
-                        <div className="flex items-center space-x-2">
-                          {statusIcon(order.status)}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingOrder(order);
-                            }}
-                            className="p-2 text-fergbutcher-gold-500 hover:text-fergbutcher-black-900 hover:bg-fergbutcher-gold-100 rounded-lg transition-colors"
-                            title="Edit Order"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
+                            <div className="text-sm text-fergbutcher-black-900 line-clamp-2">
+                              <strong>Items:</strong> {order.items.map(item =>
+                                `${item.description} (${item.quantity.toLocaleString('en-NZ')} ${item.unit})`
+                              ).join(', ')}
+                            </div>
+
+                            {order.additionalNotes && (
+                              <div className="text-sm text-fergbutcher-green-400 truncate">
+                                <strong>Notes:</strong> {order.additionalNotes}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -494,31 +489,33 @@ const Orders: React.FC<OrdersProps> = () => {
 
       {/* Bulk Action Bar */}
       {selectedOrderIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-white border border-fergbutcher-gold-300 rounded-xl shadow-xl px-6 py-4 flex items-center space-x-4">
-          <span className="font-medium text-fergbutcher-black-900">{selectedOrderIds.size} order{selectedOrderIds.size !== 1 ? 's' : ''} selected</span>
-          <select
-            value={bulkStatus}
-            onChange={(e) => setBulkStatus(e.target.value as Order['status'])}
-            className="px-3 py-2 border border-fergbutcher-gold-300 rounded-lg text-sm focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent"
-          >
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="prepared">Prepared</option>
-            <option value="collected">Collected</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <button
-            onClick={handleBulkStatusApply}
-            className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors text-sm font-medium"
-          >
-            Apply to {selectedOrderIds.size}
-          </button>
-          <button
-            onClick={() => setSelectedOrderIds(new Set())}
-            className="text-fergbutcher-gold-600 hover:text-fergbutcher-black-900 text-sm"
-          >
-            Clear
-          </button>
+        <div className="fixed bottom-20 lg:bottom-6 left-4 right-4 lg:left-1/2 lg:right-auto lg:transform lg:-translate-x-1/2 z-40 bg-white border border-fergbutcher-gold-300 rounded-xl shadow-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 lg:w-auto">
+          <span className="font-medium text-fergbutcher-black-900 text-sm">{selectedOrderIds.size} order{selectedOrderIds.size !== 1 ? 's' : ''} selected</span>
+          <div className="flex items-center gap-2">
+            <select
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value as Order['status'])}
+              className="flex-1 sm:flex-none px-3 py-2 border border-fergbutcher-gold-300 rounded-lg text-sm focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent"
+            >
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="prepared">Prepared</option>
+              <option value="collected">Collected</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <button
+              onClick={handleBulkStatusApply}
+              className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors text-sm font-medium min-h-[40px]"
+            >
+              Apply
+            </button>
+            <button
+              onClick={() => setSelectedOrderIds(new Set())}
+              className="text-fergbutcher-gold-600 hover:text-fergbutcher-black-900 text-sm px-2 py-2 min-h-[40px]"
+            >
+              Clear
+            </button>
+          </div>
         </div>
       )}
 
@@ -569,7 +566,7 @@ const Orders: React.FC<OrdersProps> = () => {
       {/* Create Christmas Order Modal */}
       {showChristmasModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900 flex items-center space-x-2">
                 <Gift className="h-5 w-5 text-fergbutcher-green-600" />

@@ -20,7 +20,9 @@ const CalendarView: React.FC = () => {
   } = useOrders();
   const { customers, addCustomer } = useCustomers();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
+  const [viewMode, setViewMode] = useState<CalendarViewMode>(() =>
+    window.innerWidth < 768 ? 'day' : 'month'
+  );
   const [selectedDayForModal, setSelectedDayForModal] = useState<Date | null>(null);
   const [showDayDetailModal, setShowDayDetailModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -130,7 +132,7 @@ const CalendarView: React.FC = () => {
     const days = [];
 
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-32"></div>);
+      days.push(<div key={`empty-${i}`} className="h-20 sm:h-32"></div>);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
@@ -142,31 +144,31 @@ const CalendarView: React.FC = () => {
       days.push(
         <div
           key={day}
-          className={`h-32 border border-fergbutcher-gold-200 p-2 cursor-pointer hover:bg-fergbutcher-gold-50 transition-colors ${
+          className={`h-20 sm:h-32 border border-fergbutcher-gold-200 p-1 sm:p-2 cursor-pointer hover:bg-fergbutcher-gold-50 transition-colors ${
             isToday ? 'bg-fergbutcher-gold-50 border-fergbutcher-gold-400' : ''
           }`}
           onClick={() => handleDayClick(dayDate)}
         >
-          <div className={`text-sm font-medium mb-2 ${isToday ? 'text-fergbutcher-green-600 font-bold' : 'text-fergbutcher-black-900'}`}>
+          <div className={`text-xs sm:text-sm font-medium mb-1 sm:mb-2 ${isToday ? 'text-fergbutcher-green-600 font-bold' : 'text-fergbutcher-black-900'}`}>
             {day}
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5 sm:space-y-1">
             {dayOrders.slice(0, 3).map((order) => {
               const customer = customers.find(c => c.id === order.customerId);
               return (
                 <div
                   key={order.id}
-                  className={`text-xs px-2 py-1 rounded text-white truncate flex items-center space-x-1 ${getStatusDot(order.status)}`}
+                  className={`text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded text-white truncate flex items-center space-x-0.5 ${getStatusDot(order.status)}`}
                 >
-                  {order.orderType === 'christmas' && <Gift className="h-3 w-3 flex-shrink-0" />}
-                  {order.isRecurring && <RefreshCw className="h-3 w-3 flex-shrink-0" />}
-                  {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown'}
+                  {order.orderType === 'christmas' && <Gift className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />}
+                  {order.isRecurring && <RefreshCw className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />}
+                  <span className="truncate">{customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown'}</span>
                 </div>
               );
             })}
             {dayOrders.length > 3 && (
-              <div className="text-xs text-fergbutcher-gold-600 px-2">
-                +{dayOrders.length - 3} more
+              <div className="text-[10px] sm:text-xs text-fergbutcher-gold-600 px-1 sm:px-2">
+                +{dayOrders.length - 3}
               </div>
             )}
           </div>
@@ -346,19 +348,19 @@ const CalendarView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-fergbutcher-black-900">Calendar</h1>
           <p className="text-fergbutcher-green-400">View orders by collection date</p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
           {/* View Mode Buttons */}
-          <div className="flex items-center bg-fergbutcher-gold-100 rounded-lg p-1">
+          <div className="flex items-center bg-fergbutcher-gold-100 rounded-lg p-1 self-start sm:self-auto">
             {(['day', 'week', 'month'] as CalendarViewMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors min-h-[36px] ${
                   viewMode === mode
                     ? 'bg-fergbutcher-green-600 text-white'
                     : 'text-fergbutcher-gold-700 hover:text-fergbutcher-black-900'
@@ -370,22 +372,22 @@ const CalendarView: React.FC = () => {
           </div>
 
           {/* Legend */}
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <div className="flex items-center space-x-1">
               <div className={`w-3 h-3 rounded ${STATUS_DOT.pending}`}></div>
-              <span className="text-sm text-fergbutcher-green-400">Pending</span>
+              <span className="text-xs text-fergbutcher-green-400">Pending</span>
             </div>
             <div className="flex items-center space-x-1">
               <div className={`w-3 h-3 rounded ${STATUS_DOT.confirmed}`}></div>
-              <span className="text-sm text-fergbutcher-green-400">Confirmed</span>
+              <span className="text-xs text-fergbutcher-green-400">Confirmed</span>
             </div>
             <div className="flex items-center space-x-1">
               <div className={`w-3 h-3 rounded ${STATUS_DOT.prepared}`}></div>
-              <span className="text-sm text-fergbutcher-green-400">Prepared</span>
+              <span className="text-xs text-fergbutcher-green-400">Prepared</span>
             </div>
             <div className="flex items-center space-x-1">
               <div className={`w-3 h-3 rounded ${STATUS_DOT.collected}`}></div>
-              <span className="text-sm text-fergbutcher-green-400">Collected</span>
+              <span className="text-xs text-fergbutcher-green-400">Collected</span>
             </div>
           </div>
         </div>
@@ -425,9 +427,12 @@ const CalendarView: React.FC = () => {
           {viewMode === 'month' && (
             <>
               <div className="grid grid-cols-7 gap-0 mb-4">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                  <div key={day} className="text-center text-sm font-medium text-fergbutcher-green-400 py-2">
-                    {day}
+                {[
+                  ['Mon', 'M'], ['Tue', 'T'], ['Wed', 'W'], ['Thu', 'T'], ['Fri', 'F'], ['Sat', 'S'], ['Sun', 'S']
+                ].map(([full, short]) => (
+                  <div key={full} className="text-center text-sm font-medium text-fergbutcher-green-400 py-2">
+                    <span className="hidden sm:inline">{full}</span>
+                    <span className="sm:hidden">{short}</span>
                   </div>
                 ))}
               </div>
@@ -438,9 +443,13 @@ const CalendarView: React.FC = () => {
           {viewMode === 'week' && (
             <>
               <div className="grid grid-cols-7 gap-0 mb-4">
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
-                  <div key={day} className="text-center text-sm font-medium text-fergbutcher-green-400 py-2">
-                    {day}
+                {[
+                  ['Monday', 'Mon'], ['Tuesday', 'Tue'], ['Wednesday', 'Wed'],
+                  ['Thursday', 'Thu'], ['Friday', 'Fri'], ['Saturday', 'Sat'], ['Sunday', 'Sun']
+                ].map(([full, short]) => (
+                  <div key={full} className="text-center text-sm font-medium text-fergbutcher-green-400 py-2">
+                    <span className="hidden md:inline">{full}</span>
+                    <span className="md:hidden">{short}</span>
                   </div>
                 ))}
               </div>

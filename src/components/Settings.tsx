@@ -83,21 +83,21 @@ const Settings: React.FC = () => {
 
       {/* Tabs */}
       <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300">
-        <div className="border-b border-fergbutcher-gold-300">
-          <nav className="flex space-x-8 px-6">
+        <div className="border-b border-fergbutcher-gold-300 overflow-x-auto">
+          <nav className="flex min-w-max px-4 sm:px-6 space-x-1 sm:space-x-6">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`flex items-center space-x-1.5 py-3.5 px-2 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
                     activeTab === tab.id
                       ? 'border-fergbutcher-green-600 text-fergbutcher-green-600'
                       : 'border-transparent text-fergbutcher-green-400 hover:text-fergbutcher-black-900 hover:border-fergbutcher-gold-300'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4 flex-shrink-0" />
                   <span>{tab.label}</span>
                 </button>
               );
