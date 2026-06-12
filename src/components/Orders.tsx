@@ -10,9 +10,12 @@ import OrderDetail from './OrderDetail';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { Order, Customer } from '../types';
 
-interface OrdersProps {}
+interface OrdersProps {
+  initialStatusFilter?: string;
+  initialCollectionDate?: string;
+}
 
-const Orders: React.FC<OrdersProps> = () => {
+const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionDate }) => {
   const {
     orders,
     loading: ordersLoading,
@@ -29,7 +32,7 @@ const Orders: React.FC<OrdersProps> = () => {
   const { getNotesForOrder } = useStaffNotes();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter ?? 'all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showChristmasModal, setShowChristmasModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -38,7 +41,7 @@ const Orders: React.FC<OrdersProps> = () => {
   const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [showingComments, setShowingComments] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pastFilter, setPastFilter] = useState<'upcoming' | 'last7' | 'all'>('last7');
+  const [pastFilter, setPastFilter] = useState<'upcoming' | 'last7' | 'all'>(initialCollectionDate ? 'all' : 'last7');
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [pendingNewCustomerId, setPendingNewCustomerId] = useState<string | undefined>(undefined);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
@@ -67,7 +70,8 @@ const Orders: React.FC<OrdersProps> = () => {
 
   const filteredOrders = getSortedOrders(
     searchOrders(searchTerm, customers).filter(order =>
-      statusFilter === 'all' || order.status === statusFilter
+      (statusFilter === 'all' || order.status === statusFilter) &&
+      (!initialCollectionDate || order.collectionDate === initialCollectionDate)
     )
   );
 
@@ -220,6 +224,28 @@ const Orders: React.FC<OrdersProps> = () => {
             <AlertTriangle className="h-5 w-5 text-red-600" />
             <p className="text-red-700">{ordersError}</p>
           </div>
+        </div>
+      )}
+
+      {initialCollectionDate && (
+        <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center space-x-2 text-sm text-fergbutcher-green-700">
+            <Calendar className="h-4 w-4 flex-shrink-0" />
+            <span>
+              Showing orders for{' '}
+              <strong>
+                {new Date(initialCollectionDate + 'T12:00:00').toLocaleDateString('en-NZ', {
+                  weekday: 'long', day: 'numeric', month: 'long'
+                })}
+              </strong>
+            </span>
+          </div>
+          <a
+            href="#orders"
+            className="text-xs text-fergbutcher-green-600 hover:text-fergbutcher-green-800 font-medium flex items-center gap-1 flex-shrink-0"
+          >
+            ✕ Clear filter
+          </a>
         </div>
       )}
 

@@ -23,9 +23,10 @@ import { Order, ViewType } from '../types';
 
 interface DashboardProps {
   onNavigate?: (view: ViewType) => void;
+  onNavigateToOrders?: (statusFilter?: string, collectionDate?: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders }) => {
   const { customers, addCustomer } = useCustomers();
   const { orders, getOrderStats, updateOrder, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useOrders();
   const { getNotesForOrder } = useStaffNotes();
@@ -62,6 +63,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       icon: ShoppingCart,
       iconBg: 'bg-fergbutcher-gold-100',
       iconColor: 'text-fergbutcher-gold-700',
+      onClick: () => onNavigateToOrders?.('pending'),
     },
     {
       title: "Today's Collections",
@@ -70,6 +72,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       icon: Calendar,
       iconBg: 'bg-fergbutcher-green-100',
       iconColor: 'text-fergbutcher-green-600',
+      onClick: () => onNavigateToOrders?.(undefined, today),
     },
     {
       title: "Tomorrow's Orders",
@@ -78,6 +81,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       icon: Clock,
       iconBg: 'bg-fergbutcher-green-50',
       iconColor: 'text-fergbutcher-green-400',
+      onClick: () => onNavigateToOrders?.(undefined, tomorrow),
     },
   ];
 
@@ -296,22 +300,29 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.title} className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6">
+            <button
+              key={stat.title}
+              onClick={stat.onClick}
+              className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6 text-left w-full hover:shadow-md hover:border-fergbutcher-green-300 transition-all group"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-fergbutcher-green-400">{stat.title}</p>
                   <p className="text-2xl font-bold text-fergbutcher-black-900 mt-1">{stat.value}</p>
                 </div>
-                <div className={`p-3 rounded-lg ${stat.iconBg}`}>
+                <div className={`p-3 rounded-lg ${stat.iconBg} group-hover:scale-110 transition-transform`}>
                   <Icon className={`h-6 w-6 ${stat.iconColor}`} />
                 </div>
               </div>
-              <div className="mt-4">
+              <div className="mt-4 flex items-center justify-between">
                 <span className="text-sm font-medium text-fergbutcher-green-400">
                   {stat.change}
                 </span>
+                <span className="text-xs text-fergbutcher-green-200 group-hover:text-fergbutcher-green-500 transition-colors font-medium">
+                  View orders →
+                </span>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

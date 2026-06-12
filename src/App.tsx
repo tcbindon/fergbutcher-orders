@@ -18,6 +18,8 @@ import { ViewType } from './types';
 function App() {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [ordersStatusFilter, setOrdersStatusFilter] = useState<string | undefined>(undefined);
+  const [ordersCollectionDate, setOrdersCollectionDate] = useState<string | undefined>(undefined);
   const {
     showUndoNotification,
     lastAction,
@@ -133,6 +135,17 @@ function App() {
   const handleViewChange = (view: ViewType) => {
     setCurrentView(view);
     window.location.hash = view;
+    if (view !== 'orders') {
+      setOrdersStatusFilter(undefined);
+      setOrdersCollectionDate(undefined);
+    }
+  };
+
+  const handleNavigateToOrders = (statusFilter?: string, collectionDate?: string) => {
+    setOrdersStatusFilter(statusFilter);
+    setOrdersCollectionDate(collectionDate);
+    setCurrentView('orders');
+    window.location.hash = 'orders';
   };
 
   if (!isAuthenticated) {
@@ -142,19 +155,19 @@ function App() {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard onNavigate={handleViewChange} />;
+        return <Dashboard onNavigate={handleViewChange} onNavigateToOrders={handleNavigateToOrders} />;
       case 'checklist':
         return <TodayChecklist />;
       case 'customers':
         return <Customers />;
       case 'orders':
-        return <Orders />;
+        return <Orders initialStatusFilter={ordersStatusFilter} initialCollectionDate={ordersCollectionDate} />;
       case 'calendar':
         return <CalendarView />;
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard onNavigate={handleViewChange} />;
+        return <Dashboard onNavigate={handleViewChange} onNavigateToOrders={handleNavigateToOrders} />;
     }
   };
 
