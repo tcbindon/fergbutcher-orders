@@ -155,7 +155,7 @@ export const useCustomers = () => {
         `${c.firstName} ${c.lastName}`.toLowerCase().includes(term) ||
         (c.email && c.email.toLowerCase().includes(term)) ||
         c.company?.toLowerCase().includes(term) ||
-        c.phone.includes(term)
+        c.phone?.includes(term)
       )
     );
   };
