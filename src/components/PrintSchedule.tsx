@@ -126,8 +126,8 @@ const PrintSchedule: React.FC<PrintScheduleProps> = ({
   const totalOrders = timedOrders.length + untimedOrders.length;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+    <div className="print-root fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="print-card bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header - Hidden when printing */}
         <div className="px-6 py-4 border-b border-fergbutcher-brown-200 flex justify-between items-center print:hidden">
           <h3 className="text-lg font-semibold text-fergbutcher-black-900">Print Collection Schedule</h3>
@@ -149,7 +149,7 @@ const PrintSchedule: React.FC<PrintScheduleProps> = ({
         </div>
 
         {/* Print Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] print:overflow-visible print:max-h-none">
+        <div className="print-body p-6 overflow-y-auto max-h-[calc(90vh-120px)] print:overflow-visible print:max-h-none">
           {/* Print Header */}
           <div className="text-center mb-8 print:mb-6">
             <div className="flex items-center justify-center space-x-3 mb-4">
