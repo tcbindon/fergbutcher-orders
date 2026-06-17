@@ -76,7 +76,6 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
   };
 
-  // When a new customer is created externally and passed back via initialCustomerId
   useEffect(() => {
     if (!initialCustomerId) return;
     const customer = customers.find(c => c.id === initialCustomerId);
@@ -118,6 +117,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
   }, [order, initialData, customers]);
 
+  const dateRequired = ['confirmed', 'prepared', 'collected'].includes(formData.status);
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -125,9 +126,9 @@ const OrderForm: React.FC<OrderFormProps> = ({
       newErrors.customerId = 'Please select or add a customer';
     }
 
-    if (!formData.collectionDate) {
-      newErrors.collectionDate = 'Collection date is required';
-    } else {
+    if (dateRequired && !formData.collectionDate) {
+      newErrors.collectionDate = 'Collection date is required when confirming an order';
+    } else if (formData.collectionDate) {
       const selectedDate = new Date(formData.collectionDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -149,7 +150,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       }
       if (!formData.recurrenceEndDate) {
         newErrors.recurrenceEndDate = 'Please select an end date for recurring orders';
-      } else {
+      } else if (formData.collectionDate) {
         const endDate = new Date(formData.recurrenceEndDate);
         const collectionDate = new Date(formData.collectionDate);
         if (endDate <= collectionDate) {
@@ -246,6 +247,71 @@ const OrderForm: React.FC<OrderFormProps> = ({
         </button>
       )}
       <form onSubmit={handleSubmit} className="space-y-6">
+
+        {/* Status — always shown at top of form */}
+        <div>
+          <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
+            Order Status *
+          </label>
+          <div className="flex gap-2">
+            {(['pending', 'confirmed'] as Order['status'][]).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => handleChange('status', s)}
+                disabled={isLoading}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all ${
+                  formData.status === s
+                    ? s === 'confirmed'
+                      ? 'border-fergbutcher-green-500 bg-fergbutcher-green-50 text-fergbutcher-green-700'
+                      : 'border-fergbutcher-gold-400 bg-fergbutcher-gold-50 text-fergbutcher-gold-700'
+                    : 'border-fergbutcher-brown-200 bg-white text-fergbutcher-brown-500 hover:border-fergbutcher-brown-300'
+                }`}
+              >
+                {s === 'pending' ? 'Pending (request)' : 'Confirmed'}
+              </button>
+            ))}
+          </div>
+          {/* Show full status list only when editing */}
+          {order && !['pending', 'confirmed'].includes(formData.status) && (
+            <div className="mt-2">
+              <select
+                value={formData.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                disabled={isLoading}
+              >
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="prepared">Prepared</option>
+                <option value="collected">Collected</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          )}
+          {order && ['pending', 'confirmed'].includes(formData.status) && (
+            <div className="mt-2">
+              <select
+                value={formData.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                disabled={isLoading}
+              >
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="prepared">Prepared</option>
+                <option value="collected">Collected</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          )}
+          <p className="text-xs text-fergbutcher-brown-500 mt-1">
+            {formData.status === 'pending'
+              ? 'Pending orders can be saved without a collection date.'
+              : 'Confirmed orders require a collection date.'}
+          </p>
+        </div>
+
         {/* Customer Selection */}
         <div>
           <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
@@ -547,7 +613,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-              Collection Date *
+              Collection Date {dateRequired ? '*' : <span className="font-normal text-fergbutcher-brown-400">(optional)</span>}
             </label>
             <input
               type="date"
@@ -576,26 +642,6 @@ const OrderForm: React.FC<OrderFormProps> = ({
             />
           </div>
         </div>
-
-        {order && (
-          <div>
-            <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-              Status
-            </label>
-            <select
-              value={formData.status}
-              onChange={(e) => handleChange('status', e.target.value)}
-              className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-              disabled={isLoading}
-            >
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="prepared">Prepared</option>
-              <option value="collected">Collected</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-        )}
 
         {/* Additional Notes */}
         <div>

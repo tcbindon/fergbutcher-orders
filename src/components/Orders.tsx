@@ -56,15 +56,23 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     if (pastFilter === 'all') {
       filteredOrders = orders;
     } else if (pastFilter === 'last7') {
-      filteredOrders = orders.filter(order => order.collectionDate >= sevenDaysAgo);
+      // Include dateless pending orders alongside last-7-days orders
+      filteredOrders = orders.filter(order => !order.collectionDate || order.collectionDate >= sevenDaysAgo);
     } else {
-      filteredOrders = orders.filter(order => order.collectionDate >= today);
+      // Upcoming: include dateless pending orders (awaiting a date) alongside future orders
+      filteredOrders = orders.filter(order => !order.collectionDate || order.collectionDate >= today);
     }
 
     return filteredOrders.sort((a, b) => {
+      // Dateless orders sort to the top
+      if (!a.collectionDate && !b.collectionDate) {
+        return (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99);
+      }
+      if (!a.collectionDate) return -1;
+      if (!b.collectionDate) return 1;
       const dateComparison = new Date(a.collectionDate).getTime() - new Date(b.collectionDate).getTime();
       if (dateComparison !== 0) return dateComparison;
-      return statusPriority[a.status] - statusPriority[b.status];
+      return (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99);
     });
   };
 
@@ -395,7 +403,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fergbutcher-green-400">
                               <div className="flex items-center space-x-1">
                                 <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
-                                <span>{new Date(order.collectionDate).toLocaleDateString('en-NZ')}</span>
+                                <span>{order.collectionDate ? new Date(order.collectionDate).toLocaleDateString('en-NZ') : <span className="italic text-fergbutcher-gold-600">No date set</span>}</span>
                               </div>
                               {customer?.phone && (
                                 <a

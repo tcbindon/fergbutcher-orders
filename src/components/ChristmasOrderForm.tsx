@@ -126,18 +126,18 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+    const dateRequired = ['confirmed', 'prepared', 'collected'].includes(formData.status);
 
     if (!formData.customerId) {
       newErrors.customerId = 'Please select a customer';
     }
 
-    if (!formData.collectionDate) {
-      newErrors.collectionDate = 'Collection date is required';
-    } else {
+    if (dateRequired && !formData.collectionDate) {
+      newErrors.collectionDate = 'Collection date is required when confirming an order';
+    } else if (formData.collectionDate) {
       const selectedDate = new Date(formData.collectionDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
       if (selectedDate < today) {
         newErrors.collectionDate = 'Collection date cannot be in the past';
       }
@@ -315,6 +315,53 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Status — always shown at top of form */}
+        <div>
+          <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
+            Order Status *
+          </label>
+          <div className="flex gap-2">
+            {(['pending', 'confirmed'] as Order['status'][]).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => handleChange('status', s)}
+                disabled={isLoading}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all ${
+                  formData.status === s
+                    ? s === 'confirmed'
+                      ? 'border-fergbutcher-green-500 bg-fergbutcher-green-50 text-fergbutcher-green-700'
+                      : 'border-fergbutcher-gold-400 bg-fergbutcher-gold-50 text-fergbutcher-gold-700'
+                    : 'border-fergbutcher-brown-200 bg-white text-fergbutcher-brown-500 hover:border-fergbutcher-brown-300'
+                }`}
+              >
+                {s === 'pending' ? 'Pending (request)' : 'Confirmed'}
+              </button>
+            ))}
+          </div>
+          {order && (
+            <div className="mt-2">
+              <select
+                value={formData.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+                disabled={isLoading}
+              >
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="prepared">Prepared</option>
+                <option value="collected">Collected</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          )}
+          <p className="text-xs text-fergbutcher-brown-500 mt-1">
+            {formData.status === 'pending'
+              ? 'Pending orders can be saved without a collection date.'
+              : 'Confirmed orders require a collection date.'}
+          </p>
+        </div>
+
         {/* Customer Selection */}
         <div>
           <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
@@ -560,22 +607,29 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
         {/* Collection Details */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-              Collection Date *
-            </label>
-            <input
-              type="date"
-              value={formData.collectionDate}
-              onChange={(e) => handleChange('collectionDate', e.target.value)}
-              min={getMinDate()}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
-                errors.collectionDate ? 'border-red-500' : 'border-fergbutcher-brown-300'
-              }`}
-              disabled={isLoading}
-            />
-            {errors.collectionDate && (
-              <p className="text-red-500 text-xs mt-1">{errors.collectionDate}</p>
-            )}
+            {(() => {
+              const dateRequired = ['confirmed', 'prepared', 'collected'].includes(formData.status);
+              return (
+                <>
+                  <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
+                    Collection Date {dateRequired ? '*' : <span className="font-normal text-fergbutcher-brown-400">(optional)</span>}
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.collectionDate}
+                    onChange={(e) => handleChange('collectionDate', e.target.value)}
+                    min={getMinDate()}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
+                      errors.collectionDate ? 'border-red-500' : 'border-fergbutcher-brown-300'
+                    }`}
+                    disabled={isLoading}
+                  />
+                  {errors.collectionDate && (
+                    <p className="text-red-500 text-xs mt-1">{errors.collectionDate}</p>
+                  )}
+                </>
+              );
+            })()}
           </div>
           <div>
             <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
@@ -590,27 +644,6 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
             />
           </div>
         </div>
-
-        {/* Status (for editing existing orders) */}
-        {order && (
-          <div>
-            <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
-              Status
-            </label>
-            <select
-              value={formData.status}
-              onChange={(e) => handleChange('status', e.target.value)}
-              className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-              disabled={isLoading}
-            >
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="prepared">Prepared</option>
-              <option value="collected">Collected</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-        )}
 
         {/* Additional Notes */}
         <div>

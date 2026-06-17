@@ -44,11 +44,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
   const dayAfterTomorrow = new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0];
 
   const overdueOrders = orders.filter(
-    o => o.collectionDate < today && o.status !== 'collected' && o.status !== 'cancelled'
+    o => o.collectionDate && o.collectionDate < today && o.status !== 'collected' && o.status !== 'cancelled'
   );
 
   const approachingUnconfirmed = orders.filter(
-    o => o.status === 'pending' && o.collectionDate >= today && o.collectionDate <= dayAfterTomorrow
+    o => o.status === 'pending' && o.collectionDate && o.collectionDate >= today && o.collectionDate <= dayAfterTomorrow
+  );
+
+  const pendingRequests = orders.filter(
+    o => o.status === 'pending' && !o.collectionDate
   );
 
   const tomorrowCount = orders.filter(
@@ -206,7 +210,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
       </div>
 
       {/* Attention Required Alerts */}
-      {(overdueOrders.length > 0 || approachingUnconfirmed.length > 0) && (
+      {(overdueOrders.length > 0 || approachingUnconfirmed.length > 0 || pendingRequests.length > 0) && (
         <div className="space-y-3">
           {overdueOrders.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -289,6 +293,43 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {pendingRequests.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <Clock className="h-5 w-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-800">
+                  {pendingRequests.length} Pending {pendingRequests.length === 1 ? 'Request' : 'Requests'} — No Date Set
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {pendingRequests.slice(0, 5).map(order => {
+                  const customer = customers.find(c => c.id === order.customerId);
+                  return (
+                    <div key={order.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-blue-200 rounded-lg px-4 py-2 gap-2">
+                      <div className="min-w-0">
+                        <span className="font-medium text-fergbutcher-black-900 truncate block">
+                          {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
+                        </span>
+                        <span className="text-sm text-blue-600 truncate block">
+                          {order.items.map(i => `${i.description} (${i.quantity} ${i.unit})`).join(', ')}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setEditingOrder(order)}
+                        className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors border border-blue-200 flex-shrink-0 min-h-[36px]"
+                      >
+                        Assign Date
+                      </button>
+                    </div>
+                  );
+                })}
+                {pendingRequests.length > 5 && (
+                  <p className="text-sm text-blue-600 pl-1">+{pendingRequests.length - 5} more pending requests</p>
+                )}
               </div>
             </div>
           )}
