@@ -19,42 +19,17 @@
 
 @media print {
   @page {
-    margin: 12mm 15mm;
+    margin: 10mm 12mm;
     size: A4;
   }
 
-  /* Hide entire app — only the print-root will be visible */
-  body * {
-    visibility: hidden;
+  /* Hide the React app root entirely — the print portal renders as a sibling of #root */
+  #root {
+    display: none !important;
   }
 
-  .print-root,
-  .print-root * {
-    visibility: visible;
-  }
-
-  .print-root {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: white;
-  }
-
-  /* Strip modal card constraints so content fills the page */
-  .print-card {
-    max-width: 100% !important;
-    max-height: none !important;
-    overflow: visible !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    width: 100% !important;
-    margin: 0 !important;
-  }
-
-  /* Allow scrollable content container to expand fully */
-  .print-body {
-    overflow: visible !important;
-    max-height: none !important;
+  /* The portal div is a direct child of <body>, outside #root */
+  .print-portal {
+    display: block !important;
   }
 }
