@@ -255,7 +255,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
           </svg>
         </button>
       )}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
 
         {/* Status — always shown at top of form */}
         <div>
