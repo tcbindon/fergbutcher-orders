@@ -51,6 +51,14 @@ export const customersApi = {
 };
 
 // ── ORDERS ───────────────────────────────────────────────────
+// Strip falsy collectionDate so the PHP backend never receives
+// an empty string or null — absent keys fall through to ?? null
+// in PHP and bind as SQL NULL correctly.
+const stripEmptyDate = <T extends { collectionDate?: string | null }>(obj: T): Omit<T, 'collectionDate'> & { collectionDate?: string } => {
+  const { collectionDate, ...rest } = obj as any;
+  return collectionDate ? { ...rest, collectionDate } : rest;
+};
+
 export const ordersApi = {
   getAll: (filters: { status?: string; type?: string; from?: string; to?: string } = {}): Promise<Order[]> => {
     const params = new URLSearchParams(
@@ -63,10 +71,10 @@ export const ordersApi = {
     request(`/orders?id=${id}`),
 
   save: (order: Order): Promise<Order> =>
-    request('/orders', { method: 'POST', body: JSON.stringify(order) }),
+    request('/orders', { method: 'POST', body: JSON.stringify(stripEmptyDate(order)) }),
 
   update: (id: string, updates: Partial<Order>): Promise<Order> =>
-    request(`/orders?id=${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+    request(`/orders?id=${id}`, { method: 'PUT', body: JSON.stringify(stripEmptyDate(updates)) }),
 
   delete: (id: string): Promise<{ id: string }> =>
     request(`/orders?id=${id}`, { method: 'DELETE' }),
