@@ -154,12 +154,17 @@ const OrderForm: React.FC<OrderFormProps> = ({
       if (!formData.collectionDate) {
         newErrors.collectionDate = 'A start date is required for recurring orders';
       }
-      if (!formData.recurrencePattern) {
+      // When creating a new recurring order, pattern is required.
+      // When editing, pattern is already set on the series — don't block saves.
+      if (!order && !formData.recurrencePattern) {
         newErrors.recurrencePattern = 'Please select a recurrence pattern';
       }
       if (!formData.recurrenceEndDate) {
         newErrors.recurrenceEndDate = 'Please select an end date for recurring orders';
-      } else if (formData.collectionDate) {
+      } else if (!order && formData.collectionDate) {
+        // When creating: end date must be after the first collection date.
+        // When editing a child occurrence, skip — the end date is series-level
+        // and may legitimately be before this occurrence's date when shortening.
         const endDate = new Date(formData.recurrenceEndDate);
         const collectionDate = new Date(formData.collectionDate);
         if (endDate <= collectionDate) {
@@ -595,7 +600,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
                     type="date"
                     value={formData.recurrenceEndDate || ''}
                     onChange={(e) => handleChange('recurrenceEndDate', e.target.value)}
-                    min={formData.collectionDate || getMinDate()}
+                    min={!order ? (formData.collectionDate || getMinDate()) : undefined}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
                       errors.recurrenceEndDate ? 'border-red-500' : 'border-fergbutcher-brown-300'
                     }`}
