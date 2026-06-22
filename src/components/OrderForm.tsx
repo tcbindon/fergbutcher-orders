@@ -121,26 +121,10 @@ const OrderForm: React.FC<OrderFormProps> = ({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+    const isEditing = !!order;
 
     if (!formData.customerId) {
       newErrors.customerId = 'Please select or add a customer';
-    }
-
-    if (dateRequired && !formData.collectionDate) {
-      newErrors.collectionDate = 'Collection date is required when confirming an order';
-    } else if (formData.collectionDate) {
-      // Only block past dates on new orders — when editing, the existing date
-      // may legitimately be in the past (e.g. a recurring occurrence from last week)
-      const isNewOrder = !order;
-      const dateChanged = formData.collectionDate !== (order?.collectionDate ?? '');
-      if (isNewOrder || dateChanged) {
-        const selectedDate = new Date(formData.collectionDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (selectedDate < today) {
-          newErrors.collectionDate = 'Collection date cannot be in the past';
-        }
-      }
     }
 
     const validItems = items.filter(item =>
@@ -150,25 +134,35 @@ const OrderForm: React.FC<OrderFormProps> = ({
       newErrors.items = 'At least one valid item is required';
     }
 
-    if (formData.isRecurring) {
-      if (!order && !formData.collectionDate) {
-        newErrors.collectionDate = 'A start date is required for recurring orders';
+    // Date and recurring validations only apply when CREATING new orders.
+    // Existing orders were valid at creation — don't block edits.
+    if (!isEditing) {
+      if (dateRequired && !formData.collectionDate) {
+        newErrors.collectionDate = 'Collection date is required when confirming an order';
+      } else if (formData.collectionDate) {
+        const selectedDate = new Date(formData.collectionDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (selectedDate < today) {
+          newErrors.collectionDate = 'Collection date cannot be in the past';
+        }
       }
-      // When creating a new recurring order, pattern is required.
-      // When editing, pattern is already set on the series — don't block saves.
-      if (!order && !formData.recurrencePattern) {
-        newErrors.recurrencePattern = 'Please select a recurrence pattern';
-      }
-      if (!order && !formData.recurrenceEndDate) {
-        newErrors.recurrenceEndDate = 'Please select an end date for recurring orders';
-      } else if (!order && formData.collectionDate && formData.recurrenceEndDate) {
-        // When creating: end date must be after the first collection date.
-        // When editing a child occurrence, skip — the end date is series-level
-        // and may legitimately be before this occurrence's date when shortening.
-        const endDate = new Date(formData.recurrenceEndDate);
-        const collectionDate = new Date(formData.collectionDate);
-        if (endDate <= collectionDate) {
-          newErrors.recurrenceEndDate = 'End date must be after the first collection date';
+
+      if (formData.isRecurring) {
+        if (!formData.collectionDate) {
+          newErrors.collectionDate = 'A start date is required for recurring orders';
+        }
+        if (!formData.recurrencePattern) {
+          newErrors.recurrencePattern = 'Please select a recurrence pattern';
+        }
+        if (!formData.recurrenceEndDate) {
+          newErrors.recurrenceEndDate = 'Please select an end date for recurring orders';
+        } else if (formData.collectionDate) {
+          const endDate = new Date(formData.recurrenceEndDate);
+          const collectionDate = new Date(formData.collectionDate);
+          if (endDate <= collectionDate) {
+            newErrors.recurrenceEndDate = 'End date must be after the first collection date';
+          }
         }
       }
     }
@@ -188,7 +182,10 @@ const OrderForm: React.FC<OrderFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
+    console.log('[OrderForm] Submit clicked. Editing:', !!order);
+    const isValid = validateForm();
+    console.log('[OrderForm] Validation passed:', isValid);
+    if (isValid) {
       const validItems = items
         .filter(item => item.description.trim() && item.quantity > 0 && item.unit)
         .map((item, index) => ({

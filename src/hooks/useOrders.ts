@@ -208,12 +208,22 @@ export const useOrders = () => {
       const id = originalOrder.id;
       const updatedAt = new Date().toISOString();
 
+      console.log('[updateOrderAndSeries] called for order', id, {
+        isRecurring: originalOrder.isRecurring,
+        parentOrderId: originalOrder.parentOrderId,
+        recurrencePattern: originalOrder.recurrencePattern,
+        oldEndDate: originalOrder.recurrenceEndDate,
+        newEndDate: updates.recurrenceEndDate,
+      });
+
       const needsSeriesSync =
         originalOrder.isRecurring &&
         originalOrder.parentOrderId &&
         originalOrder.recurrencePattern &&
         updates.recurrenceEndDate &&
         updates.recurrenceEndDate !== originalOrder.recurrenceEndDate;
+
+      console.log('[updateOrderAndSeries] needsSeriesSync:', !!needsSeriesSync);
 
       if (needsSeriesSync) {
         const parentId      = originalOrder.parentOrderId!;
@@ -288,9 +298,10 @@ export const useOrders = () => {
       }
 
       // No series change needed — plain single-order update
+      console.log('[updateOrderAndSeries] falling through to simple updateOrder');
       return updateOrder(id, updates as Partial<Omit<Order, 'id' | 'createdAt'>>, customers);
     } catch (err) {
-      console.error('Error updating order and series:', err);
+      console.error('[updateOrderAndSeries] CAUGHT ERROR:', err);
       setError('Failed to update order');
       return false;
     }
