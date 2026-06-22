@@ -70,7 +70,7 @@ export const useOrders = () => {
         const parentOrderId = uuidv4();
         const newOrders: Order[] = [];
         const intervalDays = orderData.recurrencePattern === 'weekly' ? 7 : 14;
-        let currentDate = parseDateLocal(orderData.collectionDate);
+        let currentDate = parseDateLocal(orderData.collectionDate!);
         const endDate   = parseDateLocal(orderData.recurrenceEndDate);
         let count = 0;
 
@@ -226,7 +226,7 @@ export const useOrders = () => {
         const toDelete     = seriesOrders.filter(o => o.collectionDate > newEndDate);
 
         // Generate missing occurrences beyond the last kept date up to the new end
-        const sorted = [...toKeep].sort((a, b) => a.collectionDate.localeCompare(b.collectionDate));
+        const sorted = [...toKeep].sort((a, b) => (a.collectionDate ?? '').localeCompare(b.collectionDate ?? ''));
         const generatedOrders: Order[] = [];
         if (sorted.length > 0) {
           let cur = parseDateLocal(sorted[sorted.length - 1].collectionDate);

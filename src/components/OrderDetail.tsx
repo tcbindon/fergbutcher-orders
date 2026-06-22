@@ -172,7 +172,9 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
             <div>
               <p className="text-sm text-fergbutcher-green-400">Collection Date</p>
               <p className="font-medium text-fergbutcher-black-900">
-                {new Date(order.collectionDate).toLocaleDateString('en-NZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                {order.collectionDate
+                  ? new Date(order.collectionDate).toLocaleDateString('en-NZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                  : <span className="italic text-fergbutcher-brown-400">No date set</span>}
               </p>
             </div>
           </div>

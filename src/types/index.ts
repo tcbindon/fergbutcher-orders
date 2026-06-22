@@ -41,7 +41,7 @@ export interface Order {
   customer?: Customer;
   items: OrderItem[] | ChristmasOrderItem[];
   orderType: 'standard' | 'christmas';
-  collectionDate: string;
+  collectionDate: string | null;
   collectionTime?: string;
   additionalNotes?: string;
   status: 'pending' | 'confirmed' | 'prepared' | 'collected' | 'cancelled';

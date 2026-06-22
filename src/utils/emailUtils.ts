@@ -29,7 +29,8 @@ export const formatOrderItems = (items: OrderItem[]): string => {
   ).join('\n');
 };
 
-export const formatCollectionDate = (dateString: string): string => {
+export const formatCollectionDate = (dateString: string | null): string => {
+  if (!dateString) return 'No date set';
   return new Date(dateString).toLocaleDateString('en-NZ', {
     weekday: 'long',
     year: 'numeric',

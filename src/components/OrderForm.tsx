@@ -145,6 +145,9 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
 
     if (formData.isRecurring) {
+      if (!formData.collectionDate) {
+        newErrors.collectionDate = 'A start date is required for recurring orders';
+      }
       if (!formData.recurrencePattern) {
         newErrors.recurrencePattern = 'Please select a recurrence pattern';
       }
@@ -187,7 +190,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       onSubmit({
         customerId: formData.customerId,
         items: validItems,
-        collectionDate: formData.collectionDate,
+        collectionDate: formData.collectionDate || null,
         collectionTime: formData.collectionTime || undefined,
         additionalNotes: formData.additionalNotes || undefined,
         status: formData.status,

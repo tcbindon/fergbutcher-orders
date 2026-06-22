@@ -307,7 +307,7 @@ const Customers: React.FC = () => {
                         <div className="flex items-center space-x-3">
                           <div className="text-right">
                             <p className="text-sm font-medium text-fergbutcher-black-900">
-                              Collection: {new Date(order.collectionDate).toLocaleDateString('en-NZ')}
+                              Collection: {order.collectionDate ? new Date(order.collectionDate).toLocaleDateString('en-NZ') : 'No date set'}
                             </p>
                             {order.collectionTime && (
                               <p className="text-sm text-fergbutcher-green-400">
