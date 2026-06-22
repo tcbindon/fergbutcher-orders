@@ -63,15 +63,17 @@ export const useOrders = () => {
         const parentOrderId = uuidv4();
         const newOrders: Order[] = [];
         const intervalDays = orderData.recurrencePattern === 'weekly' ? 7 : 14;
-        let currentDate = new Date(orderData.collectionDate);
-        const endDate   = new Date(orderData.recurrenceEndDate);
+        const parseDateLocal = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+        const formatDateLocal = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        let currentDate = parseDateLocal(orderData.collectionDate);
+        const endDate   = parseDateLocal(orderData.recurrenceEndDate);
         let count = 0;
 
         while (currentDate <= endDate && count < 52) {
           const newOrder: Order = {
             ...orderData,
             id: getNextOrderId(orders, newOrders),
-            collectionDate: currentDate.toISOString().split('T')[0],
+            collectionDate: formatDateLocal(currentDate),
             orderType: orderData.orderType || 'standard',
             isRecurring: true,
             recurrencePattern: orderData.recurrencePattern,
