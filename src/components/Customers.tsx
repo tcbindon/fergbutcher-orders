@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, CreditCard as Edit, Eye, Mail, Phone, Building, User, Trash2, AlertTriangle, Copy, Package, MessageSquare } from 'lucide-react';
+import { Search, Plus, Pencil, Eye, Mail, Phone, Building, User, Trash2, AlertTriangle, Copy, Package, MessageSquare } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import { useStaffNotes } from '../hooks/useStaffNotes';
@@ -198,7 +198,7 @@ const Customers: React.FC = () => {
                           className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
                           title="Edit Customer"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Pencil className="h-4 w-4" />
                         </button>
                         <button
                           onClick={(e) => {

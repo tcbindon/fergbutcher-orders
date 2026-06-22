@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Mail, Phone, Building, Calendar, CreditCard as Edit, Trash2, ShoppingCart, FileText } from 'lucide-react';
+import { User, Mail, Phone, Building, Calendar, Pencil, Trash2, ShoppingCart, FileText } from 'lucide-react';
 import { Customer } from '../types';
 
 interface CustomerDetailProps {
@@ -41,7 +41,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
               title="Edit Customer"
             >
-              <Edit className="h-5 w-5" />
+              <Pencil className="h-5 w-5" />
             </button>
             <button
               onClick={onDelete}

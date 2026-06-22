@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Filter, CreditCard as Edit, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone } from 'lucide-react';
+import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
@@ -376,7 +376,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                                 className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-fergbutcher-gold-500 hover:text-fergbutcher-black-900 hover:bg-fergbutcher-gold-100 rounded-lg transition-colors"
                                 title="Edit Order"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Pencil className="h-4 w-4" />
                               </button>
                             </div>
                           </div>

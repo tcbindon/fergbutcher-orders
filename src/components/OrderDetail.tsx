@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Calendar, Clock, Package, FileText, CreditCard as Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift, RefreshCw } from 'lucide-react';
+import { User, Calendar, Clock, Package, FileText, Pencil, Trash2, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift, RefreshCw } from 'lucide-react';
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
@@ -87,7 +87,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
           </div>
           <div className="flex items-center space-x-2">
             <button onClick={onEdit} className="p-2 text-fergbutcher-gold-500 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors" title="Edit Order">
-              <Edit className="h-5 w-5" />
+              <Pencil className="h-5 w-5" />
             </button>
             {onDuplicate && (
               <button onClick={onDuplicate} className="p-2 text-fergbutcher-gold-500 hover:text-fergbutcher-gold-700 hover:bg-fergbutcher-gold-100 rounded-lg transition-colors" title="Duplicate Order">

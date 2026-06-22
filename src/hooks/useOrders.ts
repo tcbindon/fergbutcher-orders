@@ -12,6 +12,13 @@ import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { ordersApi } from './useApi';
 
+const parseDateLocal = (s: string) => {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+const formatDateLocal = (dt: Date) =>
+  `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+
 export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,8 +70,6 @@ export const useOrders = () => {
         const parentOrderId = uuidv4();
         const newOrders: Order[] = [];
         const intervalDays = orderData.recurrencePattern === 'weekly' ? 7 : 14;
-        const parseDateLocal = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
-        const formatDateLocal = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
         let currentDate = parseDateLocal(orderData.collectionDate);
         const endDate   = parseDateLocal(orderData.recurrenceEndDate);
         let count = 0;
@@ -171,6 +176,87 @@ export const useOrders = () => {
   const updateOrder = useCallback((id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>, customers: Customer[] = []) => {
     try {
       const updatedAt = new Date().toISOString();
+      const original = orders.find(o => o.id === id);
+
+      // Recurring series end-date change: reconcile the whole series
+      if (
+        original?.isRecurring &&
+        original.parentOrderId &&
+        original.recurrencePattern &&
+        'recurrenceEndDate' in updates &&
+        updates.recurrenceEndDate !== original.recurrenceEndDate &&
+        updates.recurrenceEndDate
+      ) {
+        const newEndDate = updates.recurrenceEndDate as string;
+        const parentId   = original.parentOrderId;
+        const intervalDays = original.recurrencePattern === 'weekly' ? 7 : 14;
+        const newEndParsed = parseDateLocal(newEndDate);
+
+        const seriesOrders = orders.filter(o => o.parentOrderId === parentId);
+        const toKeep   = seriesOrders.filter(o => o.collectionDate <= newEndDate);
+        const toDelete = seriesOrders.filter(o => o.collectionDate > newEndDate);
+
+        // Generate any missing orders between the last kept date and the new end date
+        const sorted = [...toKeep].sort((a, b) => a.collectionDate.localeCompare(b.collectionDate));
+        const generatedOrders: Order[] = [];
+        if (sorted.length > 0) {
+          let cur = parseDateLocal(sorted[sorted.length - 1].collectionDate);
+          cur.setDate(cur.getDate() + intervalDays);
+          while (cur <= newEndParsed && generatedOrders.length < 52) {
+            const dateStr = formatDateLocal(cur);
+            if (!toKeep.find(o => o.collectionDate === dateStr)) {
+              generatedOrders.push({
+                ...original,
+                id: getNextOrderId([...orders, ...generatedOrders]),
+                collectionDate: dateStr,
+                recurrenceEndDate: newEndDate,
+                status: 'pending',
+                createdAt: updatedAt,
+                updatedAt,
+              });
+            }
+            cur = new Date(cur);
+            cur.setDate(cur.getDate() + intervalDays);
+          }
+        }
+
+        const deleteIds = new Set(toDelete.map(o => o.id));
+        const previousOrders = [...orders];
+        const nextOrders = [
+          ...generatedOrders,
+          ...orders
+            .filter(o => !deleteIds.has(o.id))
+            .map(o => {
+              if (o.parentOrderId !== parentId) return o;
+              const base = { ...o, recurrenceEndDate: newEndDate, updatedAt };
+              return o.id === id ? { ...base, ...updates } : base;
+            }),
+        ];
+
+        setOrders(nextOrders);
+
+        const dbOps: Promise<any>[] = [];
+        toDelete.forEach(o => dbOps.push(ordersApi.delete(o.id)));
+        toKeep.forEach(o => {
+          const patch = o.id === id
+            ? { ...updates, recurrenceEndDate: newEndDate, updatedAt }
+            : { recurrenceEndDate: newEndDate, updatedAt };
+          dbOps.push(ordersApi.update(o.id, patch));
+        });
+        if (generatedOrders.length > 0) dbOps.push(ordersApi.saveAll(generatedOrders));
+
+        Promise.all(dbOps)
+          .then(() => triggerSync(nextOrders, customers))
+          .catch(err => {
+            console.error('Failed to sync recurring series:', err);
+            setError('Failed to update recurring series. Please try again.');
+            setOrders(previousOrders);
+          });
+
+        return true;
+      }
+
+      // Normal single-order update
       const updatedOrders = orders.map(o => o.id === id ? { ...o, ...updates, updatedAt } : o);
       setOrders(updatedOrders);
 
