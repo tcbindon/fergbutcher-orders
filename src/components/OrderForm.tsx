@@ -129,11 +129,17 @@ const OrderForm: React.FC<OrderFormProps> = ({
     if (dateRequired && !formData.collectionDate) {
       newErrors.collectionDate = 'Collection date is required when confirming an order';
     } else if (formData.collectionDate) {
-      const selectedDate = new Date(formData.collectionDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (selectedDate < today) {
-        newErrors.collectionDate = 'Collection date cannot be in the past';
+      // Only block past dates on new orders — when editing, the existing date
+      // may legitimately be in the past (e.g. a recurring occurrence from last week)
+      const isNewOrder = !order;
+      const dateChanged = formData.collectionDate !== (order?.collectionDate ?? '');
+      if (isNewOrder || dateChanged) {
+        const selectedDate = new Date(formData.collectionDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (selectedDate < today) {
+          newErrors.collectionDate = 'Collection date cannot be in the past';
+        }
       }
     }
 
