@@ -100,7 +100,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       }
       setFormData({
         customerId: sourceData.customerId,
-        collectionDate: sourceData.collectionDate,
+        collectionDate: sourceData.collectionDate || '',
         collectionTime: sourceData.collectionTime || '',
         additionalNotes: sourceData.additionalNotes || '',
         status: sourceData.status || 'pending',
@@ -151,7 +151,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
 
     if (formData.isRecurring) {
-      if (!formData.collectionDate) {
+      if (!order && !formData.collectionDate) {
         newErrors.collectionDate = 'A start date is required for recurring orders';
       }
       // When creating a new recurring order, pattern is required.
@@ -159,9 +159,9 @@ const OrderForm: React.FC<OrderFormProps> = ({
       if (!order && !formData.recurrencePattern) {
         newErrors.recurrencePattern = 'Please select a recurrence pattern';
       }
-      if (!formData.recurrenceEndDate) {
+      if (!order && !formData.recurrenceEndDate) {
         newErrors.recurrenceEndDate = 'Please select an end date for recurring orders';
-      } else if (!order && formData.collectionDate) {
+      } else if (!order && formData.collectionDate && formData.recurrenceEndDate) {
         // When creating: end date must be after the first collection date.
         // When editing a child occurrence, skip — the end date is series-level
         // and may legitimately be before this occurrence's date when shortening.
@@ -261,6 +261,17 @@ const OrderForm: React.FC<OrderFormProps> = ({
         </button>
       )}
       <form onSubmit={handleSubmit} noValidate className="space-y-6">
+
+        {Object.values(errors).some(e => e) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm font-medium text-red-800">Please fix the following:</p>
+            <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
+              {Object.entries(errors).filter(([, v]) => v).map(([key, msg]) => (
+                <li key={key}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Status — always shown at top of form */}
         <div>
@@ -631,9 +642,9 @@ const OrderForm: React.FC<OrderFormProps> = ({
             </label>
             <input
               type="date"
-              value={formData.collectionDate}
+              value={formData.collectionDate || ''}
               onChange={(e) => handleChange('collectionDate', e.target.value)}
-              min={getMinDate()}
+              min={!order ? getMinDate() : undefined}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
                 errors.collectionDate ? 'border-red-500' : 'border-fergbutcher-brown-300'
               }`}
