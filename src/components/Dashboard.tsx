@@ -28,7 +28,7 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders }) => {
   const { customers, addCustomer } = useCustomers();
-  const { orders, getOrderStats, updateOrder, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useOrders();
+  const { orders, getOrderStats, updateOrder, updateOrderAndSeries, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useOrders();
   const { getNotesForOrder } = useStaffNotes();
   const orderStats = getOrderStats();
 
@@ -130,7 +130,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
     if (!editingOrder) return;
     setIsSubmitting(true);
     try {
-      const success = updateOrder(editingOrder.id, orderData, customers);
+      const success = updateOrderAndSeries(editingOrder, orderData, customers);
       if (success) {
         setEditingOrder(null);
         if (viewingOrder?.id === editingOrder.id) {

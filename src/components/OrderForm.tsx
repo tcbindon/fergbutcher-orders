@@ -195,7 +195,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
         isRecurring: formData.isRecurring,
         recurrencePattern: formData.isRecurring ? formData.recurrencePattern as 'weekly' | 'fortnightly' : null,
         recurrenceEndDate: formData.isRecurring ? formData.recurrenceEndDate : null,
-        parentOrderId: null
+        parentOrderId: order?.parentOrderId ?? null
       });
     }
   };

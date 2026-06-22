@@ -13,6 +13,7 @@ const CalendarView: React.FC = () => {
   const {
     orders,
     updateOrder,
+    updateOrderAndSeries,
     deleteOrder,
     deleteRecurringSeries,
     getDuplicateOrderData,
@@ -37,7 +38,7 @@ const CalendarView: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const success = updateOrder(editingOrder.id, orderData, customers);
+      const success = updateOrderAndSeries(editingOrder, orderData, customers);
       if (success) {
         setEditingOrder(null);
       }

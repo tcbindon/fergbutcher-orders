@@ -176,87 +176,6 @@ export const useOrders = () => {
   const updateOrder = useCallback((id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>, customers: Customer[] = []) => {
     try {
       const updatedAt = new Date().toISOString();
-      const original = orders.find(o => o.id === id);
-
-      // Recurring series end-date change: reconcile the whole series
-      if (
-        original?.isRecurring &&
-        original.parentOrderId &&
-        original.recurrencePattern &&
-        'recurrenceEndDate' in updates &&
-        updates.recurrenceEndDate !== original.recurrenceEndDate &&
-        updates.recurrenceEndDate
-      ) {
-        const newEndDate = updates.recurrenceEndDate as string;
-        const parentId   = original.parentOrderId;
-        const intervalDays = original.recurrencePattern === 'weekly' ? 7 : 14;
-        const newEndParsed = parseDateLocal(newEndDate);
-
-        const seriesOrders = orders.filter(o => o.parentOrderId === parentId);
-        const toKeep   = seriesOrders.filter(o => o.collectionDate <= newEndDate);
-        const toDelete = seriesOrders.filter(o => o.collectionDate > newEndDate);
-
-        // Generate any missing orders between the last kept date and the new end date
-        const sorted = [...toKeep].sort((a, b) => a.collectionDate.localeCompare(b.collectionDate));
-        const generatedOrders: Order[] = [];
-        if (sorted.length > 0) {
-          let cur = parseDateLocal(sorted[sorted.length - 1].collectionDate);
-          cur.setDate(cur.getDate() + intervalDays);
-          while (cur <= newEndParsed && generatedOrders.length < 52) {
-            const dateStr = formatDateLocal(cur);
-            if (!toKeep.find(o => o.collectionDate === dateStr)) {
-              generatedOrders.push({
-                ...original,
-                id: getNextOrderId([...orders, ...generatedOrders]),
-                collectionDate: dateStr,
-                recurrenceEndDate: newEndDate,
-                status: 'pending',
-                createdAt: updatedAt,
-                updatedAt,
-              });
-            }
-            cur = new Date(cur);
-            cur.setDate(cur.getDate() + intervalDays);
-          }
-        }
-
-        const deleteIds = new Set(toDelete.map(o => o.id));
-        const previousOrders = [...orders];
-        const nextOrders = [
-          ...generatedOrders,
-          ...orders
-            .filter(o => !deleteIds.has(o.id))
-            .map(o => {
-              if (o.parentOrderId !== parentId) return o;
-              const base = { ...o, recurrenceEndDate: newEndDate, updatedAt };
-              return o.id === id ? { ...base, ...updates } : base;
-            }),
-        ];
-
-        setOrders(nextOrders);
-
-        const dbOps: Promise<any>[] = [];
-        toDelete.forEach(o => dbOps.push(ordersApi.delete(o.id)));
-        toKeep.forEach(o => {
-          const patch = o.id === id
-            ? { ...updates, recurrenceEndDate: newEndDate, updatedAt }
-            : { recurrenceEndDate: newEndDate, updatedAt };
-          dbOps.push(ordersApi.update(o.id, patch));
-        });
-        if (generatedOrders.length > 0) dbOps.push(ordersApi.saveAll(generatedOrders));
-
-        Promise.all(dbOps)
-          .then(() => triggerSync(nextOrders, customers))
-          .catch(err => {
-            console.error('Failed to sync recurring series:', err);
-            setError('Failed to update recurring series. Please try again.');
-            setOrders(previousOrders);
-          });
-
-        return true;
-      }
-
-      // Normal single-order update
       const updatedOrders = orders.map(o => o.id === id ? { ...o, ...updates, updatedAt } : o);
       setOrders(updatedOrders);
 
@@ -274,6 +193,108 @@ export const useOrders = () => {
       return false;
     }
   }, [orders, triggerSync]);
+
+  // ── updateOrderAndSeries ──────────────────────────────────
+  // Use this instead of updateOrder when editing a recurring order from
+  // a component. Takes the original order snapshot (editingOrder from
+  // component state) so detection is reliable regardless of DB field
+  // formats. Handles series reconciliation + single-order update atomically.
+  const updateOrderAndSeries = useCallback((
+    originalOrder: Order,
+    updates: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>,
+    customers: Customer[] = []
+  ) => {
+    try {
+      const id = originalOrder.id;
+      const updatedAt = new Date().toISOString();
+
+      const needsSeriesSync =
+        originalOrder.isRecurring &&
+        originalOrder.parentOrderId &&
+        originalOrder.recurrencePattern &&
+        updates.recurrenceEndDate &&
+        updates.recurrenceEndDate !== originalOrder.recurrenceEndDate;
+
+      if (needsSeriesSync) {
+        const parentId      = originalOrder.parentOrderId!;
+        const intervalDays  = originalOrder.recurrencePattern === 'weekly' ? 7 : 14;
+        const newEndDate    = updates.recurrenceEndDate!;
+        const newEndParsed  = parseDateLocal(newEndDate);
+
+        const seriesOrders = orders.filter(o => o.parentOrderId === parentId);
+        const toKeep       = seriesOrders.filter(o => o.collectionDate <= newEndDate);
+        const toDelete     = seriesOrders.filter(o => o.collectionDate > newEndDate);
+
+        // Generate missing occurrences beyond the last kept date up to the new end
+        const sorted = [...toKeep].sort((a, b) => a.collectionDate.localeCompare(b.collectionDate));
+        const generatedOrders: Order[] = [];
+        if (sorted.length > 0) {
+          let cur = parseDateLocal(sorted[sorted.length - 1].collectionDate);
+          cur.setDate(cur.getDate() + intervalDays);
+          while (cur <= newEndParsed && generatedOrders.length < 52) {
+            const dateStr = formatDateLocal(cur);
+            generatedOrders.push({
+              ...originalOrder,
+              id: getNextOrderId([...orders, ...generatedOrders]),
+              collectionDate: dateStr,
+              recurrenceEndDate: newEndDate,
+              status: 'pending',
+              createdAt: updatedAt,
+              updatedAt,
+            });
+            cur = new Date(cur);
+            cur.setDate(cur.getDate() + intervalDays);
+          }
+        }
+
+        const deleteIds = new Set(toDelete.map(o => o.id));
+        const previousOrders = [...orders];
+
+        // Preserve parentOrderId — never let it get wiped by form updates
+        const safeUpdates = { ...updates, parentOrderId };
+
+        const nextOrders = [
+          ...generatedOrders,
+          ...orders
+            .filter(o => !deleteIds.has(o.id))
+            .map(o => {
+              if (o.parentOrderId !== parentId) return o;
+              const base = { ...o, recurrenceEndDate: newEndDate, updatedAt };
+              return o.id === id ? { ...base, ...safeUpdates } : base;
+            }),
+        ];
+
+        setOrders(nextOrders);
+
+        const dbOps: Promise<any>[] = [];
+        toDelete.forEach(o => dbOps.push(ordersApi.delete(o.id)));
+        toKeep.forEach(o => {
+          const patch = o.id === id
+            ? { ...safeUpdates, recurrenceEndDate: newEndDate, updatedAt }
+            : { recurrenceEndDate: newEndDate, updatedAt };
+          dbOps.push(ordersApi.update(o.id, patch));
+        });
+        if (generatedOrders.length > 0) dbOps.push(ordersApi.saveAll(generatedOrders));
+
+        Promise.all(dbOps)
+          .then(() => triggerSync(nextOrders, customers))
+          .catch(err => {
+            console.error('Failed to sync recurring series:', err);
+            setError('Failed to update recurring series. Please try again.');
+            setOrders(previousOrders);
+          });
+
+        return true;
+      }
+
+      // No series change needed — plain single-order update
+      return updateOrder(id, updates as Partial<Omit<Order, 'id' | 'createdAt'>>, customers);
+    } catch (err) {
+      console.error('Error updating order and series:', err);
+      setError('Failed to update order');
+      return false;
+    }
+  }, [orders, updateOrder, triggerSync]);
 
   // ── deleteOrder ───────────────────────────────────────────
   const deleteOrder = useCallback((id: string, customers: Customer[] = []) => {
@@ -462,6 +483,7 @@ export const useOrders = () => {
     error,
     addOrder,
     updateOrder,
+    updateOrderAndSeries,
     deleteOrder,
     deleteRecurringSeries,
     setAllOrders,

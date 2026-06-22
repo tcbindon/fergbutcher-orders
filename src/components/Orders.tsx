@@ -22,6 +22,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     error: ordersError,
     addOrder,
     updateOrder,
+    updateOrderAndSeries,
     deleteOrder,
     deleteRecurringSeries,
     getDuplicateOrderData,
@@ -107,7 +108,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     if (!editingOrder) return;
     setIsSubmitting(true);
     try {
-      const success = updateOrder(editingOrder.id, orderData, customers);
+      const success = updateOrderAndSeries(editingOrder, orderData, customers);
       if (success) {
         setEditingOrder(null);
         if (viewingOrder?.id === editingOrder.id) {
