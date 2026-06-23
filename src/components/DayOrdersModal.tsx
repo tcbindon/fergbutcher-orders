@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Clock, User, Package, AlertTriangle, XCircle, Eye, MessageSquare } from 'lucide-react';
+import { X, Calendar, Clock, User, Package, AlertTriangle, Eye, MessageSquare } from 'lucide-react';
 import { Gift } from 'lucide-react';
 import { Order, Customer } from '../types';
 import OrderDetail from './OrderDetail';
@@ -11,8 +11,6 @@ interface DayOrdersModalProps {
   customers: Customer[];
   onClose: () => void;
   onUpdateOrder?: (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>) => boolean;
-  onDeleteOrder?: (id: string) => boolean;
-  onDeleteRecurringSeries?: (id: string) => { success: boolean; count: number };
   onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
   onEdit?: (order: Order) => void;
   onDuplicate?: (orderId: string) => void;
@@ -24,15 +22,12 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   customers,
   onClose,
   onUpdateOrder,
-  onDeleteOrder,
-  onDeleteRecurringSeries,
   onAddCustomer,
   onEdit,
   onDuplicate
 }) => {
   const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
-  const [deletingOrder, setDeletingOrder] = React.useState<Order | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const formatDate = (date: Date) => {
@@ -63,29 +58,6 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
     }
   };
 
-  const handleDeleteOrder = () => {
-    if (!viewingOrder) return;
-    setDeletingOrder(viewingOrder);
-  };
-
-  const confirmDeleteSingle = () => {
-    if (!deletingOrder || !onDeleteOrder) return;
-    const success = onDeleteOrder(deletingOrder.id);
-    if (success) {
-      setDeletingOrder(null);
-      if (viewingOrder?.id === deletingOrder.id) setViewingOrder(null);
-    }
-  };
-
-  const confirmDeleteSeries = () => {
-    if (!deletingOrder || !onDeleteRecurringSeries) return;
-    const result = onDeleteRecurringSeries(deletingOrder.id);
-    if (result.success) {
-      setDeletingOrder(null);
-      setViewingOrder(null);
-    }
-  };
-
   const handleDuplicateOrder = (orderId: string) => {
     if (onDuplicate) {
       onDuplicate(orderId);
@@ -102,61 +74,8 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
     }
   };
 
-  const deleteConfirmModal = deletingOrder ? (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
-        <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
-          <h3 className="text-lg font-semibold text-fergbutcher-black-900">Delete Order</h3>
-        </div>
-        <div className="p-6">
-          <div className="flex items-start space-x-3 mb-4">
-            <div className="bg-red-100 p-2 rounded-full">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-fergbutcher-black-900 font-medium">
-                Are you sure you want to delete this order?
-              </p>
-              <p className="text-fergbutcher-green-400 text-sm mt-1">
-                This action cannot be undone. All order data will be permanently removed.
-              </p>
-              {deletingOrder.isRecurring && deletingOrder.parentOrderId && onDeleteRecurringSeries && (
-                <p className="text-fergbutcher-gold-700 text-sm mt-2 bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded p-2">
-                  This is part of a recurring series. You can choose to delete only this order, or this order together with all future occurrences.
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex justify-end flex-wrap gap-3">
-            <button
-              onClick={() => setDeletingOrder(null)}
-              className="px-4 py-2 text-fergbutcher-gold-700 bg-fergbutcher-gold-100 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={confirmDeleteSingle}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              {deletingOrder.isRecurring && deletingOrder.parentOrderId && onDeleteRecurringSeries ? 'Delete This Order Only' : 'Delete Order'}
-            </button>
-            {deletingOrder.isRecurring && deletingOrder.parentOrderId && onDeleteRecurringSeries && (
-              <button
-                onClick={confirmDeleteSeries}
-                className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors"
-              >
-                Delete This &amp; All Future
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
   if (viewingOrder) {
     return (
-      <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
           <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center">
@@ -186,20 +105,17 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
                   setViewingOrder(null);
                 }
               }}
-              onDelete={handleDeleteOrder}
+              onDelete={() => {}}
               onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
               onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
             />
           </div>
         </div>
       </div>
-      {deleteConfirmModal}
-      </>
     );
   }
 
   return (
-    <>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
@@ -382,10 +298,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
           </div>
         )}
       </div>
-
     </div>
-    {deleteConfirmModal}
-    </>
   );
 };
 

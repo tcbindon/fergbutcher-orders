@@ -150,19 +150,10 @@ exports.handler = async (event, context) => {
     }
 
     if (type === 'orders' || type === 'all') {
-      // Separate standard and Christmas orders
       const standardOrders = (orders || []).filter(order => order.orderType !== 'christmas');
       const christmasOrders = (orders || []).filter(order => order.orderType === 'christmas');
-      
-      // Sync standard orders
-      if (standardOrders.length > 0) {
-        await syncOrders(doc, standardOrders, customers || []);
-      }
-      
-      // Sync Christmas orders
-      if (christmasOrders.length > 0) {
-        await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts);
-      }
+      await syncOrders(doc, standardOrders, customers || []);
+      await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts);
     }
 
     if (type === 'christmas-orders') {
@@ -266,77 +257,87 @@ async function getChristmasProducts(doc) {
   }
 }
 
-// Sync Christmas orders to Google Sheets
+// Sync Christmas orders to Google Sheets (upsert – preserves user formatting)
 async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
   const sheet = doc.sheetsByTitle['Christmas Orders'];
-  
-  // Clear existing data first (except headers)
-  await sheet.clear('A2:ZZ1000');
-  
-  // Build required headers (standard fields + product columns)
+
+  // Build the canonical header list
   const standardHeaders = ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Notes', 'Created Date', 'Updated Date'];
   const productHeaders = christmasProducts.map(product => `${product.name} (${product.unit})`);
   const requiredHeaders = [...standardHeaders, ...productHeaders, 'Other Items'];
-  
-  // Always update headers to ensure they include all current products
   await sheet.setHeaderRow(requiredHeaders);
-  console.log('Updated Christmas Orders sheet headers with product columns:', productHeaders);
-  
-  // Filter for Christmas orders only
+
+  // Filter incoming to christmas only
   const christmasOrders = orders.filter(order => order.orderType === 'christmas');
-  console.log(`Processing ${christmasOrders.length} Christmas orders`);
-  
-  // Prepare Christmas order data
-  const orderRows = christmasOrders.map(order => {
+  console.log(`Upserting ${christmasOrders.length} Christmas orders`);
+
+  // Build a lookup of incoming data keyed by Order ID
+  const incomingById = {};
+  for (const order of christmasOrders) {
     const customer = customers.find(c => c.id === order.customerId);
     const customerName = customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown';
-    
-    // Create base row data
+
     const rowData = {
       'Order ID': order.id,
       'Customer ID': order.customerId,
       'Customer Name': customerName,
-      'Collection Date': order.collectionDate,
+      'Collection Date': order.collectionDate || '',
       'Collection Time': order.collectionTime || '',
       'Status': order.status,
       'Notes': order.additionalNotes || '',
       'Created Date': new Date(order.createdAt).toLocaleDateString('en-NZ'),
       'Updated Date': new Date(order.updatedAt).toLocaleDateString('en-NZ')
     };
-    
-    // Add quantities for each Christmas product
+
     christmasProducts.forEach(product => {
       const columnName = `${product.name} (${product.unit})`;
-      // Find the Christmas product item in the order
-      const orderItem = order.items.find(item => {
-        if (item.isChristmasProduct && item.christmasProductId === product.id) {
-          return true;
-        }
-        // Also check by name match as fallback
-        return item.isChristmasProduct && item.description === product.name;
-      });
+      const orderItem = order.items.find(item =>
+        (item.isChristmasProduct && item.christmasProductId === product.id) ||
+        (item.isChristmasProduct && item.description === product.name)
+      );
       rowData[columnName] = orderItem ? orderItem.quantity.toString() : '';
     });
-    
-    // Add other (non-Christmas) items
+
     const otherItems = order.items
       .filter(item => !item.isChristmasProduct)
       .map(item => `${item.description} (${item.quantity} ${item.unit})`)
       .join('; ');
     rowData['Other Items'] = otherItems;
-    
-    return rowData;
-  });
-  
-  // Add order data
-  if (orderRows.length > 0) {
-    await sheet.addRows(orderRows);
-    console.log(`Added ${orderRows.length} Christmas order rows to sheet`);
-  } else {
-    console.log('No Christmas orders to sync');
+
+    incomingById[order.id] = rowData;
   }
-  
-  console.log(`Synced ${christmasOrders.length} Christmas orders`);
+
+  // Read existing rows
+  const existingRows = await sheet.getRows();
+
+  // Update or delete existing rows
+  const seenIds = new Set();
+  for (const row of existingRows) {
+    const orderId = row.get('Order ID');
+    if (incomingById[orderId]) {
+      // Update in place — only the managed columns; leaves any extra columns untouched
+      const data = incomingById[orderId];
+      for (const [key, value] of Object.entries(data)) {
+        row.set(key, value);
+      }
+      await row.save();
+      seenIds.add(orderId);
+    } else {
+      // Order was deleted — remove the row
+      await row.delete();
+    }
+  }
+
+  // Append rows for orders not already in the sheet
+  const newRows = Object.entries(incomingById)
+    .filter(([id]) => !seenIds.has(id))
+    .map(([, data]) => data);
+
+  if (newRows.length > 0) {
+    await sheet.addRows(newRows);
+  }
+
+  console.log(`Christmas Orders sheet upserted: ${Object.keys(incomingById).length} active, ${existingRows.length - seenIds.size} removed, ${newRows.length} added`);
 }
 
 // Sync customers to Google Sheets
@@ -365,26 +366,24 @@ async function syncCustomers(doc, customers) {
   console.log(`Synced ${customers.length} customers`);
 }
 
-// Sync orders to Google Sheets
+// Sync orders to Google Sheets (upsert – preserves user formatting)
 async function syncOrders(doc, orders, customers) {
   const sheet = doc.sheetsByTitle['Orders'];
-  
-  // Clear existing data (except headers)
-  await sheet.clear('A2:Z1000');
-  
-  // Prepare order data
-  const orderRows = orders.map(order => {
+
+  // Build a lookup of incoming data keyed by Order ID
+  const incomingById = {};
+  for (const order of orders) {
     const customer = customers.find(c => c.id === order.customerId);
     const customerName = customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown';
-    const itemsText = order.items.map(item => 
+    const itemsText = order.items.map(item =>
       `${item.description} (${item.quantity} ${item.unit})`
     ).join('; ');
 
-    return {
+    incomingById[order.id] = {
       'Order ID': order.id,
       'Customer ID': order.customerId,
       'Customer Name': customerName,
-      'Collection Date': order.collectionDate,
+      'Collection Date': order.collectionDate || '',
       'Collection Time': order.collectionTime || '',
       'Status': order.status,
       'Items': itemsText,
@@ -392,14 +391,37 @@ async function syncOrders(doc, orders, customers) {
       'Created Date': new Date(order.createdAt).toLocaleDateString('en-NZ'),
       'Updated Date': new Date(order.updatedAt).toLocaleDateString('en-NZ')
     };
-  });
-  
-  // Add order data
-  if (orderRows.length > 0) {
-    await sheet.addRows(orderRows);
   }
-  
-  console.log(`Synced ${orders.length} orders`);
+
+  // Read existing rows
+  const existingRows = await sheet.getRows();
+
+  // Update or delete existing rows
+  const seenIds = new Set();
+  for (const row of existingRows) {
+    const orderId = row.get('Order ID');
+    if (incomingById[orderId]) {
+      const data = incomingById[orderId];
+      for (const [key, value] of Object.entries(data)) {
+        row.set(key, value);
+      }
+      await row.save();
+      seenIds.add(orderId);
+    } else {
+      await row.delete();
+    }
+  }
+
+  // Append new rows
+  const newRows = Object.entries(incomingById)
+    .filter(([id]) => !seenIds.has(id))
+    .map(([, data]) => data);
+
+  if (newRows.length > 0) {
+    await sheet.addRows(newRows);
+  }
+
+  console.log(`Orders sheet upserted: ${Object.keys(incomingById).length} active, ${existingRows.length - seenIds.size} removed, ${newRows.length} added`);
 }
 
 // Sync daily collections

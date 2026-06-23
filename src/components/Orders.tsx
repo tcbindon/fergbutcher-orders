@@ -26,8 +26,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     updateOrder,
     bulkUpdateStatus,
     updateOrderAndSeries,
-    deleteOrder,
-    deleteRecurringSeries,
     getDuplicateOrderData,
     searchOrders
   } = useOrders();
@@ -41,7 +39,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const [showChristmasModal, setShowChristmasModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
-  const [deletingOrder, setDeletingOrder] = useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [showingComments, setShowingComments] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -137,28 +134,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       }
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteOrder = () => {
-    if (!deletingOrder) return;
-    const success = deleteOrder(deletingOrder.id, customers);
-    if (success) {
-      setDeletingOrder(null);
-      if (viewingOrder?.id === deletingOrder.id) setViewingOrder(null);
-    }
-  };
-
-  const handleDeleteRecurringSeries = () => {
-    if (!deletingOrder) return;
-    const result = deleteRecurringSeries(deletingOrder.id, customers);
-    if (result.success) {
-      setDeletingOrder(null);
-      if (viewingOrder?.id === deletingOrder.id ||
-          (viewingOrder?.parentOrderId && viewingOrder.parentOrderId === deletingOrder.parentOrderId &&
-           viewingOrder.collectionDate >= deletingOrder.collectionDate)) {
-        setViewingOrder(null);
-      }
     }
   };
 
@@ -624,7 +599,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                 order={viewingOrder}
                 customer={customers.find(c => c.id === viewingOrder.customerId)}
                 onEdit={() => { setEditingOrder(viewingOrder); setViewingOrder(null); }}
-                onDelete={() => { setDeletingOrder(viewingOrder); setViewingOrder(null); }}
+                onDelete={() => {}}
                 onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
                 onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
               />
@@ -711,44 +686,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   showCloseButton={true}
                 />
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deletingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Delete Order</h3>
-            </div>
-            <div className="p-6">
-              <div className="flex items-start space-x-3 mb-4">
-                <div className="bg-red-100 p-2 rounded-full">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-fergbutcher-black-900 font-medium">Are you sure you want to delete this order?</p>
-                  <p className="text-fergbutcher-green-400 text-sm mt-1">This action cannot be undone. All order data will be permanently removed.</p>
-                  {deletingOrder.isRecurring && deletingOrder.parentOrderId && (
-                    <p className="text-fergbutcher-gold-700 text-sm mt-2 bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded p-2">
-                      This is part of a recurring series. You can choose to delete only this order, or this order together with all future occurrences.
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-end flex-wrap gap-3">
-                <button onClick={() => setDeletingOrder(null)} className="px-4 py-2 text-fergbutcher-gold-700 bg-fergbutcher-gold-100 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors">Cancel</button>
-                <button onClick={handleDeleteOrder} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                  {deletingOrder.isRecurring && deletingOrder.parentOrderId ? 'Delete This Order Only' : 'Delete Order'}
-                </button>
-                {deletingOrder.isRecurring && deletingOrder.parentOrderId && (
-                  <button onClick={handleDeleteRecurringSeries} className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors">
-                    Delete This &amp; All Future
-                  </button>
-                )}
-              </div>
             </div>
           </div>
         </div>

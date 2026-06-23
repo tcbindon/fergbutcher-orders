@@ -58,8 +58,9 @@ export const useOrders = () => {
     if (!isConnected) return;
     const standardOrders  = allOrders.filter(o => o.orderType !== 'christmas');
     const christmasOrders = allOrders.filter(o => o.orderType === 'christmas');
-    if (standardOrders.length > 0)  syncOrders(standardOrders, customers).catch(console.error);
-    if (christmasOrders.length > 0) syncChristmasOrders(christmasOrders, customers).catch(console.error);
+    // Always sync both sheets, even when empty, so deleted orders are removed
+    syncOrders(standardOrders, customers).catch(console.error);
+    syncChristmasOrders(christmasOrders, customers).catch(console.error);
   }, [isConnected, syncOrders, syncChristmasOrders]);
 
   // ── addOrder ──────────────────────────────────────────────

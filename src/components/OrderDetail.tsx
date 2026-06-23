@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Calendar, Clock, Package, FileText, Pencil, Trash2, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift, RefreshCw } from 'lucide-react';
+import { User, Calendar, Clock, Package, FileText, Pencil, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift, RefreshCw } from 'lucide-react';
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
@@ -95,9 +95,6 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
                 <Copy className="h-5 w-5" />
               </button>
             )}
-            <button onClick={onDelete} className="p-2 text-fergbutcher-gold-500 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Delete Order">
-              <Trash2 className="h-5 w-5" />
-            </button>
           </div>
         </div>
       </div>

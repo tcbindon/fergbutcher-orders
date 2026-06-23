@@ -15,8 +15,6 @@ const CalendarView: React.FC = () => {
     orders,
     updateOrder,
     updateOrderAndSeries,
-    deleteOrder,
-    deleteRecurringSeries,
     getDuplicateOrderData,
     addOrder
   } = useOrders();
@@ -29,7 +27,6 @@ const CalendarView: React.FC = () => {
   const [showDayDetailModal, setShowDayDetailModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [deletingOrder, setDeletingOrder] = useState<string | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<Omit<Order, 'id' | 'createdAt' | 'updatedAt'> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [printDate, setPrintDate] = useState<string>('');
@@ -55,14 +52,6 @@ const CalendarView: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleDeleteOrder = (orderId: string) => {
-    const success = deleteOrder(orderId, customers);
-    if (success) {
-      setDeletingOrder(null);
-    }
-    return success;
   };
 
   const handleDuplicateOrder = (orderId: string) => {
@@ -503,8 +492,6 @@ const CalendarView: React.FC = () => {
           ))}
           customers={customers}
           onUpdateOrder={(id, updates) => updateOrder(id, updates, customers)}
-          onDeleteOrder={(id) => deleteOrder(id, customers)}
-          onDeleteRecurringSeries={(id) => deleteRecurringSeries(id, customers)}
           onEdit={(order) => {
             setEditingOrder(order);
             setShowDayDetailModal(false);
