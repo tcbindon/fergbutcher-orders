@@ -42,105 +42,101 @@ const PrintSchedule: React.FC<PrintScheduleProps> = ({ date, orders, customers, 
 
   const totalOrders = timedOrders.length + untimedOrders.length;
 
-  const renderOrderCard = (order: Order) => {
+  const renderOrderRow = (order: Order) => {
     const customer = customers.find(c => c.id === order.customerId);
+    const itemsText = order.items
+      .map(item => `${item.description} — ${item.quantity.toLocaleString('en-NZ')} ${item.unit}`)
+      .join('  ·  ');
     return (
-      <div key={order.id} className="border border-gray-200 rounded break-inside-avoid mb-2 last:mb-0">
-        <div className="px-3 py-2">
-          {/* Name row */}
-          <div className="flex items-baseline justify-between gap-2">
-            <div className="flex flex-wrap items-baseline gap-x-2 min-w-0">
-              <span className="font-semibold text-gray-900 text-sm leading-snug">
-                {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
-              </span>
-              {customer?.phone && (
-                <span className="text-xs text-gray-500">{customer.phone}</span>
-              )}
-              {order.collectionTime && (
-                <span className="text-xs font-medium text-gray-700">
-                  @ {order.collectionTime}
-                </span>
-              )}
-              {order.orderType === 'christmas' && (
-                <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                  <Gift className="h-2.5 w-2.5" />
-                  <span>Christmas</span>
-                </span>
-              )}
-            </div>
-            <span className={`text-xs font-bold uppercase flex-shrink-0 ${getStatusColor(order.status)}`}>
-              {order.status}
-            </span>
+      <tr key={order.id} className="break-inside-avoid border-b border-gray-100 last:border-b-0">
+        <td className="py-1 pr-2 align-top w-[30%]">
+          <div className="font-semibold text-gray-900 text-[10px] leading-snug">
+            {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown'}
           </div>
-          {/* Items row */}
-          <div className="flex flex-wrap gap-x-4 mt-0.5">
-            {order.items.map((item, idx) => (
-              <span key={idx} className="text-xs text-gray-800">
-                {item.description} — <strong>{item.quantity.toLocaleString('en-NZ')} {item.unit}</strong>
+          <div className="flex items-center gap-1.5 text-[9px] text-gray-500 mt-0.5">
+            {customer?.phone && <span>{customer.phone}</span>}
+            {order.collectionTime && <span className="font-medium text-gray-700">@ {order.collectionTime}</span>}
+            {order.orderType === 'christmas' && (
+              <span className="flex items-center gap-0.5 text-gray-400">
+                <Gift className="h-2 w-2" /> Xmas
               </span>
-            ))}
+            )}
           </div>
-          {/* Notes */}
+        </td>
+        <td className="py-1 pr-2 align-top">
+          <div className="text-[10px] text-gray-800 leading-snug">{itemsText}</div>
           {order.additionalNotes && (
-            <p className="text-xs text-gray-500 italic mt-1 pt-1 border-t border-gray-100">
-              {order.additionalNotes}
-            </p>
+            <div className="text-[9px] text-gray-400 italic mt-0.5">{order.additionalNotes}</div>
           )}
-        </div>
-      </div>
+        </td>
+        <td className={`py-1 align-top text-right text-[9px] font-bold uppercase whitespace-nowrap w-[10%] ${getStatusColor(order.status)}`}>
+          {order.status}
+        </td>
+        <td className="py-1 pl-2 align-top w-[8%]">
+          <div className="border border-gray-300 rounded h-4 w-4 ml-auto" />
+        </td>
+      </tr>
     );
   };
 
+  const renderSection = (sectionOrders: Order[], label: string, showClockIcon = false) => (
+    <div className="mb-2">
+      <div className="flex items-center gap-1 mb-0.5 pb-0.5 border-b border-gray-300">
+        {showClockIcon && <Clock className="h-2.5 w-2.5 text-gray-500" />}
+        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">
+          {label} ({sectionOrders.length})
+        </span>
+      </div>
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="text-[8px] text-gray-400 uppercase tracking-wide">
+            <th className="text-left font-medium pb-0.5 pr-2">Customer</th>
+            <th className="text-left font-medium pb-0.5 pr-2">Items</th>
+            <th className="text-right font-medium pb-0.5">Status</th>
+            <th className="text-right font-medium pb-0.5 pl-2">Done</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sectionOrders.map(renderOrderRow)}
+        </tbody>
+      </table>
+    </div>
+  );
+
   const printContent = (
-    <div className="p-5">
+    <div className="p-4 font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 pb-3 border-b-2 border-gray-900">
-        <div className="flex items-center gap-2.5">
-          <img src="/Fergbutcher_vector-01.png" alt="Fergbutcher" className="h-9 w-auto" />
+      <div className="flex items-center justify-between mb-2 pb-2 border-b-2 border-gray-900">
+        <div className="flex items-center gap-2">
+          <img src="/Fergbutcher_vector-01.png" alt="Fergbutcher" className="h-7 w-auto" />
           <div>
-            <h1 className="text-base font-bold text-gray-900 leading-tight">Fergbutcher</h1>
-            <p className="text-xs text-gray-500 leading-tight">Collection Schedule</p>
+            <h1 className="text-sm font-bold text-gray-900 leading-tight">Fergbutcher</h1>
+            <p className="text-[9px] text-gray-500 leading-tight">Collection Schedule</p>
           </div>
         </div>
         <div className="text-right">
-          <div className="flex items-center justify-end gap-1.5 text-sm font-semibold text-gray-900">
-            <Calendar className="h-4 w-4 flex-shrink-0" />
+          <div className="flex items-center justify-end gap-1 text-xs font-semibold text-gray-900">
+            <Calendar className="h-3 w-3 flex-shrink-0" />
             <span>{formatDate(date)}</span>
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-[9px] text-gray-500 mt-0.5">
             {totalOrders} order{totalOrders !== 1 ? 's' : ''} for collection
           </p>
         </div>
       </div>
 
       {totalOrders > 0 ? (
-        <div>
-          {timedOrders.length > 0 && (
-            <div className="mb-3">
-              <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Scheduled Times ({timedOrders.length})
-              </h2>
-              {timedOrders.map(renderOrderCard)}
-            </div>
-          )}
-          {untimedOrders.length > 0 && (
-            <div>
-              {timedOrders.length > 0 && <div className="border-t border-gray-300 mt-3 mb-3" />}
-              <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                No Specified Time ({untimedOrders.length})
-              </h2>
-              {untimedOrders.map(renderOrderCard)}
-            </div>
-          )}
-        </div>
+        <>
+          {timedOrders.length > 0 && renderSection(timedOrders, 'Scheduled Times', true)}
+          {untimedOrders.length > 0 && renderSection(untimedOrders, 'No Specified Time')}
+        </>
       ) : (
-        <p className="text-sm text-gray-500 text-center py-6">
+        <p className="text-xs text-gray-500 text-center py-4">
           No orders scheduled for {formatDate(date)}.
         </p>
       )}
 
-      <div className="mt-4 pt-2 border-t border-gray-200 text-xs text-gray-400 text-center">
+      <div className="mt-3 pt-1.5 border-t border-gray-200 text-[8px] text-gray-400 text-center">
         Printed {new Date().toLocaleString('en-NZ')} | Fergbutcher Pre-Order Management System
       </div>
     </div>
@@ -148,7 +144,7 @@ const PrintSchedule: React.FC<PrintScheduleProps> = ({ date, orders, customers, 
 
   return createPortal(
     <div className="print-portal">
-      {/* Screen: modal overlay — hidden when printing */}
+      {/* Screen: modal overlay */}
       <div className="print:hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
           <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
@@ -172,7 +168,7 @@ const PrintSchedule: React.FC<PrintScheduleProps> = ({ date, orders, customers, 
         </div>
       </div>
 
-      {/* Print: clean output — hidden on screen, shown when printing */}
+      {/* Print output */}
       <div className="hidden print:block">
         {printContent}
       </div>
