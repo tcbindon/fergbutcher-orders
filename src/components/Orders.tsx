@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone } from 'lucide-react';
+import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone, Loader2 } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
+import { toast } from './Toast';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import CustomerForm from './CustomerForm';
@@ -149,7 +150,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       setDuplicatingOrder(duplicateData);
       setViewingOrder(null);
     } else {
-      alert('Failed to prepare duplicate order. Please try again.');
+      toast.error('Failed to prepare duplicate order. Please try again.');
     }
   };
 
@@ -197,7 +198,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   if (ordersLoading || customersLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-fergbutcher-green-400">Loading orders...</div>
+        <Loader2 className="h-8 w-8 text-fergbutcher-green-600 animate-spin" />
       </div>
     );
   }
@@ -714,7 +715,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   initialCustomerId={pendingNewCustomerId}
                   onSubmit={(orderData) => {
                     const newOrder = addOrder(orderData);
-                    if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); alert(`Christmas order duplicated successfully! New order #${newOrder.id} created.`); }
+                    if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); toast.success(`Christmas order duplicated successfully! New order #${newOrder.id} created.`); }
                   }}
                   onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}
@@ -727,7 +728,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   initialCustomerId={pendingNewCustomerId}
                   onSubmit={(orderData) => {
                     const newOrder = addOrder(orderData);
-                    if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); alert(`Order duplicated successfully! New order #${newOrder.id} created.`); }
+                    if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`); }
                   }}
                   onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}

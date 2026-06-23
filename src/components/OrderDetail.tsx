@@ -6,6 +6,7 @@ import { useEmailTemplates } from '../hooks/useEmailTemplates';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import { generateEmailData, populateTemplate, openEmailClient } from '../utils/emailUtils';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
+import { toast } from './Toast';
 
 interface OrderDetailProps {
   order: Order;
@@ -28,9 +29,9 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   const { addStaffNote } = useStaffNotes();
 
   const handleSendEmail = (templateId: string) => {
-    if (!customer) { alert('Customer information not available'); return; }
+    if (!customer) { toast.error('Customer information not available'); return; }
     const template = getTemplate(templateId);
-    if (!template) { alert('Email template not found'); return; }
+    if (!template) { toast.error('Email template not found'); return; }
     const emailData = generateEmailData(order, customer);
     const populatedSubject = populateTemplate(template.subject, emailData);
     const populatedBody = populateTemplate(template.body, emailData);

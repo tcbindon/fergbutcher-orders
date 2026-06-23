@@ -17,8 +17,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     setError('');
     setIsLoading(true);
 
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     if (username === 'staff' && password === 'staff') {
       onLoginSuccess();
     } else {

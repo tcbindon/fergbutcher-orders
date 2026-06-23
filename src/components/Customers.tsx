@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Search, Plus, Pencil, Eye, Mail, Phone, Building, User, Trash2, AlertTriangle, Copy, Package, MessageSquare } from 'lucide-react';
+import { Search, Plus, Pencil, Eye, Mail, Phone, Building, User, Trash2, AlertTriangle, Copy, Package, MessageSquare, Loader2 } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import { useStaffNotes } from '../hooks/useStaffNotes';
+import { toast } from './Toast';
 import CustomerForm from './CustomerForm';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
@@ -86,14 +87,14 @@ const Customers: React.FC = () => {
       setDuplicatingOrder(duplicateData);
       setViewingOrderHistory(null);
     } else {
-      alert('Failed to prepare duplicate order. Please try again.');
+      toast.error('Failed to prepare duplicate order. Please try again.');
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-fergbutcher-green-400">Loading customers...</div>
+        <Loader2 className="h-8 w-8 text-fergbutcher-green-600 animate-spin" />
       </div>
     );
   }
@@ -464,7 +465,7 @@ const Customers: React.FC = () => {
                   const newOrder = addOrder(orderData);
                   if (newOrder) {
                     setDuplicatingOrder(null);
-                    alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                    toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`);
                   }
                 }}
                 onCancel={() => setDuplicatingOrder(null)}

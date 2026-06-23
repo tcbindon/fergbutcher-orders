@@ -176,6 +176,7 @@ export const useOrders = () => {
   const updateOrder = useCallback((id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>, customers: Customer[] = []) => {
     try {
       const updatedAt = new Date().toISOString();
+      const previousOrders = [...orders];
       const updatedOrders = orders.map(o => o.id === id ? { ...o, ...updates, updatedAt } : o);
       setOrders(updatedOrders);
 
@@ -183,6 +184,7 @@ export const useOrders = () => {
         .then(() => triggerSync(updatedOrders, customers))
         .catch(err => {
           console.error('Failed to update order in DB:', err);
+          setOrders(previousOrders);
           setError('Failed to update order. Please try again.');
         });
 

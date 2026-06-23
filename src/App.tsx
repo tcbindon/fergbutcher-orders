@@ -1,6 +1,7 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
 import LoginForm from './components/LoginForm';
+import { ToastContainer } from './components/Toast';
 import keyboardShortcuts from './services/keyboardShortcuts';
 import { useUndo } from './hooks/useUndo';
 import UndoNotification from './components/UndoNotification';
@@ -173,6 +174,7 @@ function App() {
 
   return (
     <>
+      <ToastContainer />
       <Layout currentView={currentView} onViewChange={handleViewChange} onLogout={handleLogout}>
         {renderCurrentView()}
       </Layout>

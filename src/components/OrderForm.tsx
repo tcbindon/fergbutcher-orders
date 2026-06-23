@@ -608,7 +608,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
                     type="date"
                     value={formData.recurrenceEndDate || ''}
                     onChange={(e) => handleChange('recurrenceEndDate', e.target.value)}
-                    min={!order ? (formData.collectionDate || getMinDate()) : undefined}
+                    min={formData.collectionDate || getMinDate()}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent ${
                       errors.recurrenceEndDate ? 'border-red-500' : 'border-fergbutcher-brown-300'
                     }`}

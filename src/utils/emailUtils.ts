@@ -1,4 +1,5 @@
 import { Order, Customer, OrderItem } from '../types';
+import { toast } from '../components/Toast';
 
 interface EmailData {
   firstName: string;
@@ -65,17 +66,16 @@ export const generateMailtoLink = (to: string, subject: string, body: string): s
 
 export const openEmailClient = (to: string, subject: string, body: string): void => {
   const mailtoLink = generateMailtoLink(to, subject, body);
-  
-  // Check if the mailto link is too long (most email clients have a ~2000 character limit)
+
   if (mailtoLink.length > 2000) {
-    alert('Email content is too long for mailto link. Consider shortening the order details or using a different email method.');
+    toast.warning('Email content is too long for mailto link. Consider shortening the order details.');
     return;
   }
-  
+
   try {
     window.open(mailtoLink);
   } catch (error) {
     console.error('Error opening email client:', error);
-    alert('Unable to open email client. Please check that you have a default email application configured.');
+    toast.error('Unable to open email client. Please check that you have a default email application configured.');
   }
 };

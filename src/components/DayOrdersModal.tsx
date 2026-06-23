@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Clock, User, Package, AlertTriangle, XCircle, CreditCard as Edit, MessageSquare } from 'lucide-react';
+import { X, Calendar, Clock, User, Package, AlertTriangle, XCircle, Eye, MessageSquare } from 'lucide-react';
 import { Gift } from 'lucide-react';
 import { Order, Customer } from '../types';
 import OrderDetail from './OrderDetail';
@@ -292,7 +292,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
                             className="p-2 text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
                             title="View Full Order Details"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                           </button>
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(order.status, 'sm')}

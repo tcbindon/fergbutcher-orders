@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Keyboard, Clock, FileText, Trash2, Gift, RefreshCw } from 'lucide-react';
+import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Keyboard, Clock, FileText, Trash2, Gift, RefreshCw, Loader2 } from 'lucide-react';
 import { useGoogleSheets } from '../hooks/useGoogleSheets';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
@@ -8,13 +8,16 @@ import { useChristmasProducts } from '../hooks/useChristmasProducts';
 import keyboardShortcuts, { KeyboardShortcutsService } from '../services/keyboardShortcuts';
 import backupService from '../services/backupService';
 import errorLogger from '../services/errorLogger';
+import { toast } from './Toast';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('email');
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const { isConnected, isLoading, error, lastSync, syncAll, disconnect } = useGoogleSheets();
-  const { customers } = useCustomers();
-  const { orders } = useOrders();
+  const { customers, setAllCustomers } = useCustomers();
+  const { orders, setAllOrders } = useOrders();
   const { templates, updateTemplate, resetToDefaults } = useEmailTemplates();
   const {
     products: christmasProducts,
@@ -41,19 +44,25 @@ const Settings: React.FC = () => {
   };
 
   const handleCreateBackup = async () => {
-    const success = await backupService.createBackup(customers, orders, 'manual');
-    if (success) {
-      alert('Backup created successfully!');
-    } else {
-      alert('Failed to create backup. Please try again.');
+    setIsBackingUp(true);
+    try {
+      const success = await backupService.createBackup(customers, orders, 'manual');
+      if (success) {
+        toast.success('Backup created successfully!');
+      } else {
+        toast.error('Failed to create backup. Please try again.');
+      }
+    } finally {
+      setIsBackingUp(false);
     }
   };
 
   const handleExportData = () => {
     try {
       backupService.exportToFile(customers, orders);
+      toast.success('Data exported successfully!');
     } catch (error) {
-      alert('Failed to export data. Please try again.');
+      toast.error('Failed to export data. Please try again.');
     }
   };
 
@@ -61,16 +70,46 @@ const Settings: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setIsImporting(true);
     try {
       const data = await backupService.importFromFile(file);
-      if (window.confirm('This will replace all current data. Are you sure?')) {
-        alert('Import functionality would be implemented here');
+      if (window.confirm(`This will replace all current data with ${data.customers.length} customers and ${data.orders.length} orders. Are you sure?`)) {
+        const customersOk = await setAllCustomers(data.customers);
+        const ordersOk = await setAllOrders(data.orders);
+        if (customersOk && ordersOk) {
+          toast.success(`Restored ${data.customers.length} customers and ${data.orders.length} orders from backup.`);
+        } else {
+          toast.error('Partial restore — some data may not have been restored.');
+        }
       }
     } catch (error) {
-      alert('Failed to import data. Please check the file format.');
+      toast.error('Failed to import data. Please check the file format.');
+    } finally {
+      setIsImporting(false);
     }
 
     event.target.value = '';
+  };
+
+  const handleRestoreBackup = async (backupId: string) => {
+    if (!window.confirm('Restore from this backup? This will overwrite current data.')) return;
+    setIsImporting(true);
+    try {
+      const data = backupService.restoreFromBackup(backupId);
+      if (data) {
+        const customersOk = await setAllCustomers(data.customers);
+        const ordersOk = await setAllOrders(data.orders);
+        if (customersOk && ordersOk) {
+          toast.success(`Restored ${data.customers.length} customers and ${data.orders.length} orders.`);
+        } else {
+          toast.error('Partial restore — some data may not have been restored.');
+        }
+      } else {
+        toast.error('Failed to restore backup. Backup may be corrupted.');
+      }
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
@@ -223,7 +262,7 @@ const Settings: React.FC = () => {
                         onClick={async () => {
                           const success = await refreshProducts();
                           if (success) {
-                            alert('Christmas products refreshed successfully!');
+                            toast.success('Christmas products refreshed successfully!');
                           }
                         }}
                         disabled={productsLoading}
@@ -236,7 +275,7 @@ const Settings: React.FC = () => {
                     <button
                       onClick={() => {
                         clearCache();
-                        alert('Christmas products cache cleared. Products will be refreshed on next load.');
+                        toast.success('Christmas products cache cleared. Products will be refreshed on next load.');
                       }}
                       className="bg-fergbutcher-gold-100 text-fergbutcher-gold-700 px-3 py-2 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors text-sm"
                     >
@@ -523,10 +562,11 @@ const Settings: React.FC = () => {
                   </p>
                   <button
                     onClick={handleCreateBackup}
-                    className="w-full bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center justify-center space-x-2 mb-2"
+                    disabled={isBackingUp}
+                    className="w-full bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center justify-center space-x-2 mb-2 disabled:opacity-50"
                   >
-                    <Download className="h-4 w-4" />
-                    <span>Create Backup</span>
+                    {isBackingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    <span>{isBackingUp ? 'Creating...' : 'Create Backup'}</span>
                   </button>
                   <button
                     onClick={handleExportData}
@@ -554,7 +594,8 @@ const Settings: React.FC = () => {
                       onChange={handleImportData}
                       type="file"
                       accept=".json"
-                      className="w-full px-3 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent"
+                      disabled={isImporting}
+                      className="w-full px-3 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent disabled:opacity-50"
                     />
                   </div>
                   <div className="mt-3 p-3 bg-fergbutcher-yellow-50 border border-fergbutcher-yellow-200 rounded-lg">
@@ -585,19 +626,11 @@ const Settings: React.FC = () => {
                           </p>
                         </div>
                         <button
-                          onClick={() => {
-                            if (window.confirm('Restore from this backup? This will overwrite current data.')) {
-                              const data = backupService.restoreFromBackup(backup.id);
-                              if (data) {
-                                alert(`Successfully restored ${data.customers.length} customers and ${data.orders.length} orders from backup!`);
-                              } else {
-                                alert('Failed to restore backup. Backup may be corrupted.');
-                              }
-                            }
-                          }}
-                          className="text-xs bg-fergbutcher-green-600 text-white px-2 py-1 rounded hover:bg-fergbutcher-green-700 transition-colors"
+                          onClick={() => handleRestoreBackup(backup.id)}
+                          disabled={isImporting}
+                          className="text-xs bg-fergbutcher-green-600 text-white px-2 py-1 rounded hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
                         >
-                          Restore
+                          {isImporting ? 'Restoring...' : 'Restore'}
                         </button>
                       </div>
                     ))}
@@ -712,7 +745,7 @@ const Settings: React.FC = () => {
                         onClick={() => {
                           if (window.confirm('Clear all system logs?')) {
                             errorLogger.clearLogs();
-                            alert('Logs cleared successfully');
+                            toast.success('Logs cleared successfully');
                           }
                         }}
                         className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200 transition-colors"

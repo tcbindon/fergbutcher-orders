@@ -84,6 +84,7 @@ export const useCustomers = () => {
   // ── updateCustomer ────────────────────────────────────────
   const updateCustomer = useCallback((id: string, updates: Partial<Omit<Customer, 'id' | 'createdAt'>>) => {
     try {
+      const previousCustomers = [...customers];
       const updated = customers.map(c => c.id === id ? { ...c, ...updates } : c);
       setCustomers(sortByFirstName(updated));
 
@@ -93,6 +94,7 @@ export const useCustomers = () => {
         })
         .catch(err => {
           console.error('Failed to update customer in DB:', err);
+          setCustomers(previousCustomers);
           setError('Failed to update customer. Please try again.');
         });
 

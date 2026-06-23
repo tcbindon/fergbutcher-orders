@@ -1,7 +1,7 @@
 import React from 'react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
-import { useStaffNotes } from '../hooks/useStaffNotes';
+import { toast } from './Toast';
 import OrderDetail from './OrderDetail';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
@@ -29,7 +29,6 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders }) => {
   const { customers, addCustomer } = useCustomers();
   const { orders, getOrderStats, updateOrder, updateOrderAndSeries, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useOrders();
-  const { getNotesForOrder } = useStaffNotes();
   const orderStats = getOrderStats();
 
   const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
@@ -168,7 +167,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
       setDuplicatingOrder(duplicateData);
       setViewingOrder(null);
     } else {
-      alert('Failed to prepare duplicate order. Please try again.');
+      toast.error('Failed to prepare duplicate order. Please try again.');
     }
   };
 
@@ -570,7 +569,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                     const newOrder = addOrder(orderData);
                     if (newOrder) {
                       setDuplicatingOrder(null);
-                      alert(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
+                      toast.success(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
                     }
                   }}
                   onCancel={() => setDuplicatingOrder(null)}
@@ -585,7 +584,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                     const newOrder = addOrder(orderData);
                     if (newOrder) {
                       setDuplicatingOrder(null);
-                      alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                      toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`);
                     }
                   }}
                   onCancel={() => setDuplicatingOrder(null)}

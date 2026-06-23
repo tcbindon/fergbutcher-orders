@@ -96,6 +96,6 @@ export async function runMigration(): Promise<void> {
     console.warn(`   Errors (${results.errors.length}):`, results.errors);
     alert(`Migration complete with ${results.errors.length} errors. Check the browser console for details.`);
   } else {
-    alert(`Migration complete! ✓ ${results.customers} customers, ${results.orders} orders, ${results.notes} notes moved to the database.`);
+    alert(`Migration complete! ${results.customers} customers, ${results.orders} orders, ${results.notes} notes moved to the database.`);
   }
 }

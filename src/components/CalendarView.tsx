@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, Gift, RefreshCw } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
+import { toast } from './Toast';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import { CalendarViewMode, Order } from '../types';
@@ -33,6 +34,15 @@ const CalendarView: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [printDate, setPrintDate] = useState<string>('');
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768 && viewMode === 'month') {
+        setViewMode('day');
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [viewMode]);
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
 
@@ -60,7 +70,7 @@ const CalendarView: React.FC = () => {
     if (duplicateData) {
       setDuplicatingOrder(duplicateData);
     } else {
-      alert('Failed to prepare duplicate order. Please try again.');
+      toast.error('Failed to prepare duplicate order. Please try again.');
     }
   };
 
@@ -573,7 +583,7 @@ const CalendarView: React.FC = () => {
                     const newOrder = addOrder(orderData);
                     if (newOrder) {
                       setDuplicatingOrder(null);
-                      alert(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
+                      toast.success(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
                     }
                   }}
                   onCancel={() => setDuplicatingOrder(null)}
@@ -588,7 +598,7 @@ const CalendarView: React.FC = () => {
                     const newOrder = addOrder(orderData);
                     if (newOrder) {
                       setDuplicatingOrder(null);
-                      alert(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                      toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`);
                     }
                   }}
                   onCancel={() => setDuplicatingOrder(null)}
