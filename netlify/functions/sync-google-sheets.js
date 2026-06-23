@@ -151,9 +151,11 @@ exports.handler = async (event, context) => {
 
     if (type === 'orders' || type === 'all') {
       const standardOrders = (orders || []).filter(order => order.orderType !== 'christmas');
-      const christmasOrders = (orders || []).filter(order => order.orderType === 'christmas');
       await syncOrders(doc, standardOrders, customers || []);
-      await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts);
+      if (type === 'all') {
+        const christmasOrders = (orders || []).filter(order => order.orderType === 'christmas');
+        await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts);
+      }
     }
 
     if (type === 'christmas-orders') {
@@ -307,15 +309,16 @@ async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
     incomingById[order.id] = rowData;
   }
 
-  // Read existing rows
+  // Read existing rows and upsert
   const existingRows = await sheet.getRows();
 
-  // Update or delete existing rows
+  // Separate into rows to update vs rows to delete
   const seenIds = new Set();
+  const rowsToDelete = [];
+
   for (const row of existingRows) {
     const orderId = row.get('Order ID');
     if (incomingById[orderId]) {
-      // Update in place — only the managed columns; leaves any extra columns untouched
       const data = incomingById[orderId];
       for (const [key, value] of Object.entries(data)) {
         row.set(key, value);
@@ -323,9 +326,13 @@ async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
       await row.save();
       seenIds.add(orderId);
     } else {
-      // Order was deleted — remove the row
-      await row.delete();
+      rowsToDelete.push(row);
     }
+  }
+
+  // Delete removed rows in reverse order to avoid row-number shifting
+  for (const row of rowsToDelete.reverse()) {
+    await row.delete();
   }
 
   // Append rows for orders not already in the sheet
@@ -337,7 +344,7 @@ async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
     await sheet.addRows(newRows);
   }
 
-  console.log(`Christmas Orders sheet upserted: ${Object.keys(incomingById).length} active, ${existingRows.length - seenIds.size} removed, ${newRows.length} added`);
+  console.log(`Christmas Orders sheet upserted: ${Object.keys(incomingById).length} active, ${rowsToDelete.length} removed, ${newRows.length} added`);
 }
 
 // Sync customers to Google Sheets
@@ -393,11 +400,13 @@ async function syncOrders(doc, orders, customers) {
     };
   }
 
-  // Read existing rows
+  // Read existing rows and upsert
   const existingRows = await sheet.getRows();
 
-  // Update or delete existing rows
+  // Separate into rows to update vs rows to delete
   const seenIds = new Set();
+  const rowsToDelete = [];
+
   for (const row of existingRows) {
     const orderId = row.get('Order ID');
     if (incomingById[orderId]) {
@@ -408,8 +417,13 @@ async function syncOrders(doc, orders, customers) {
       await row.save();
       seenIds.add(orderId);
     } else {
-      await row.delete();
+      rowsToDelete.push(row);
     }
+  }
+
+  // Delete removed rows in reverse order to avoid row-number shifting
+  for (const row of rowsToDelete.reverse()) {
+    await row.delete();
   }
 
   // Append new rows
@@ -421,7 +435,7 @@ async function syncOrders(doc, orders, customers) {
     await sheet.addRows(newRows);
   }
 
-  console.log(`Orders sheet upserted: ${Object.keys(incomingById).length} active, ${existingRows.length - seenIds.size} removed, ${newRows.length} added`);
+  console.log(`Orders sheet upserted: ${Object.keys(incomingById).length} active, ${rowsToDelete.length} removed, ${newRows.length} added`);
 }
 
 // Sync daily collections
