@@ -51,12 +51,11 @@ export const customersApi = {
 };
 
 // ── ORDERS ───────────────────────────────────────────────────
-// Strip falsy collectionDate so the PHP backend never receives
-// an empty string or null — absent keys fall through to ?? null
-// in PHP and bind as SQL NULL correctly.
-const stripEmptyDate = <T extends { collectionDate?: string | null }>(obj: T): Omit<T, 'collectionDate'> & { collectionDate?: string } => {
+// Normalise collectionDate: send null explicitly when empty so PHP backend
+// receives a consistent JSON key and binds SQL NULL correctly.
+const stripEmptyDate = <T extends { collectionDate?: string | null }>(obj: T): Omit<T, 'collectionDate'> & { collectionDate: string | null } => {
   const { collectionDate, ...rest } = obj as any;
-  return collectionDate ? { ...rest, collectionDate } : rest;
+  return { ...rest, collectionDate: collectionDate || null };
 };
 
 export const ordersApi = {

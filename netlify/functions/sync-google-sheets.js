@@ -377,6 +377,9 @@ async function syncCustomers(doc, customers) {
 async function syncOrders(doc, orders, customers) {
   const sheet = doc.sheetsByTitle['Orders'];
 
+  // Ensure header row is loaded so row.get() works on existing sheets
+  await sheet.loadHeaderRow();
+
   // Build a lookup of incoming data keyed by Order ID
   const incomingById = {};
   for (const order of orders) {
