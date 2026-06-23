@@ -63,7 +63,9 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       filteredOrders = orders.filter(order => !order.collectionDate || order.collectionDate >= sevenDaysAgo);
     } else {
       // Upcoming: include dateless pending orders (awaiting a date) alongside future orders
-      filteredOrders = orders.filter(order => !order.collectionDate || order.collectionDate >= today);
+      filteredOrders = orders.filter(order =>
+        order.status !== 'cancelled' && (!order.collectionDate || order.collectionDate >= today)
+      );
     }
 
     return filteredOrders.sort((a, b) => {
