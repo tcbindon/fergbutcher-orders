@@ -224,7 +224,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                 {overdueOrders.slice(0, 5).map(order => {
                   const customer = customers.find(c => c.id === order.customerId);
                   return (
-                    <div key={order.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-red-200 rounded-lg px-4 py-2 gap-2">
+                    <div
+                      key={order.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-red-200 rounded-lg px-4 py-2 gap-2 cursor-pointer hover:bg-red-50 transition-colors"
+                      onClick={() => setViewingOrder(order)}
+                    >
                       <div className="min-w-0">
                         <span className="font-medium text-fergbutcher-black-900 truncate block">
                           {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
@@ -235,13 +239,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
-                          onClick={() => handleStatusChange(order.id, 'collected')}
+                          onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'collected'); }}
                           className="text-xs bg-fergbutcher-green-100 text-fergbutcher-green-600 px-3 py-1.5 rounded hover:bg-fergbutcher-green-200 transition-colors min-h-[36px]"
                         >
                           Mark Collected
                         </button>
                         <button
-                          onClick={() => handleStatusChange(order.id, 'cancelled')}
+                          onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'cancelled'); }}
                           className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded hover:bg-red-200 transition-colors min-h-[36px]"
                         >
                           Cancel
