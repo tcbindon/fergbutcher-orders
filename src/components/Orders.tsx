@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone, Loader2 } from 'lucide-react';
+import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone, Loader2, X } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
@@ -49,6 +49,8 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const [pendingNewCustomerId, setPendingNewCustomerId] = useState<string | undefined>(undefined);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<Order['status']>('confirmed');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const getSortedOrders = (orders: Order[]) => {
     const today = new Date().toISOString().split('T')[0];
@@ -84,7 +86,9 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const filteredOrders = getSortedOrders(
     searchOrders(searchTerm, customers).filter(order =>
       (statusFilter === 'all' || order.status === statusFilter) &&
-      (!initialCollectionDate || order.collectionDate === initialCollectionDate)
+      (!initialCollectionDate || order.collectionDate === initialCollectionDate) &&
+      (!dateFrom || (order.collectionDate && order.collectionDate >= dateFrom)) &&
+      (!dateTo || (order.collectionDate && order.collectionDate <= dateTo))
     )
   );
 
@@ -307,6 +311,33 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                     <option value="collected">Collected</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Calendar className="h-4 w-4 text-fergbutcher-gold-500 flex-shrink-0" />
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="px-2 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent text-sm"
+                    title="From date"
+                  />
+                  <span className="text-fergbutcher-gold-500 text-sm">–</span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="px-2 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent text-sm"
+                    title="To date"
+                  />
+                  {(dateFrom || dateTo) && (
+                    <button
+                      onClick={() => { setDateFrom(''); setDateTo(''); }}
+                      className="p-1.5 text-fergbutcher-gold-500 hover:text-fergbutcher-black-900 hover:bg-fergbutcher-gold-100 rounded-lg transition-colors"
+                      title="Clear date range"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
