@@ -2,7 +2,6 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import LoginForm from './components/LoginForm';
 import { ToastContainer } from './components/Toast';
-import keyboardShortcuts from './services/keyboardShortcuts';
 import { useUndo } from './hooks/useUndo';
 import UndoNotification from './components/UndoNotification';
 import backupService from './services/backupService';
@@ -38,73 +37,10 @@ function App() {
   useEffect(() => {
     errorLogger.info('Application started');
 
-    keyboardShortcuts.register({
-      key: 'n',
-      ctrlKey: true,
-      description: 'Create new order',
-      action: () => {
-        setCurrentView('orders');
-        errorLogger.debug('Keyboard shortcut: New order');
-      }
-    });
-
-    keyboardShortcuts.register({
-      key: 'c',
-      ctrlKey: true,
-      description: 'Go to customers',
-      action: () => {
-        setCurrentView('customers');
-        errorLogger.debug('Keyboard shortcut: Go to customers');
-      }
-    });
-
-    keyboardShortcuts.register({
-      key: 'o',
-      ctrlKey: true,
-      description: 'Go to orders',
-      action: () => {
-        setCurrentView('orders');
-        errorLogger.debug('Keyboard shortcut: Go to orders');
-      }
-    });
-
-    keyboardShortcuts.register({
-      key: 'd',
-      ctrlKey: true,
-      description: 'Go to dashboard',
-      action: () => {
-        setCurrentView('dashboard');
-        errorLogger.debug('Keyboard shortcut: Go to dashboard');
-      }
-    });
-
-    keyboardShortcuts.register({
-      key: 'k',
-      ctrlKey: true,
-      description: 'Go to calendar',
-      action: () => {
-        setCurrentView('calendar');
-        errorLogger.debug('Keyboard shortcut: Go to calendar');
-      }
-    });
-
-    keyboardShortcuts.register({
-      key: 'z',
-      ctrlKey: true,
-      description: 'Undo last action',
-      action: () => {
-        const success = performUndo();
-        if (success) {
-          errorLogger.debug('Keyboard shortcut: Undo performed');
-        }
-      }
-    });
-
     return () => {
-      keyboardShortcuts.cleanup();
       backupService.cleanup();
     };
-  }, [performUndo]);
+  }, []);
 
   const handleLogin = () => {
     setIsAuthenticated(true);

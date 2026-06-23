@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Keyboard, Clock, FileText, Trash2, Gift, RefreshCw, Loader2 } from 'lucide-react';
+import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Clock, FileText, Trash2, Gift, RefreshCw, Loader2 } from 'lucide-react';
 import { useGoogleSheets } from '../hooks/useGoogleSheets';
 import { useCustomers } from '../hooks/useCustomers';
 import { useOrders } from '../hooks/useOrders';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
 import { useChristmasProducts } from '../hooks/useChristmasProducts';
-import keyboardShortcuts, { KeyboardShortcutsService } from '../services/keyboardShortcuts';
 import backupService from '../services/backupService';
 import errorLogger from '../services/errorLogger';
 import { toast } from './Toast';
@@ -33,7 +32,6 @@ const Settings: React.FC = () => {
   const tabs = [
     { id: 'email', label: 'Email Templates', icon: Mail },
     { id: 'christmas', label: 'Christmas Products', icon: Gift },
-    { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
     { id: 'sheets', label: 'Google Sheets', icon: ExternalLink },
     { id: 'backup', label: 'Backup & Restore', icon: Database },
     { id: 'system', label: 'System Status', icon: Shield },
@@ -361,46 +359,6 @@ const Settings: React.FC = () => {
                       <li>• To add/edit products, modify the Google Sheets directly and click "Refresh"</li>
                       <li>• If Google Sheets is unavailable, the system uses built-in default products</li>
                       <li>• Products are cached for 24 hours to improve performance</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Keyboard Shortcuts Tab */}
-          {activeTab === 'shortcuts' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Keyboard Shortcuts</h3>
-                <p className="text-fergbutcher-green-400 mb-6">
-                  Use these keyboard shortcuts to navigate and perform actions quickly.
-                </p>
-              </div>
-
-              <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-6">
-                <h4 className="font-medium text-fergbutcher-black-900 mb-4">Available Shortcuts</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {keyboardShortcuts.getShortcuts().map((shortcut, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-fergbutcher-gold-200">
-                      <span className="text-fergbutcher-gold-700">{shortcut.description}</span>
-                      <kbd className="px-2 py-1 bg-fergbutcher-gold-100 text-fergbutcher-gold-800 rounded text-sm font-mono">
-                        {KeyboardShortcutsService.formatShortcut(shortcut)}
-                      </kbd>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-fergbutcher-yellow-50 border border-fergbutcher-yellow-200 rounded-lg p-4">
-                <div className="flex items-start space-x-2">
-                  <AlertTriangle className="h-5 w-5 text-fergbutcher-yellow-600 mt-0.5" />
-                  <div>
-                    <p className="text-fergbutcher-yellow-800 font-medium">Tips:</p>
-                    <ul className="text-sm text-fergbutcher-yellow-700 mt-1 space-y-1">
-                      <li>• Shortcuts don't work when typing in input fields</li>
-                      <li>• Use Ctrl+Z to undo recent deletions</li>
-                      <li>• Shortcuts are case-insensitive</li>
                     </ul>
                   </div>
                 </div>
