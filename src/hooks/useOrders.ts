@@ -64,7 +64,7 @@ export const useOrders = () => {
   }, [isConnected, syncOrders, syncChristmasOrders]);
 
   // ── addOrder ──────────────────────────────────────────────
-  const addOrder = useCallback((orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, customers: Customer[] = []) => {
+  const addOrder = useCallback(async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, customers: Customer[] = []): Promise<Order | null> => {
     try {
       if (orderData.isRecurring && orderData.recurrencePattern && orderData.recurrenceEndDate) {
         // ── Recurring series ──────────────────────────────
@@ -94,27 +94,26 @@ export const useOrders = () => {
           count++;
         }
 
-        const previousOrders = [...orders];
-        const allOrders = [...newOrders, ...orders];
-
         // Optimistic update
         setOrders(prev => [...newOrders, ...prev]);
 
-        // Persist to DB (fire and forget with error handling)
-        ordersApi.saveAll(newOrders)
-          .then(() => triggerSync(allOrders, customers))
-          .catch(err => {
+        try {
+          await ordersApi.saveAll(newOrders);
+        } catch (err) {
           console.error('Failed to save recurring orders to DB:', err);
           setError('Failed to save orders. Please try again.');
-          setOrders(previousOrders); // rollback
-        });
+          setOrders(prev => prev.filter(o => !newOrders.some(n => n.id === o.id)));
+          return null;
+        }
+
+        const allOrders = [...newOrders, ...orders];
+        triggerSync(allOrders, customers);
 
         addUndoAction({
           id: `add-recurring-orders-${parentOrderId}`,
           description: `Created ${newOrders.length} recurring orders (${orderData.recurrencePattern})`,
           undo: () => {
-            setOrders(previousOrders);
-            // Delete from DB
+            setOrders(prev => prev.filter(o => !newOrders.some(n => n.id === o.id)));
             newOrders.forEach(o => ordersApi.delete(o.id).catch(console.error));
             errorLogger.info(`Undid creating ${newOrders.length} recurring orders`);
           }
@@ -137,26 +136,26 @@ export const useOrders = () => {
           updatedAt: new Date().toISOString(),
         };
 
-        const previousOrders = [...orders];
-        const allOrders = [newOrder, ...orders];
-
         // Optimistic update
         setOrders(prev => [newOrder, ...prev]);
 
-        // Persist to DB
-        ordersApi.save(newOrder)
-          .then(() => triggerSync(allOrders, customers))
-          .catch(err => {
+        try {
+          await ordersApi.save(newOrder);
+        } catch (err) {
           console.error('Failed to save order to DB:', err);
           setError('Failed to save order. Please try again.');
-          setOrders(previousOrders); // rollback
-        });
+          setOrders(prev => prev.filter(o => o.id !== newOrder.id));
+          return null;
+        }
+
+        const allOrders = [newOrder, ...orders];
+        triggerSync(allOrders, customers);
 
         addUndoAction({
           id: `add-order-${newOrder.id}`,
           description: `Created order #${newOrder.id}`,
           undo: () => {
-            setOrders(previousOrders);
+            setOrders(prev => prev.filter(o => o.id !== newOrder.id));
             ordersApi.delete(newOrder.id).catch(console.error);
             errorLogger.info(`Undid creating order #${newOrder.id}`);
           }
@@ -519,6 +518,7 @@ export const useOrders = () => {
     orders,
     loading,
     error,
+    clearError: () => setError(null),
     addOrder,
     updateOrder,
     bulkUpdateStatus,

@@ -461,8 +461,8 @@ const Customers: React.FC = () => {
               <OrderForm
                 customers={customers}
                 onAddCustomer={addCustomer}
-                onSubmit={(orderData) => {
-                  const newOrder = addOrder(orderData);
+                onSubmit={async (orderData) => {
+                  const newOrder = await addOrder(orderData);
                   if (newOrder) {
                     setDuplicatingOrder(null);
                     toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`);

@@ -22,6 +22,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     orders,
     loading: ordersLoading,
     error: ordersError,
+    clearError: clearOrdersError,
     addOrder,
     updateOrder,
     bulkUpdateStatus,
@@ -104,7 +105,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const handleAddOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     setIsSubmitting(true);
     try {
-      const newOrder = addOrder(orderData, customers);
+      const newOrder = await addOrder(orderData, customers);
       if (newOrder) setShowCreateModal(false);
     } finally {
       setIsSubmitting(false);
@@ -114,7 +115,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const handleAddChristmasOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     setIsSubmitting(true);
     try {
-      const newOrder = addOrder(orderData, customers);
+      const newOrder = await addOrder(orderData, customers);
       if (newOrder) setShowChristmasModal(false);
     } finally {
       setIsSubmitting(false);
@@ -216,14 +217,14 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
             </button>
           )}
           <button
-            onClick={() => setShowChristmasModal(true)}
+            onClick={() => { clearOrdersError(); setShowChristmasModal(true); }}
             className="bg-gradient-to-r from-fergbutcher-green-600 to-fergbutcher-gold-600 text-white px-3 py-2 rounded-lg hover:from-fergbutcher-green-700 hover:to-fergbutcher-gold-700 transition-all flex items-center space-x-2 shadow-lg text-sm"
           >
             <Gift className="h-4 w-4" />
             <span>Christmas</span>
           </button>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => { clearOrdersError(); setShowCreateModal(true); }}
             className="bg-fergbutcher-green-600 text-white px-3 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2 text-sm"
           >
             <Plus className="h-4 w-4" />
@@ -541,7 +542,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   </p>
                   {!searchTerm && statusFilter === 'all' && (
                     <button
-                      onClick={() => setShowCreateModal(true)}
+                      onClick={() => { clearOrdersError(); setShowCreateModal(true); }}
                       className="mt-4 text-fergbutcher-green-600 hover:text-fergbutcher-green-700 font-medium"
                     >
                       Create your first order
@@ -616,6 +617,12 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Create Standard Order</h3>
             </div>
             <div className="p-6">
+              {ordersError && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                  <p className="text-red-700 text-sm">{ordersError}</p>
+                </div>
+              )}
               <OrderForm
                 customers={customers}
                 onNewCustomerClick={() => setShowAddCustomerModal(true)}
@@ -641,6 +648,12 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
               </h3>
             </div>
             <div className="p-6">
+              {ordersError && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                  <p className="text-red-700 text-sm">{ordersError}</p>
+                </div>
+              )}
               <ChristmasOrderForm
                 customers={customers}
                 onNewCustomerClick={() => setShowAddCustomerModal(true)}
@@ -705,8 +718,8 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   customers={customers}
                   onNewCustomerClick={() => setShowAddCustomerModal(true)}
                   initialCustomerId={pendingNewCustomerId}
-                  onSubmit={(orderData) => {
-                    const newOrder = addOrder(orderData);
+                  onSubmit={async (orderData) => {
+                    const newOrder = await addOrder(orderData);
                     if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); toast.success(`Christmas order duplicated successfully! New order #${newOrder.id} created.`); }
                   }}
                   onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
@@ -718,8 +731,8 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   customers={customers}
                   onNewCustomerClick={() => setShowAddCustomerModal(true)}
                   initialCustomerId={pendingNewCustomerId}
-                  onSubmit={(orderData) => {
-                    const newOrder = addOrder(orderData);
+                  onSubmit={async (orderData) => {
+                    const newOrder = await addOrder(orderData);
                     if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`); }
                   }}
                   onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
