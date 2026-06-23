@@ -261,7 +261,7 @@ export const useOrders = () => {
         const previousOrders = [...orders];
 
         // Preserve parentOrderId — never let it get wiped by form updates
-        const safeUpdates = { ...updates, parentOrderId };
+        const safeUpdates = { ...updates, parentOrderId: parentId };
 
         const nextOrders = [
           ...generatedOrders,
