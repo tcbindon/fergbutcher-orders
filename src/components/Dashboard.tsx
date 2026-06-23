@@ -273,7 +273,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                   const customer = customers.find(c => c.id === order.customerId);
                   const isToday = order.collectionDate === today;
                   return (
-                    <div key={order.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-fergbutcher-gold-300 rounded-lg px-4 py-2 gap-2">
+                    <div
+                      key={order.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-fergbutcher-gold-300 rounded-lg px-4 py-2 gap-2 cursor-pointer hover:bg-fergbutcher-gold-50 transition-colors"
+                      onClick={() => setViewingOrder(order)}
+                    >
                       <div className="min-w-0">
                         <span className="font-medium text-fergbutcher-black-900 truncate block">
                           {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
@@ -288,7 +292,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                         </span>
                       </div>
                       <button
-                        onClick={() => handleStatusChange(order.id, 'confirmed')}
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'confirmed'); }}
                         className="text-xs bg-fergbutcher-green-50 text-fergbutcher-green-600 px-3 py-1.5 rounded hover:bg-fergbutcher-green-100 transition-colors border border-fergbutcher-green-200 flex-shrink-0 min-h-[36px]"
                       >
                         Confirm
