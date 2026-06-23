@@ -26,6 +26,27 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 import type { Customer, Order, StaffNote } from '../types';
 
+// ── ORDERS – sentinel date ────────────────────────────────────
+// The backend DB column is NOT NULL, so we use a sentinel date
+// ('1900-01-01') to represent "no collection date set".  When
+// loading orders we convert the sentinel back to null so the
+// rest of the app treats them as undated.
+const SENTINEL_DATE = '1900-01-01';
+
+const encodeDateForApi = <T extends { collectionDate?: string | null }>(
+  obj: T
+): Omit<T, 'collectionDate'> & { collectionDate: string } => {
+  const { collectionDate, ...rest } = obj as any;
+  return { ...rest, collectionDate: collectionDate || SENTINEL_DATE };
+};
+
+const decodeOrderDate = (order: Order): Order => ({
+  ...order,
+  collectionDate: order.collectionDate === SENTINEL_DATE ? null : order.collectionDate,
+});
+
+const decodeOrderDates = (orders: Order[]): Order[] => orders.map(decodeOrderDate);
+
 // ── CUSTOMERS ────────────────────────────────────────────────
 export const customersApi = {
   getAll: (): Promise<Customer[]> =>
@@ -51,29 +72,29 @@ export const customersApi = {
 };
 
 // ── ORDERS ───────────────────────────────────────────────────
-// Normalise collectionDate: send null explicitly when empty so PHP backend
-// receives a consistent JSON key and binds SQL NULL correctly.
-const stripEmptyDate = <T extends { collectionDate?: string | null }>(obj: T): Omit<T, 'collectionDate'> & { collectionDate: string | null } => {
-  const { collectionDate, ...rest } = obj as any;
-  return { ...rest, collectionDate: collectionDate || null };
-};
-
 export const ordersApi = {
-  getAll: (filters: { status?: string; type?: string; from?: string; to?: string } = {}): Promise<Order[]> => {
+  getAll: async (filters: { status?: string; type?: string; from?: string; to?: string } = {}): Promise<Order[]> => {
     const params = new URLSearchParams(
       Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null)) as Record<string, string>
     ).toString();
-    return request('/orders' + (params ? '?' + params : ''));
+    const data = await request<Order[]>('/orders' + (params ? '?' + params : ''));
+    return decodeOrderDates(data);
   },
 
-  getOne: (id: string): Promise<Order> =>
-    request(`/orders?id=${id}`),
+  getOne: async (id: string): Promise<Order> => {
+    const data = await request<Order>(`/orders?id=${id}`);
+    return decodeOrderDate(data);
+  },
 
-  save: (order: Order): Promise<Order> =>
-    request('/orders', { method: 'POST', body: JSON.stringify(stripEmptyDate(order)) }),
+  save: async (order: Order): Promise<Order> => {
+    const data = await request<Order>('/orders', { method: 'POST', body: JSON.stringify(encodeDateForApi(order)) });
+    return decodeOrderDate(data);
+  },
 
-  update: (id: string, updates: Partial<Order>): Promise<Order> =>
-    request(`/orders?id=${id}`, { method: 'PUT', body: JSON.stringify(stripEmptyDate(updates)) }),
+  update: async (id: string, updates: Partial<Order>): Promise<Order> => {
+    const data = await request<Order>(`/orders?id=${id}`, { method: 'PUT', body: JSON.stringify(encodeDateForApi(updates as Order)) });
+    return decodeOrderDate(data);
+  },
 
   delete: (id: string): Promise<{ id: string }> =>
     request(`/orders?id=${id}`, { method: 'DELETE' }),

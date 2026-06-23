@@ -101,7 +101,7 @@ export const useOrders = () => {
           await ordersApi.saveAll(newOrders);
         } catch (err) {
           console.error('Failed to save recurring orders to DB:', err);
-          setError('Failed to save orders. Please try again.');
+          setError((err as Error).message || 'Failed to save orders. Please try again.');
           setOrders(prev => prev.filter(o => !newOrders.some(n => n.id === o.id)));
           return null;
         }
@@ -143,7 +143,7 @@ export const useOrders = () => {
           await ordersApi.save(newOrder);
         } catch (err) {
           console.error('Failed to save order to DB:', err);
-          setError('Failed to save order. Please try again.');
+          setError((err as Error).message || 'Failed to save order. Please try again.');
           setOrders(prev => prev.filter(o => o.id !== newOrder.id));
           return null;
         }
