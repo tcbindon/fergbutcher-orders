@@ -194,6 +194,30 @@ export const useOrders = () => {
     }
   }, [orders, triggerSync]);
 
+  // ── bulkUpdateStatus ──────────────────────────────────────
+  // Updates status on multiple orders atomically (single setOrders call).
+  const bulkUpdateStatus = useCallback((ids: string[], status: Order['status'], customers: Customer[] = []) => {
+    try {
+      const updatedAt = new Date().toISOString();
+      const idSet = new Set(ids);
+      const updatedOrders = orders.map(o =>
+        idSet.has(o.id) ? { ...o, status, updatedAt } : o
+      );
+      setOrders(updatedOrders);
+      Promise.all(ids.map(id => ordersApi.update(id, { status, updatedAt })))
+        .then(() => triggerSync(updatedOrders, customers))
+        .catch(err => {
+          console.error('Failed to bulk update orders:', err);
+          setError('Failed to update orders. Please try again.');
+        });
+      return true;
+    } catch (err) {
+      console.error('Error bulk updating orders:', err);
+      setError('Failed to update orders');
+      return false;
+    }
+  }, [orders, triggerSync]);
+
   // ── updateOrderAndSeries ──────────────────────────────────
   // Use this instead of updateOrder when editing a recurring order from
   // a component. Takes the original order snapshot (editingOrder from
@@ -248,7 +272,7 @@ export const useOrders = () => {
               id: getNextOrderId([...orders, ...generatedOrders]),
               collectionDate: dateStr,
               recurrenceEndDate: newEndDate,
-              status: 'pending',
+              status: updates.status || originalOrder.status || 'pending',
               createdAt: updatedAt,
               updatedAt,
             });
@@ -494,6 +518,7 @@ export const useOrders = () => {
     error,
     addOrder,
     updateOrder,
+    bulkUpdateStatus,
     updateOrderAndSeries,
     deleteOrder,
     deleteRecurringSeries,

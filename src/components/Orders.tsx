@@ -22,6 +22,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     error: ordersError,
     addOrder,
     updateOrder,
+    bulkUpdateStatus,
     updateOrderAndSeries,
     deleteOrder,
     deleteRecurringSeries,
@@ -42,7 +43,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [showingComments, setShowingComments] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pastFilter, setPastFilter] = useState<'upcoming' | 'last7' | 'all'>(initialCollectionDate ? 'all' : 'last7');
+  const [pastFilter, setPastFilter] = useState<'upcoming' | 'last7' | 'all'>(initialCollectionDate ? 'all' : 'upcoming');
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [pendingNewCustomerId, setPendingNewCustomerId] = useState<string | undefined>(undefined);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
@@ -160,7 +161,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   };
 
   const handleBulkStatusApply = () => {
-    selectedOrderIds.forEach(id => updateOrder(id, { status: bulkStatus }, customers));
+    bulkUpdateStatus(Array.from(selectedOrderIds), bulkStatus, customers);
     setSelectedOrderIds(new Set());
   };
 
