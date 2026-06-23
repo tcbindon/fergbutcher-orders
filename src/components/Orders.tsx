@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone, Loader2, X } from 'lucide-react';
+import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone, Loader2, X, Printer } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
@@ -8,6 +8,7 @@ import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import CustomerForm from './CustomerForm';
 import OrderDetail from './OrderDetail';
+import PrintResults from './PrintResults';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { Order, Customer } from '../types';
 
@@ -51,6 +52,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const [bulkStatus, setBulkStatus] = useState<Order['status']>('confirmed');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [showPrintResults, setShowPrintResults] = useState(false);
 
   const getSortedOrders = (orders: Order[]) => {
     const today = new Date().toISOString().split('T')[0];
@@ -91,6 +93,16 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       (!dateTo || (order.collectionDate && order.collectionDate <= dateTo))
     )
   );
+
+  const hasActiveFilters = !!(searchTerm || statusFilter !== 'all' || dateFrom || dateTo);
+
+  const filterLabel = [
+    searchTerm && `"${searchTerm}"`,
+    statusFilter !== 'all' && `Status: ${statusFilter}`,
+    dateFrom && `From: ${new Date(dateFrom + 'T12:00:00').toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+    dateTo && `To: ${new Date(dateTo + 'T12:00:00').toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+    pastFilter !== 'all' && (pastFilter === 'upcoming' ? 'Upcoming' : 'Last 7 days'),
+  ].filter(Boolean).join('  ·  ') || 'All orders';
 
   const handleAddOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     setIsSubmitting(true);
@@ -218,6 +230,16 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
           <p className="text-fergbutcher-green-400">Manage all customer orders</p>
         </div>
         <div className="flex items-center gap-2">
+          {hasActiveFilters && (
+            <button
+              onClick={() => setShowPrintResults(true)}
+              className="bg-white border border-fergbutcher-gold-300 text-fergbutcher-black-900 px-3 py-2 rounded-lg hover:bg-fergbutcher-gold-50 transition-colors flex items-center space-x-2 text-sm"
+              title="Print filtered results"
+            >
+              <Printer className="h-4 w-4" />
+              <span className="hidden sm:inline">Print Results</span>
+            </button>
+          )}
           <button
             onClick={() => setShowChristmasModal(true)}
             className="bg-gradient-to-r from-fergbutcher-green-600 to-fergbutcher-gold-600 text-white px-3 py-2 rounded-lg hover:from-fergbutcher-green-700 hover:to-fergbutcher-gold-700 transition-all flex items-center space-x-2 shadow-lg text-sm"
@@ -791,6 +813,16 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
             </div>
           </div>
         </div>
+      )}
+
+      {/* Print Search Results */}
+      {showPrintResults && (
+        <PrintResults
+          orders={filteredOrders}
+          customers={customers}
+          filterLabel={filterLabel}
+          onClose={() => setShowPrintResults(false)}
+        />
       )}
     </div>
   );
