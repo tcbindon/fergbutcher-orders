@@ -85,7 +85,7 @@ const CalendarView: React.FC = () => {
   };
 
   const getOrdersForDate = (date: string) => {
-    return orders.filter(order => order.collectionDate === date);
+    return orders.filter(order => order.collectionDate === date && order.status !== 'cancelled');
   };
 
   const navigateDate = (direction: 'prev' | 'next') => {
