@@ -21,10 +21,9 @@ const Customers: React.FC = () => {
     searchCustomers
   } = useCustomers();
 
-  const { orders, getOrdersByCustomerId, addOrder } = useOrders();
+  const { orders, getOrdersByCustomerId, addOrder, getDuplicateOrderData } = useOrders();
   const { getNotesForOrder } = useStaffNotes();
 
-  const { getDuplicateOrderData } = useOrders();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);

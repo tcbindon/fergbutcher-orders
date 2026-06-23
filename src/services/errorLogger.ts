@@ -187,6 +187,9 @@ class ErrorLogger {
   }
 }
 
+export const errorLogger = new ErrorLogger();
+export default errorLogger;
+
 // Global error handler
 window.addEventListener('error', (event) => {
   errorLogger.error('Uncaught error', event.error, {
@@ -200,6 +203,3 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   errorLogger.error('Unhandled promise rejection', event.reason);
 });
-
-export const errorLogger = new ErrorLogger();
-export default errorLogger;

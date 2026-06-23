@@ -138,7 +138,7 @@ const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
                   <div className="flex items-center space-x-1 text-xs text-fergbutcher-green-400">
                     <Clock className="h-3 w-3" />
                     <span>
-                      {new Date(note.timestamp).toLocaleDateString('en-NZ', {
+                      {new Date(note.timestamp).toLocaleString('en-NZ', {
                         day: 'numeric',
                         month: 'short',
                         hour: '2-digit',
