@@ -377,8 +377,8 @@ async function syncCustomers(doc, customers) {
 async function syncOrders(doc, orders, customers) {
   const sheet = doc.sheetsByTitle['Orders'];
 
-  // Ensure header row is loaded so row.get() works on existing sheets
-  await sheet.loadHeaderRow();
+  // Set header row to ensure column mapping is loaded into memory (mirrors syncChristmasOrders pattern)
+  await sheet.setHeaderRow(['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Created Date', 'Updated Date']);
 
   // Build a lookup of incoming data keyed by Order ID
   const incomingById = {};
@@ -393,7 +393,7 @@ async function syncOrders(doc, orders, customers) {
       'Order ID': order.id,
       'Customer ID': order.customerId,
       'Customer Name': customerName,
-      'Collection Date': order.collectionDate || '',
+      'Collection Date': (order.collectionDate && order.collectionDate !== '1900-01-01') ? order.collectionDate : '',
       'Collection Time': order.collectionTime || '',
       'Status': order.status,
       'Items': itemsText,

@@ -489,8 +489,8 @@ export const useOrders = () => {
     try {
       const standardOrders  = orders.filter(o => o.orderType !== 'christmas');
       const christmasOrders = orders.filter(o => o.orderType === 'christmas');
-      if (standardOrders.length > 0)  await syncOrders(standardOrders, customers);
-      if (christmasOrders.length > 0) await syncChristmasOrders(christmasOrders, customers);
+      await syncOrders(standardOrders, customers);
+      await syncChristmasOrders(christmasOrders, customers);
       return true;
     } catch (err) {
       console.error('Error syncing to sheets:', err);
