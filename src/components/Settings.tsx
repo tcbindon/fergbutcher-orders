@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Clock, FileText, Trash2, Gift, RefreshCw, Loader2 } from 'lucide-react';
 import { useGoogleSheets } from '../hooks/useGoogleSheets';
-import { useCustomers } from '../hooks/useCustomers';
-import { useOrders } from '../hooks/useOrders';
+import { useAppData } from '../context/AppDataContext';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
 import { useChristmasProducts } from '../hooks/useChristmasProducts';
 import backupService from '../services/backupService';
@@ -15,8 +14,7 @@ const Settings: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
 
   const { isConnected, isLoading, error, lastSync, syncAll, disconnect } = useGoogleSheets();
-  const { customers, setAllCustomers } = useCustomers();
-  const { orders, setAllOrders } = useOrders();
+  const { customers, setAllCustomers, orders, setAllOrders } = useAppData();
   const { templates, updateTemplate, resetToDefaults } = useEmailTemplates();
   const {
     products: christmasProducts,

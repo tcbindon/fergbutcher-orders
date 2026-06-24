@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Phone, Clock, CheckCircle, Package, XCircle, Printer, ClipboardList, AlertTriangle } from 'lucide-react';
-import { useOrders } from '../hooks/useOrders';
-import { useCustomers } from '../hooks/useCustomers';
+import { useAppData } from '../context/AppDataContext';
 import PrintSchedule from './PrintSchedule';
 import { Order } from '../types';
 import { getStatusBadge, getStatusIcon } from '../utils/statusColors';
@@ -17,8 +16,7 @@ function getNextStatus(current: Order['status']): Order['status'] | null {
 }
 
 const TodayChecklist: React.FC<TodayChecklistProps> = () => {
-  const { orders, updateOrder, loading } = useOrders();
-  const { customers } = useCustomers();
+  const { orders, updateOrder, ordersLoading: loading, customers } = useAppData();
   const [showPrint, setShowPrint] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];

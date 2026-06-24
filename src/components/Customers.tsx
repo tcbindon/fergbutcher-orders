@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, Pencil, Eye, Mail, Phone, Building, User, Trash2, AlertTriangle, Copy, Package, MessageSquare, Loader2 } from 'lucide-react';
-import { useCustomers } from '../hooks/useCustomers';
-import { useOrders } from '../hooks/useOrders';
+import { useAppData } from '../context/AppDataContext';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import { toast } from './Toast';
 import CustomerForm from './CustomerForm';
@@ -14,15 +13,17 @@ import { getStatusBadge } from '../utils/statusColors';
 const Customers: React.FC = () => {
   const {
     customers,
-    loading,
-    error,
+    customersLoading: loading,
+    customersError: error,
     addCustomer,
     updateCustomer,
     deleteCustomer,
-    searchCustomers
-  } = useCustomers();
-
-  const { orders, getOrdersByCustomerId, addOrder, getDuplicateOrderData } = useOrders();
+    searchCustomers,
+    orders,
+    getOrdersByCustomerId,
+    addOrder,
+    getDuplicateOrderData,
+  } = useAppData();
   const { getNotesForOrder } = useStaffNotes();
 
   const [searchTerm, setSearchTerm] = useState('');

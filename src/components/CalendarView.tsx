@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, Gift, RefreshCw } from 'lucide-react';
-import { useOrders } from '../hooks/useOrders';
-import { useCustomers } from '../hooks/useCustomers';
+import { useAppData } from '../context/AppDataContext';
 import { toast } from './Toast';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
@@ -16,9 +15,10 @@ const CalendarView: React.FC = () => {
     updateOrder,
     updateOrderAndSeries,
     getDuplicateOrderData,
-    addOrder
-  } = useOrders();
-  const { customers, addCustomer } = useCustomers();
+    addOrder,
+    customers,
+    addCustomer,
+  } = useAppData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<CalendarViewMode>(() =>
     window.innerWidth < 768 ? 'day' : 'month'

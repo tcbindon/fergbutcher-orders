@@ -13,6 +13,7 @@ import Orders from './components/Orders';
 import CalendarView from './components/CalendarView';
 import Settings from './components/Settings';
 import TodayChecklist from './components/TodayChecklist';
+import { AppDataProvider } from './context/AppDataContext';
 import { ViewType } from './types';
 
 function App() {
@@ -109,7 +110,7 @@ function App() {
   };
 
   return (
-    <>
+    <AppDataProvider>
       <ToastContainer />
       <Layout currentView={currentView} onViewChange={handleViewChange} onLogout={handleLogout}>
         {renderCurrentView()}
@@ -121,7 +122,7 @@ function App() {
         onUndo={performUndo}
         onDismiss={hideUndoNotification}
       />
-    </>
+    </AppDataProvider>
   );
 }
 

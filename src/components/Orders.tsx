@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone, Loader2, X, Printer } from 'lucide-react';
-import { useOrders } from '../hooks/useOrders';
-import { useCustomers } from '../hooks/useCustomers';
+import { useAppData } from '../context/AppDataContext';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import { toast } from './Toast';
 import OrderForm from './OrderForm';
@@ -20,18 +19,24 @@ interface OrdersProps {
 const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionDate }) => {
   const {
     orders,
-    loading: ordersLoading,
-    error: ordersError,
-    clearError: clearOrdersError,
+    ordersLoading: loading,
+    ordersError: error,
+    clearOrdersError: clearError,
     addOrder,
     updateOrder,
     bulkUpdateStatus,
     updateOrderAndSeries,
     getDuplicateOrderData,
-    searchOrders
-  } = useOrders();
+    searchOrders,
+    customers,
+    customersLoading,
+    addCustomer,
+  } = useAppData();
 
-  const { customers, loading: customersLoading, addCustomer } = useCustomers();
+  // Remap to what the rest of this component uses
+  const ordersLoading = loading;
+  const ordersError = error;
+  const clearOrdersError = clearError;
   const { getNotesForOrder } = useStaffNotes();
 
   const [searchTerm, setSearchTerm] = useState('');

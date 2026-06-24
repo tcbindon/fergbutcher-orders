@@ -1,6 +1,5 @@
 import React from 'react';
-import { useCustomers } from '../hooks/useCustomers';
-import { useOrders } from '../hooks/useOrders';
+import { useAppData } from '../context/AppDataContext';
 import { toast } from './Toast';
 import OrderDetail from './OrderDetail';
 import OrderForm from './OrderForm';
@@ -27,8 +26,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders }) => {
-  const { customers, addCustomer } = useCustomers();
-  const { orders, getOrderStats, updateOrder, updateOrderAndSeries, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useOrders();
+  const { customers, addCustomer, orders, getOrderStats, updateOrder, updateOrderAndSeries, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useAppData();
   const orderStats = getOrderStats();
 
   const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
