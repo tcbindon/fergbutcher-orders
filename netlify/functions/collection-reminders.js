@@ -56,9 +56,9 @@ const populateTemplate = (tmpl, order, customer) => {
     email: customer.email || '',
     orderId: order.id,
     orderItems: itemsText,
-    collectionDate: formatCollectionDate(order.collectionDate),
-    collectionTime: order.collectionTime ? ` at ${order.collectionTime}` : '',
-    additionalNotes: order.additionalNotes || '',
+    collectionDate: formatCollectionDate(order.collection_date || order.collectionDate),
+    collectionTime: order.collection_time || order.collectionTime ? ` at ${(order.collection_time || order.collectionTime)}` : '',
+    additionalNotes: order.additional_notes || order.additionalNotes || '',
   };
   const fill = (str) => str.replace(/\{(\w+)\}/g, (_, k) => data[k] ?? '');
   return {
@@ -67,17 +67,18 @@ const populateTemplate = (tmpl, order, customer) => {
   };
 };
 
-export default async (req, ctx) => {
-  const apiKey = Netlify.env.get('RESEND_API_KEY');
-  const supabaseUrl = Netlify.env.get('SUPABASE_URL');
-  const serviceKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY');
+exports.handler = async (event, context) => {
+  const apiKey = process.env.RESEND_API_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!apiKey || !supabaseUrl || !serviceKey) {
     console.log('Missing required env vars; exiting');
-    return new Response(JSON.stringify({ skipped: true, reason: 'missing-env' }), {
-      status: 200,
+    return {
+      statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-    });
+      body: JSON.stringify({ skipped: true, reason: 'missing-env' }),
+    };
   }
 
   // 1. Check automation settings — bail if collection reminders disabled
@@ -91,10 +92,11 @@ export default async (req, ctx) => {
   const settings = settingsJson?.[0];
   if (!settings || !settings.template_collection_reminder) {
     console.log('Collection reminder automation disabled; exiting');
-    return new Response(JSON.stringify({ skipped: true, reason: 'disabled' }), {
-      status: 200,
+    return {
+      statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-    });
+      body: JSON.stringify({ skipped: true, reason: 'disabled' }),
+    };
   }
 
   // 2. Compute tomorrow's date in NZ (Pacific/Auckland)
@@ -113,10 +115,11 @@ export default async (req, ctx) => {
   const orders = ordersJson || [];
   if (orders.length === 0) {
     console.log(`No orders for ${tomorrowStr}; exiting`);
-    return new Response(JSON.stringify({ skipped: true, reason: 'no-orders', date: tomorrowStr }), {
-      status: 200,
+    return {
+      statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-    });
+      body: JSON.stringify({ skipped: true, reason: 'no-orders', date: tomorrowStr }),
+    };
   }
 
   // 4. Fetch all customers (to resolve emails by ID)
@@ -127,15 +130,16 @@ export default async (req, ctx) => {
   const customersById = new Map((customersJson || []).map(c => [c.id, c]));
 
   // 5. Fetch already-sent reminder logs for today to avoid duplicates
+  const orderIdsCsv = orders.map(o => o.id).join(',');
   const logRes = await fetch(
-    `${supabaseUrl}/rest/v1/email_log?template_id=eq.collection-reminder&order_id=in.(${orders.map(o => o.id).join(',')}`,
+    `${supabaseUrl}/rest/v1/email_log?template_id=eq.collection-reminder&order_id=in.(${orderIdsCsv})`,
     { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } }
   );
   const logJson = await logRes.json();
   const alreadySent = new Set((logJson || []).map(l => l.order_id));
 
-  const fromAddress = Netlify.env.get('RESEND_FROM_ADDRESS') || 'orders@fergbutcher.com';
-  const replyTo = Netlify.env.get('RESEND_REPLY_TO') || undefined;
+  const fromAddress = process.env.RESEND_FROM_ADDRESS || 'orders@fergbutcher.com';
+  const replyTo = process.env.RESEND_REPLY_TO || undefined;
 
   let sent = 0;
   let skipped = 0;
@@ -146,7 +150,7 @@ export default async (req, ctx) => {
       skipped++;
       continue;
     }
-    const customer = customersById.get(order.customer_id);
+    const customer = customersById.get(order.customer_id || order.customerId);
     if (!customer || !customer.email) {
       skipped++;
       continue;
@@ -198,7 +202,7 @@ export default async (req, ctx) => {
         },
         body: JSON.stringify({
           order_id: order.id,
-          customer_id: order.customer_id,
+          customer_id: order.customer_id || order.customerId,
           template_id: 'collection-reminder',
           recipient: customer.email,
           subject,
@@ -216,12 +220,13 @@ export default async (req, ctx) => {
   }
 
   console.log(`Reminders for ${tomorrowStr}: sent=${sent} skipped=${skipped} failed=${failed}`);
-  return new Response(JSON.stringify({
-    date: tomorrowStr,
-    sent, skipped, failed,
-    total: orders.length,
-  }), {
-    status: 200,
+  return {
+    statusCode: 200,
     headers: { 'Content-Type': 'application/json' },
-  });
+    body: JSON.stringify({
+      date: tomorrowStr,
+      sent, skipped, failed,
+      total: orders.length,
+    }),
+  };
 };

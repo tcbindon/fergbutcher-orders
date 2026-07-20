@@ -13,28 +13,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
-const jsonResponse = (status, body) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders },
-  });
+const jsonResponse = (statusCode, body) => ({
+  statusCode,
+  headers: { 'Content-Type': 'application/json', ...corsHeaders },
+  body: JSON.stringify(body),
+});
 
-export default async (req, ctx) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders });
+exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers: corsHeaders, body: '' };
   }
-  if (req.method !== 'POST') {
+  if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { error: 'Method not allowed' });
   }
 
-  const apiKey = Netlify.env.get('RESEND_API_KEY');
+  const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     return jsonResponse(500, { error: 'RESEND_API_KEY not configured' });
   }
 
   let payload;
   try {
-    payload = await req.json();
+    payload = JSON.parse(event.body || '{}');
   } catch {
     return jsonResponse(400, { error: 'Invalid JSON body' });
   }
@@ -51,8 +51,8 @@ export default async (req, ctx) => {
     return jsonResponse(400, { error: 'Missing required field: templateId' });
   }
 
-  const fromAddress = Netlify.env.get('RESEND_FROM_ADDRESS') || 'orders@fergbutcher.com';
-  const replyTo = Netlify.env.get('RESEND_REPLY_TO') || undefined;
+  const fromAddress = process.env.RESEND_FROM_ADDRESS || 'orders@fergbutcher.com';
+  const replyTo = process.env.RESEND_REPLY_TO || undefined;
 
   const resendBody = {
     from: fromAddress,
@@ -63,13 +63,12 @@ export default async (req, ctx) => {
   if (text) resendBody.text = text;
   if (replyTo) resendBody.reply_to = replyTo;
 
-  let resendResponse;
   let logStatus = 'sent';
   let logMessageId = null;
   let logError = null;
 
   try {
-    resendResponse = await fetch(RESEND_API_URL, {
+    const resendResponse = await fetch(RESEND_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -80,8 +79,7 @@ export default async (req, ctx) => {
     const resendJson = await resendResponse.json();
     if (!resendResponse.ok) {
       logStatus = 'failed';
-      logError = resendJson?.message || `Resend HTTP ${resendResponse.status}`;
-      logError = logError.slice(0, 500);
+      logError = (resendJson?.message || `Resend HTTP ${resendResponse.status}`).slice(0, 500);
     } else {
       logMessageId = resendJson?.id || null;
     }
@@ -110,8 +108,8 @@ export default async (req, ctx) => {
 
 // ── Best-effort Supabase logging ────────────────────────────
 async function logEmail(entry) {
-  const supabaseUrl = Netlify.env.get('SUPABASE_URL');
-  const serviceKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) return;
 
   try {
