@@ -14,6 +14,7 @@ interface EnvironmentConfig {
     autoBackup: boolean;
     googleSheetsSync: boolean;
     errorReporting: boolean;
+    emailAutomation: boolean;
   };
 }
 
@@ -38,6 +39,7 @@ const config: EnvironmentConfig = {
     autoBackup: getEnvVar('VITE_ENABLE_AUTO_BACKUP', 'true') !== 'false',
     googleSheetsSync: getEnvVar('VITE_ENABLE_GOOGLE_SHEETS', 'true') !== 'false',
     errorReporting: getEnvVar('VITE_ENABLE_ERROR_REPORTING', 'false') === 'true',
+    emailAutomation: getEnvVar('VITE_ENABLE_EMAIL_AUTOMATION', 'false') === 'true',
   },
 };
 

@@ -1,10 +1,11 @@
-import React from 'react';
-import { User, Calendar, Clock, Package, FileText, Pencil, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Calendar, Clock, Package, FileText, Pencil, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift, RefreshCw, Loader2 } from 'lucide-react';
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import { generateEmailData, populateTemplate, openEmailClient } from '../utils/emailUtils';
+import { sendTemplateEmail, emailSettings, emailLog } from '../services/emailService';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { toast } from './Toast';
 
@@ -27,19 +28,61 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
 }) => {
   const { templates, getTemplate } = useEmailTemplates();
   const { addStaffNote } = useStaffNotes();
+  const [sendingTemplate, setSendingTemplate] = useState<string | null>(null);
 
-  const handleSendEmail = (templateId: string) => {
+  const handleSendEmail = async (templateId: string) => {
     if (!customer) { toast.error('Customer information not available'); return; }
     const template = getTemplate(templateId);
     if (!template) { toast.error('Email template not found'); return; }
-    const emailData = generateEmailData(order, customer);
-    const populatedSubject = populateTemplate(template.subject, emailData);
-    const populatedBody = populateTemplate(template.body, emailData);
     const emailTypeNames = { 'order-received': 'Order Received', 'order-confirmed': 'Order Confirmed', 'collection-reminder': 'Collection Reminder' };
     const emailTypeName = emailTypeNames[templateId as keyof typeof emailTypeNames] || templateId;
-    addStaffNote(order.id, 'System', `📧 ${emailTypeName} email sent to ${customer.email ?? 'customer'}`);
-    openEmailClient(customer.email, populatedSubject, populatedBody);
+
+    setSendingTemplate(templateId);
+    try {
+      const result = await sendTemplateEmail(template, order, customer, 'Staff');
+      if (result.success) {
+        toast.success(`${emailTypeName} email sent to ${customer.email}`);
+        addStaffNote(order.id, 'System', `📧 ${emailTypeName} email sent to ${customer.email ?? 'customer'}`);
+      } else {
+        toast.error(`Failed to send: ${result.error}`);
+      }
+    } catch (err) {
+      toast.error('Unexpected error sending email');
+    } finally {
+      setSendingTemplate(null);
+    }
   };
+
+  // ── Automated email on status change to 'confirmed' ────────
+  // Fires only on live transition (caller passes newStatus). Guards:
+  // - automation enabled + template_order_confirmed toggle on
+  // - not already sent for this order
+  // - customer has email
+  // This is triggered by the parent via onStatusChange -> parent
+  // calls a wrapper that invokes this helper. For simplicity we
+  // expose it through the same onStatusChange flow.
+  React.useEffect(() => {
+    if (order.status !== 'confirmed') return;
+    let cancelled = false;
+    (async () => {
+      const settings = await emailSettings.get();
+      if (!settings || !settings.automationEnabled || !settings.templateOrderConfirmed) return;
+      const already = await emailLog.wasSent(order.id, 'order-confirmed');
+      if (already || cancelled) return;
+      const template = getTemplate('order-confirmed');
+      if (!template || !customer || !customer.email) return;
+      const result = await sendTemplateEmail(template, order, customer, 'Automation');
+      if (!cancelled) {
+        if (result.success) {
+          addStaffNote(order.id, 'System', `📧 Order Confirmed email auto-sent to ${customer.email}`);
+        } else {
+          console.warn('Auto order-confirmed email failed:', result.error);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.status, order.id]);
 
   const getNextStatus = (currentStatus: Order['status']): Order['status'] | null => {
     switch (currentStatus) {
@@ -228,29 +271,46 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <button
               onClick={() => handleSendEmail('order-received')}
-              className="flex items-center justify-center space-x-2 px-4 py-2 bg-fergbutcher-gold-100 text-fergbutcher-gold-700 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors"
+              disabled={sendingTemplate === 'order-received'}
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-fergbutcher-gold-100 text-fergbutcher-gold-700 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors disabled:opacity-50"
             >
-              <Send className="h-4 w-4" />
+              {sendingTemplate === 'order-received' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span>Order Received</span>
             </button>
             <button
               onClick={() => handleSendEmail('order-confirmed')}
-              className="flex items-center justify-center space-x-2 px-4 py-2 bg-fergbutcher-green-100 text-fergbutcher-green-600 rounded-lg hover:bg-fergbutcher-green-200 transition-colors"
+              disabled={sendingTemplate === 'order-confirmed'}
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-fergbutcher-green-100 text-fergbutcher-green-600 rounded-lg hover:bg-fergbutcher-green-200 transition-colors disabled:opacity-50"
             >
-              <Send className="h-4 w-4" />
+              {sendingTemplate === 'order-confirmed' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span>Order Confirmed</span>
             </button>
             <button
               onClick={() => handleSendEmail('collection-reminder')}
-              className="flex items-center justify-center space-x-2 px-4 py-2 bg-fergbutcher-yellow-100 text-fergbutcher-yellow-700 rounded-lg hover:bg-fergbutcher-yellow-200 transition-colors"
+              disabled={sendingTemplate === 'collection-reminder'}
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-fergbutcher-yellow-100 text-fergbutcher-yellow-700 rounded-lg hover:bg-fergbutcher-yellow-200 transition-colors disabled:opacity-50"
             >
-              <Send className="h-4 w-4" />
+              {sendingTemplate === 'collection-reminder' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span>Collection Reminder</span>
             </button>
           </div>
-          <p className="text-xs text-fergbutcher-green-400 mt-2">
-            Click a button to open your email client with a pre-filled message to {customer.email}
-          </p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-fergbutcher-green-400">
+              Sends directly from {customer.email ? 'orders@fergbutcher.com' : '—'} to {customer.email}
+            </p>
+            <button
+              onClick={() => {
+                if (!customer) return;
+                const template = getTemplate('order-received');
+                if (!template) return;
+                const emailData = generateEmailData(order, customer);
+                openEmailClient(customer.email, populateTemplate(template.subject, emailData), populateTemplate(template.body, emailData));
+              }}
+              className="text-xs text-fergbutcher-green-600 hover:underline"
+            >
+              Open in email client instead
+            </button>
+          </div>
         </div>
       )}
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Clock, FileText, Trash2, Gift, RefreshCw, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Clock, FileText, Trash2, Gift, RefreshCw, Loader2, Send, Bell } from 'lucide-react';
 import { useGoogleSheets } from '../hooks/useGoogleSheets';
 import { useAppData } from '../context/AppDataContext';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
@@ -7,11 +7,20 @@ import { useChristmasProducts } from '../hooks/useChristmasProducts';
 import backupService from '../services/backupService';
 import errorLogger from '../services/errorLogger';
 import { toast } from './Toast';
+import { emailSettings, emailLog, sendTestEmail, EmailSettings as EmailSettingsType, EmailLogEntry } from '../services/emailService';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('email');
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Email automation state
+  const [emailAutoSettings, setEmailAutoSettings] = useState<EmailSettingsType | null>(null);
+  const [emailSettingsLoading, setEmailSettingsLoading] = useState(true);
+  const [savingEmailSettings, setSavingEmailSettings] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testEmailAddr, setTestEmailAddr] = useState('');
+  const [recentEmails, setRecentEmails] = useState<EmailLogEntry[]>([]);
 
   const { isConnected, isLoading, error, lastSync, syncAll, disconnect } = useGoogleSheets();
   const { customers, setAllCustomers, orders, setAllOrders } = useAppData();
@@ -29,11 +38,61 @@ const Settings: React.FC = () => {
 
   const tabs = [
     { id: 'email', label: 'Email Templates', icon: Mail },
+    { id: 'automation', label: 'Email Automation', icon: Bell },
     { id: 'christmas', label: 'Christmas Products', icon: Gift },
     { id: 'sheets', label: 'Google Sheets', icon: ExternalLink },
     { id: 'backup', label: 'Backup & Restore', icon: Database },
     { id: 'system', label: 'System Status', icon: Shield },
   ];
+
+  // Load email automation settings + recent log
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [s, log] = await Promise.all([
+        emailSettings.get(),
+        emailLog.getRecent(10),
+      ]);
+      if (cancelled) return;
+      setEmailAutoSettings(s);
+      setRecentEmails(log);
+      setEmailSettingsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const updateEmailSetting = async (updates: Partial<EmailSettingsType>) => {
+    if (!emailAutoSettings) return;
+    const next = { ...emailAutoSettings, ...updates };
+    setEmailAutoSettings(next);
+    setSavingEmailSettings(true);
+    const ok = await emailSettings.update(updates);
+    setSavingEmailSettings(false);
+    if (ok) {
+      toast.success('Email automation setting saved');
+    } else {
+      toast.error('Failed to save email automation setting');
+      setEmailAutoSettings(emailAutoSettings); // revert
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmailAddr.trim()) {
+      toast.error('Enter an email address to send the test to');
+      return;
+    }
+    setSendingTest(true);
+    const result = await sendTestEmail(testEmailAddr.trim());
+    setSendingTest(false);
+    if (result.success) {
+      toast.success(`Test email sent to ${testEmailAddr}`);
+      // refresh log
+      const log = await emailLog.getRecent(10);
+      setRecentEmails(log);
+    } else {
+      toast.error(`Test email failed: ${result.error}`);
+    }
+  };
 
   const handleSyncAll = async () => {
     await syncAll(customers, orders);
@@ -203,6 +262,148 @@ const Settings: React.FC = () => {
                   Templates are automatically saved as you type. Collection time will show "TBC" if not specified.
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Email Automation Tab */}
+          {activeTab === 'automation' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-2">Email Automation</h3>
+                <p className="text-fergbutcher-green-400 mb-4">
+                  Automated emails are sent via Resend when orders change status. All toggles default OFF — nothing sends until you enable it.
+                </p>
+              </div>
+
+              {emailSettingsLoading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-6 w-6 text-fergbutcher-gold-400 mx-auto mb-2 animate-spin" />
+                  <p className="text-sm text-fergbutcher-green-400">Loading email automation settings…</p>
+                </div>
+              ) : emailAutoSettings ? (
+                <>
+                  {/* Master toggle */}
+                  <div className={`p-4 rounded-lg border ${emailAutoSettings.automationEnabled ? 'bg-fergbutcher-green-50 border-fergbutcher-green-200' : 'bg-fergbutcher-yellow-50 border-fergbutcher-yellow-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        {emailAutoSettings.automationEnabled
+                          ? <CheckCircle className="h-5 w-5 text-fergbutcher-green-600" />
+                          : <AlertTriangle className="h-5 w-5 text-fergbutcher-yellow-600" />}
+                        <div>
+                          <h4 className="font-medium text-fergbutcher-black-900">Automation {emailAutoSettings.automationEnabled ? 'Enabled' : 'Disabled'}</h4>
+                          <p className="text-sm text-fergbutcher-green-400">
+                            {emailAutoSettings.automationEnabled
+                              ? 'Automated emails will fire on status changes.'
+                              : 'No automated emails will be sent. Use the manual buttons on each order.'}
+                          </p>
+                        </div>
+                      </div>
+                      <Toggle
+                        checked={emailAutoSettings.automationEnabled}
+                        onChange={(v) => updateEmailSetting({ automationEnabled: v })}
+                        disabled={savingEmailSettings}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Per-template toggles */}
+                  <div className="border border-fergbutcher-gold-300 rounded-lg p-4 space-y-3">
+                    <h4 className="font-medium text-fergbutcher-black-900">Per-template automation</h4>
+                    <ToggleRow
+                      label="Order Received"
+                      hint="Auto-send when an order is first created"
+                      checked={emailAutoSettings.templateOrderReceived}
+                      onChange={(v) => updateEmailSetting({ templateOrderReceived: v })}
+                      disabled={savingEmailSettings}
+                    />
+                    <ToggleRow
+                      label="Order Confirmed"
+                      hint="Auto-send when an order status changes to 'Confirmed'"
+                      checked={emailAutoSettings.templateOrderConfirmed}
+                      onChange={(v) => updateEmailSetting({ templateOrderConfirmed: v })}
+                      disabled={savingEmailSettings}
+                    />
+                    <ToggleRow
+                      label="Collection Reminder"
+                      hint="Scheduled: 9am the day before collection (runs automatically each day)"
+                      checked={emailAutoSettings.templateCollectionReminder}
+                      onChange={(v) => updateEmailSetting({ templateCollectionReminder: v })}
+                      disabled={savingEmailSettings}
+                    />
+                  </div>
+
+                  {/* From address */}
+                  <div className="border border-fergbutcher-gold-300 rounded-lg p-4 space-y-3">
+                    <h4 className="font-medium text-fergbutcher-black-900">Sender address</h4>
+                    <p className="text-xs text-fergbutcher-green-400">
+                      These are read from server-side environment variables (RESEND_FROM_ADDRESS, RESEND_REPLY_TO).
+                      The domain must be verified in Resend.
+                    </p>
+                    <div className="text-sm text-fergbutcher-green-700 bg-fergbutcher-gold-50 rounded p-2">
+                      <div>From: <span className="font-medium">{emailAutoSettings.fromAddress}</span></div>
+                      <div>Reply-to: <span className="font-medium">{emailAutoSettings.replyToAddress || emailAutoSettings.fromAddress}</span></div>
+                    </div>
+                  </div>
+
+                  {/* Test email */}
+                  <div className="border border-fergbutcher-gold-300 rounded-lg p-4 space-y-3">
+                    <h4 className="font-medium text-fergbutcher-black-900 flex items-center space-x-2">
+                      <Send className="h-4 w-4 text-fergbutcher-green-600" />
+                      <span>Send a test email</span>
+                    </h4>
+                    <p className="text-xs text-fergbutcher-green-400">
+                      Verify the Resend integration end-to-end by sending a test email to your own address. This bypasses all automation toggles.
+                    </p>
+                    <div className="flex space-x-2">
+                      <input
+                        type="email"
+                        value={testEmailAddr}
+                        onChange={(e) => setTestEmailAddr(e.target.value)}
+                        placeholder="your@email.com"
+                        className="flex-1 px-3 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent"
+                      />
+                      <button
+                        onClick={handleSendTestEmail}
+                        disabled={sendingTest}
+                        className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                      >
+                        {sendingTest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        <span>{sendingTest ? 'Sending…' : 'Send Test'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Recent sends */}
+                  <div className="border border-fergbutcher-gold-300 rounded-lg p-4">
+                    <h4 className="font-medium text-fergbutcher-black-900 mb-3">Recent email activity</h4>
+                    {recentEmails.length === 0 ? (
+                      <p className="text-sm text-fergbutcher-green-400 text-center py-4">No emails sent yet</p>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {recentEmails.map(e => (
+                          <div key={e.id} className="flex items-center justify-between p-2 bg-fergbutcher-gold-50 rounded text-sm">
+                            <div>
+                              <span className="font-medium text-fergbutcher-black-900">{e.template_id}</span>
+                              <span className="text-fergbutcher-green-400"> → {e.recipient}</span>
+                              <p className="text-xs text-fergbutcher-green-400">{new Date(e.created_at).toLocaleString('en-NZ')}</p>
+                            </div>
+                            <span className={`text-xs px-2 py-1 rounded-full ${e.status === 'sent' ? 'bg-fergbutcher-green-100 text-fergbutcher-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {e.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    <p className="text-red-700">Could not load email automation settings. Check the Supabase connection.</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -721,3 +922,27 @@ const Settings: React.FC = () => {
 };
 
 export default Settings;
+
+// ── Reusable toggle components ─────────────────────────────
+const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }> = ({ checked, onChange, disabled }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    disabled={disabled}
+    onClick={() => onChange(!checked)}
+    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${checked ? 'bg-fergbutcher-green-600' : 'bg-fergbutcher-gold-300'}`}
+  >
+    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+  </button>
+);
+
+const ToggleRow: React.FC<{ label: string; hint: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }> = ({ label, hint, checked, onChange, disabled }) => (
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="font-medium text-fergbutcher-black-900">{label}</p>
+      <p className="text-xs text-fergbutcher-green-400">{hint}</p>
+    </div>
+    <Toggle checked={checked} onChange={onChange} disabled={disabled} />
+  </div>
+);

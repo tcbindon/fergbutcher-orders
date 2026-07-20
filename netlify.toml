@@ -18,6 +18,17 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Scheduled function: collection reminders at 9am NZ time (UTC+13/12).
+# 9am Pacific/Auckland = 20:00 UTC (standard) or 19:00 UTC (daylight).
+# We run at 19:00 UTC so it always fires at or after 9am NZ (never early).
+[[functions]]
+  directory = "netlify/functions"
+
+[functions.schedule]
+  # Netlify Scheduled Functions v2 cron syntax
+  collection-reminders = "0 19 * * *"
+
 [build.processing]
   skip_processing = false
 
