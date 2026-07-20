@@ -1,32 +1,13 @@
 // src/services/emailService.ts
 // ============================================================
-// Client-side wrapper for the send-email Netlify Function.
-// Talks to Supabase directly for settings + email log reads.
-// Gracefully degrades when VITE_SUPABASE_* env vars are missing
-// (e.g. on Netlify if they haven't been set yet) so the rest of
-// the app still loads.
+// Client-side wrapper for email automation. All Supabase access
+// is proxied through the email-settings Netlify Function (server-side,
+// service role key) so the browser never needs VITE_SUPABASE_* env vars.
+// Sending itself goes through the separate send-email function.
 // ============================================================
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Order, Customer, EmailTemplate } from '../types';
 import { generateEmailData, populateTemplate } from '../utils/emailUtils';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-// Lazy-init the client so a missing env var doesn't crash the app
-// at module-load time. Methods check for null and return safe defaults.
-let _supabase: SupabaseClient | null = null;
-function getSupabase(): SupabaseClient | null {
-  if (_supabase) return _supabase;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
-  try {
-    _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    return _supabase;
-  } catch {
-    return null;
-  }
-}
 
 export interface EmailSettings {
   automationEnabled: boolean;
@@ -57,85 +38,64 @@ export interface EmailLogEntry {
   created_at: string;
 }
 
+const SETTINGS_ENDPOINT = '/.netlify/functions/email-settings';
 const SEND_EMAIL_ENDPOINT = '/.netlify/functions/send-email';
+
+async function apiGet<T>(query: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${SETTINGS_ENDPOINT}?${query}`);
+    const json = await res.json();
+    if (!res.ok) return null;
+    return json as T;
+  } catch {
+    return null;
+  }
+}
+
+async function apiPost(url: string, body: unknown): Promise<{ success: boolean; data?: any }> {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    return { success: res.ok, data: json };
+  } catch (err) {
+    return { success: false, data: { error: (err as Error).message } };
+  }
+}
 
 // ── Settings ────────────────────────────────────────────────
 export const emailSettings = {
   async get(): Promise<EmailSettings | null> {
-    const sb = getSupabase();
-    if (!sb) return null;
-    const { data, error } = await sb
-      .from('email_settings')
-      .select('*')
-      .eq('id', 1)
-      .single();
-    if (error || !data) return null;
-    return {
-      automationEnabled: data.automation_enabled,
-      templateOrderReceived: data.template_order_received,
-      templateOrderConfirmed: data.template_order_confirmed,
-      templateCollectionReminder: data.template_collection_reminder,
-      fromAddress: data.from_address,
-      replyToAddress: data.reply_to_address,
-    };
+    const data = await apiGet<{ settings: EmailSettings | null }>('action=settings');
+    return data?.settings ?? null;
   },
 
   async update(updates: Partial<EmailSettings>): Promise<boolean> {
-    const sb = getSupabase();
-    if (!sb) return false;
-    const dbUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if (updates.automationEnabled !== undefined) dbUpdates.automation_enabled = updates.automationEnabled;
-    if (updates.templateOrderReceived !== undefined) dbUpdates.template_order_received = updates.templateOrderReceived;
-    if (updates.templateOrderConfirmed !== undefined) dbUpdates.template_order_confirmed = updates.templateOrderConfirmed;
-    if (updates.templateCollectionReminder !== undefined) dbUpdates.template_collection_reminder = updates.templateCollectionReminder;
-    if (updates.fromAddress !== undefined) dbUpdates.from_address = updates.fromAddress;
-    if (updates.replyToAddress !== undefined) dbUpdates.reply_to_address = updates.replyToAddress;
-
-    const { error } = await sb
-      .from('email_settings')
-      .update(dbUpdates)
-      .eq('id', 1);
-    return !error;
+    const { success } = await apiPost(`${SETTINGS_ENDPOINT}?action=settings`, updates);
+    return success;
   },
 };
 
 // ── Email log ───────────────────────────────────────────────
 export const emailLog = {
   async getForOrder(orderId: string): Promise<EmailLogEntry[]> {
-    const sb = getSupabase();
-    if (!sb) return [];
-    const { data, error } = await sb
-      .from('email_log')
-      .select('*')
-      .eq('order_id', orderId)
-      .order('created_at', { ascending: false });
-    if (error || !data) return [];
-    return data as EmailLogEntry[];
+    const data = await apiGet<{ entries: EmailLogEntry[] }>(`action=log&order_id=${encodeURIComponent(orderId)}`);
+    return data?.entries ?? [];
   },
 
   async getRecent(limit = 20): Promise<EmailLogEntry[]> {
-    const sb = getSupabase();
-    if (!sb) return [];
-    const { data, error } = await sb
-      .from('email_log')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (error || !data) return [];
-    return data as EmailLogEntry[];
+    const data = await apiGet<{ entries: EmailLogEntry[] }>(`action=log&limit=${limit}`);
+    return data?.entries ?? [];
   },
 
   async wasSent(orderId: string, templateId: string): Promise<boolean> {
-    const sb = getSupabase();
-    if (!sb) return false;
-    const { count, error } = await sb
-      .from('email_log')
-      .select('*', { count: 'exact', head: true })
-      .eq('order_id', orderId)
-      .eq('template_id', templateId)
-      .eq('status', 'sent');
-    if (error) return false;
-    return (count ?? 0) > 0;
+    const data = await apiGet<{ sent: boolean }>(
+      `action=was_sent&order_id=${encodeURIComponent(orderId)}&template_id=${encodeURIComponent(templateId)}`
+    );
+    return data?.sent ?? false;
   },
 };
 
@@ -149,29 +109,20 @@ export async function sendEmail(
   customerId?: string,
   sentBy?: string
 ): Promise<SendEmailResult> {
-  try {
-    const res = await fetch(SEND_EMAIL_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to,
-        subject,
-        text: body,
-        html: body.replace(/\n/g, '<br>'),
-        templateId,
-        orderId,
-        customerId,
-        sentBy,
-      }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: false, error: json.error || `HTTP ${res.status}` };
-    }
-    return { success: true, messageId: json.messageId };
-  } catch (err) {
-    return { success: false, error: (err as Error).message };
+  const { success, data } = await apiPost(SEND_EMAIL_ENDPOINT, {
+    to,
+    subject,
+    text: body,
+    html: body.replace(/\n/g, '<br>'),
+    templateId,
+    orderId,
+    customerId,
+    sentBy,
+  });
+  if (!success || !data?.success) {
+    return { success: false, error: data?.error || `HTTP error` };
   }
+  return { success: true, messageId: data.messageId };
 }
 
 // ── High-level: send a populated template for an order ──────
@@ -208,3 +159,6 @@ If you're reading this, your Resend integration is working correctly.
 Sent: ${new Date().toLocaleString('en-NZ')}`;
   return sendEmail(to, subject, body, 'test-email');
 }
+
+
+export { sendTemplateEmail, emailSettings, emailLog }
