@@ -159,6 +159,3 @@ If you're reading this, your Resend integration is working correctly.
 Sent: ${new Date().toLocaleString('en-NZ')}`;
   return sendEmail(to, subject, body, 'test-email');
 }
-
-
-export { sendTemplateEmail, emailSettings, emailLog }
