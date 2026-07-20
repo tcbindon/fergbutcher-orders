@@ -2,17 +2,31 @@
 // ============================================================
 // Client-side wrapper for the send-email Netlify Function.
 // Talks to Supabase directly for settings + email log reads.
+// Gracefully degrades when VITE_SUPABASE_* env vars are missing
+// (e.g. on Netlify if they haven't been set yet) so the rest of
+// the app still loads.
 // ============================================================
 
-import { createClient } from '@supabase/supabase-js';
-import { Order, Customer } from '../types';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Order, Customer, EmailTemplate } from '../types';
 import { generateEmailData, populateTemplate } from '../utils/emailUtils';
-import { EmailTemplate } from '../types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Lazy-init the client so a missing env var doesn't crash the app
+// at module-load time. Methods check for null and return safe defaults.
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient | null {
+  if (_supabase) return _supabase;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  try {
+    _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return _supabase;
+  } catch {
+    return null;
+  }
+}
 
 export interface EmailSettings {
   automationEnabled: boolean;
@@ -48,7 +62,9 @@ const SEND_EMAIL_ENDPOINT = '/.netlify/functions/send-email';
 // ── Settings ────────────────────────────────────────────────
 export const emailSettings = {
   async get(): Promise<EmailSettings | null> {
-    const { data, error } = await supabase
+    const sb = getSupabase();
+    if (!sb) return null;
+    const { data, error } = await sb
       .from('email_settings')
       .select('*')
       .eq('id', 1)
@@ -65,6 +81,8 @@ export const emailSettings = {
   },
 
   async update(updates: Partial<EmailSettings>): Promise<boolean> {
+    const sb = getSupabase();
+    if (!sb) return false;
     const dbUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (updates.automationEnabled !== undefined) dbUpdates.automation_enabled = updates.automationEnabled;
     if (updates.templateOrderReceived !== undefined) dbUpdates.template_order_received = updates.templateOrderReceived;
@@ -73,7 +91,7 @@ export const emailSettings = {
     if (updates.fromAddress !== undefined) dbUpdates.from_address = updates.fromAddress;
     if (updates.replyToAddress !== undefined) dbUpdates.reply_to_address = updates.replyToAddress;
 
-    const { error } = await supabase
+    const { error } = await sb
       .from('email_settings')
       .update(dbUpdates)
       .eq('id', 1);
@@ -84,7 +102,9 @@ export const emailSettings = {
 // ── Email log ───────────────────────────────────────────────
 export const emailLog = {
   async getForOrder(orderId: string): Promise<EmailLogEntry[]> {
-    const { data, error } = await supabase
+    const sb = getSupabase();
+    if (!sb) return [];
+    const { data, error } = await sb
       .from('email_log')
       .select('*')
       .eq('order_id', orderId)
@@ -94,7 +114,9 @@ export const emailLog = {
   },
 
   async getRecent(limit = 20): Promise<EmailLogEntry[]> {
-    const { data, error } = await supabase
+    const sb = getSupabase();
+    if (!sb) return [];
+    const { data, error } = await sb
       .from('email_log')
       .select('*')
       .order('created_at', { ascending: false })
@@ -104,7 +126,9 @@ export const emailLog = {
   },
 
   async wasSent(orderId: string, templateId: string): Promise<boolean> {
-    const { count, error } = await supabase
+    const sb = getSupabase();
+    if (!sb) return false;
+    const { count, error } = await sb
       .from('email_log')
       .select('*', { count: 'exact', head: true })
       .eq('order_id', orderId)
