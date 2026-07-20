@@ -17,6 +17,7 @@ const Settings: React.FC = () => {
   // Email automation state
   const [emailAutoSettings, setEmailAutoSettings] = useState<EmailSettingsType | null>(null);
   const [emailSettingsLoading, setEmailSettingsLoading] = useState(true);
+  const [emailSettingsError, setEmailSettingsError] = useState<string | null>(null);
   const [savingEmailSettings, setSavingEmailSettings] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   const [testEmailAddr, setTestEmailAddr] = useState('');
@@ -54,7 +55,12 @@ const Settings: React.FC = () => {
         emailLog.getRecent(10),
       ]);
       if (cancelled) return;
-      setEmailAutoSettings(s);
+      if (s === null) {
+        setEmailSettingsError('Unable to load email automation settings. Check the Netlify function logs for email-settings.');
+      } else {
+        setEmailAutoSettings(s);
+        setEmailSettingsError(null);
+      }
       setRecentEmails(log);
       setEmailSettingsLoading(false);
     })();
@@ -398,9 +404,13 @@ const Settings: React.FC = () => {
                 </>
               ) : (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2">
-                    <AlertTriangle className="h-5 w-5 text-red-600" />
-                    <p className="text-red-700">Could not load email automation settings. Check the Supabase connection.</p>
+                  <div className="flex items-start space-x-2">
+                    <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-red-700 font-medium">Could not load email automation settings.</p>
+                      <p className="text-red-600 text-sm mt-1">{emailSettingsError || 'The email-settings function returned no data.'}</p>
+                      <p className="text-red-500 text-xs mt-2">Check the Netlify function logs (Functions &rarr; email-settings) and verify SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in Netlify env vars.</p>
+                    </div>
                   </div>
                 </div>
               )}

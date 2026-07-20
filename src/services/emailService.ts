@@ -41,14 +41,20 @@ export interface EmailLogEntry {
 const SETTINGS_ENDPOINT = '/.netlify/functions/email-settings';
 const SEND_EMAIL_ENDPOINT = '/.netlify/functions/send-email';
 
-async function apiGet<T>(query: string): Promise<T | null> {
+async function apiGet<T>(query: string): Promise<{ data: T | null; error: string | null }> {
   try {
     const res = await fetch(`${SETTINGS_ENDPOINT}?${query}`);
     const json = await res.json();
-    if (!res.ok) return null;
-    return json as T;
-  } catch {
-    return null;
+    if (!res.ok) {
+      const error = json?.error || `HTTP ${res.status}`;
+      console.error('[emailService] GET failed:', query, error);
+      return { data: null, error };
+    }
+    return { data: json as T, error: null };
+  } catch (err) {
+    const error = (err as Error).message;
+    console.error('[emailService] GET network error:', query, error);
+    return { data: null, error };
   }
 }
 
@@ -69,7 +75,7 @@ async function apiPost(url: string, body: unknown): Promise<{ success: boolean; 
 // ── Settings ────────────────────────────────────────────────
 export const emailSettings = {
   async get(): Promise<EmailSettings | null> {
-    const data = await apiGet<{ settings: EmailSettings | null }>('action=settings');
+    const { data } = await apiGet<{ settings: EmailSettings | null }>('action=settings');
     return data?.settings ?? null;
   },
 
@@ -82,17 +88,17 @@ export const emailSettings = {
 // ── Email log ───────────────────────────────────────────────
 export const emailLog = {
   async getForOrder(orderId: string): Promise<EmailLogEntry[]> {
-    const data = await apiGet<{ entries: EmailLogEntry[] }>(`action=log&order_id=${encodeURIComponent(orderId)}`);
+    const { data } = await apiGet<{ entries: EmailLogEntry[] }>(`action=log&order_id=${encodeURIComponent(orderId)}`);
     return data?.entries ?? [];
   },
 
   async getRecent(limit = 20): Promise<EmailLogEntry[]> {
-    const data = await apiGet<{ entries: EmailLogEntry[] }>(`action=log&limit=${limit}`);
+    const { data } = await apiGet<{ entries: EmailLogEntry[] }>(`action=log&limit=${limit}`);
     return data?.entries ?? [];
   },
 
   async wasSent(orderId: string, templateId: string): Promise<boolean> {
-    const data = await apiGet<{ sent: boolean }>(
+    const { data } = await apiGet<{ sent: boolean }>(
       `action=was_sent&order_id=${encodeURIComponent(orderId)}&template_id=${encodeURIComponent(templateId)}`
     );
     return data?.sent ?? false;
