@@ -44,8 +44,9 @@ export const useOrders = () => {
     ordersApi.getAll()
       .then(data => {
         if (cancelled) return;
-        setOrders(data);
-        writeCache(ORDERS_CACHE_KEY, data);
+        const repaired = repairRecurringDates(data);
+        setOrders(repaired);
+        writeCache(ORDERS_CACHE_KEY, repaired);
         setError(null);
       })
       .catch(err => {
@@ -57,6 +58,112 @@ export const useOrders = () => {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // ── Repair missing collection dates for recurring orders ──
+  // The backend sometimes fails to persist collectionDate for recurring
+  // orders, leaving them as null ("No date set"). This pass recomputes
+  // the missing dates from the series metadata (parentOrderId, pattern,
+  // endDate) and persists the fixes back to the DB.
+  const repairRecurringDates = (allOrders: Order[]): Order[] => {
+    const needsRepair = allOrders.some(
+      o => o.isRecurring && o.parentOrderId && !o.collectionDate
+    );
+    if (!needsRepair) return allOrders;
+
+    const byParent = new Map<string, Order[]>();
+    for (const o of allOrders) {
+      if (!o.parentOrderId) continue;
+      const list = byParent.get(o.parentOrderId) ?? [];
+      list.push(o);
+      byParent.set(o.parentOrderId, list);
+    }
+
+    const updates: { id: string; collectionDate: string }[] = [];
+    const repaired = allOrders.map(o => ({ ...o }));
+
+    for (const [parentId, series] of byParent) {
+      const broken = series.filter(o => !o.collectionDate);
+      if (broken.length === 0) continue;
+
+      const pattern = series[0]?.recurrencePattern;
+      const endDateStr = series[0]?.recurrenceEndDate;
+      if (!pattern || !endDateStr) continue;
+
+      const intervalDays = pattern === 'weekly' ? 7 : 14;
+      const endDate = parseDateLocal(endDateStr);
+
+      // Find the earliest known good date in the series
+      const dated = series
+        .filter(o => o.collectionDate)
+        .sort((a, b) => a.collectionDate!.localeCompare(b.collectionDate!));
+
+      if (dated.length > 0) {
+        // We have at least one good date — generate the full expected
+        // sequence and assign missing orders to the nearest unused slot.
+        const startDate = parseDateLocal(dated[0].collectionDate!);
+        const expectedDates: string[] = [];
+        let cur = new Date(startDate);
+        while (cur <= endDate && expectedDates.length < 52) {
+          expectedDates.push(formatDateLocal(cur));
+          cur = new Date(cur);
+          cur.setDate(cur.getDate() + intervalDays);
+        }
+
+        const usedDates = new Set(dated.map(o => o.collectionDate));
+        const availableDates = expectedDates.filter(d => !usedDates.has(d));
+
+        // Sort broken orders by createdAt to assign in chronological order
+        broken.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+        broken.forEach((order, idx) => {
+          if (idx < availableDates.length) {
+            const newDate = availableDates[idx];
+            const target = repaired.find(o => o.id === order.id);
+            if (target) {
+              target.collectionDate = newDate;
+              updates.push({ id: order.id, collectionDate: newDate });
+            }
+          }
+        });
+      } else {
+        // No known good dates — back-calculate from endDate
+        // Step backwards from endDate by interval to build the sequence,
+        // then assign in chronological order.
+        const expectedDates: string[] = [];
+        let cur = new Date(endDate);
+        // Walk backwards to generate the same number of slots as broken orders
+        for (let i = 0; i < broken.length && expectedDates.length < 52; i++) {
+          expectedDates.unshift(formatDateLocal(cur));
+          cur = new Date(cur);
+          cur.setDate(cur.getDate() - intervalDays);
+        }
+
+        broken.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        broken.forEach((order, idx) => {
+          if (idx < expectedDates.length) {
+            const newDate = expectedDates[idx];
+            const target = repaired.find(o => o.id === order.id);
+            if (target) {
+              target.collectionDate = newDate;
+              updates.push({ id: order.id, collectionDate: newDate });
+            }
+          }
+        });
+      }
+    }
+
+    if (updates.length > 0) {
+      errorLogger.info(`Repaired ${updates.length} recurring order date(s) from series metadata`);
+      // Persist fixes back to DB (fire-and-forget)
+      updates.forEach(u => {
+        ordersApi.update(u.id, { collectionDate: u.collectionDate }).catch(err => {
+          errorLogger.error(`Failed to persist repaired date for order ${u.id}`, err);
+        });
+      });
+    }
+
+    return repaired;
+  };
 
   // ── Helpers ───────────────────────────────────────────────
   const getNextOrderId = (existingOrders: Order[], extra: Order[] = []): string => {
