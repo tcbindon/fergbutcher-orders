@@ -196,6 +196,10 @@ exports.handler = async (event, context) => {
       skipped++;
       continue;
     }
+    if (customer.reminderOptOut || customer.reminder_opt_out) {
+      skipped++;
+      continue;
+    }
 
     const { subject, body } = populateTemplate(DEFAULT_REMINDER_TEMPLATE, order, customer);
     const resendBody = {

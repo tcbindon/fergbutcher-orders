@@ -20,7 +20,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     email: '',
     phone: '',
     company: '',
-    notes: ''
+    notes: '',
+    reminderOptOut: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -32,7 +33,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         email: customer.email || '',
         phone: customer.phone,
         company: customer.company || '',
-        notes: customer.notes || ''
+        notes: customer.notes || '',
+        reminderOptOut: customer.reminderOptOut || false
       });
     }
   }, [customer]);
@@ -72,7 +74,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         email: formData.email.trim().toLowerCase() || undefined,
         phone: formData.phone.trim(),
         company: formData.company.trim() || undefined,
-        notes: formData.notes.trim() || undefined
+        notes: formData.notes.trim() || undefined,
+        reminderOptOut: formData.reminderOptOut
       });
     }
   };
@@ -142,6 +145,20 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         />
         {errors.email && (
           <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+        )}
+        {formData.email.trim() && (
+          <label className="flex items-center space-x-2 mt-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.reminderOptOut}
+              onChange={(e) => setFormData(prev => ({ ...prev, reminderOptOut: e.target.checked }))}
+              className="h-4 w-4 text-fergbutcher-green-600 border-fergbutcher-gold-300 rounded focus:ring-fergbutcher-green-500"
+              disabled={isLoading}
+            />
+            <span className="text-sm text-fergbutcher-gold-700">
+              Opt out of collection reminder emails
+            </span>
+          </label>
         )}
       </div>
       
