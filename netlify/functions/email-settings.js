@@ -58,8 +58,8 @@ function mapSettingsRow(row) {
     templateOrderReceived: !!row.template_order_received,
     templateOrderConfirmed: !!row.template_order_confirmed,
     templateCollectionReminder: !!row.template_collection_reminder,
-    fromAddress: row.from_address || '',
-    replyToAddress: row.reply_to_address || null,
+    fromAddress: process.env.RESEND_FROM_ADDRESS || row.from_address || '',
+    replyToAddress: process.env.RESEND_REPLY_TO || row.reply_to_address || null,
   };
 }
 
