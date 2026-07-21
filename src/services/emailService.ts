@@ -155,6 +155,40 @@ export async function sendTemplateEmail(
   );
 }
 
+// ── Auto-send: used by addOrder/updateOrder to fire emails on ─
+// creation/status-change without requiring OrderDetail to mount.
+// Loads template from localStorage, checks automation settings,
+// dedups via email_log, then sends. No-ops silently if disabled
+// or already sent.
+export async function autoSendOrderEmail(
+  order: Order,
+  customer: Customer,
+  templateId: 'order-received' | 'order-confirmed',
+  sentBy = 'Automation'
+): Promise<SendEmailResult> {
+  if (!customer.email) return { success: false, error: 'Customer has no email' };
+
+  const settings = await emailSettings.get();
+  if (!settings || !settings.automationEnabled) return { success: false, error: 'Automation disabled' };
+  if (templateId === 'order-received' && !settings.templateOrderReceived) return { success: false, error: 'Template disabled' };
+  if (templateId === 'order-confirmed' && !settings.templateOrderConfirmed) return { success: false, error: 'Template disabled' };
+
+  const already = await emailLog.wasSent(order.id, templateId);
+  if (already) return { success: false, error: 'Already sent' };
+
+  let template: EmailTemplate | undefined;
+  try {
+    const saved = localStorage.getItem('fergbutcher_email_templates');
+    if (saved) {
+      const all: EmailTemplate[] = JSON.parse(saved);
+      template = all.find(t => t.id === templateId);
+    }
+  } catch { /* fall through to undefined */ }
+  if (!template) return { success: false, error: 'Template not found' };
+
+  return sendTemplateEmail(template, order, customer, sentBy);
+}
+
 // ── Test email (for Settings "Send test email" button) ──────
 export async function sendTestEmail(to: string): Promise<SendEmailResult> {
   const subject = 'Fergbutcher — Test Email';

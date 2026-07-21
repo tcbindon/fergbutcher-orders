@@ -10,6 +10,7 @@ import { Order, Customer } from '../types';
 import { useGoogleSheets } from './useGoogleSheets';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
+import { autoSendOrderEmail } from '../services/emailService';
 import { ordersApi } from './useApi';
 
 const parseDateLocal = (s: string) => {
@@ -120,6 +121,13 @@ export const useOrders = () => {
         });
 
         errorLogger.info(`Created ${newOrders.length} recurring orders`);
+
+        // Auto-send emails for each recurring occurrence
+        newOrders.forEach(o => {
+          const cust = customers.find(c => c.id === o.customerId);
+          if (cust) autoSendOrderEmail(o, cust, o.status === 'confirmed' ? 'order-confirmed' : 'order-received').catch(console.error);
+        });
+
         return newOrders[0];
 
       } else {
@@ -162,6 +170,11 @@ export const useOrders = () => {
         });
 
         errorLogger.info(`Order created: #${newOrder.id}`);
+
+        // Auto-send email on creation based on initial status
+        const cust = customers.find(c => c.id === newOrder.customerId);
+        if (cust) autoSendOrderEmail(newOrder, cust, newOrder.status === 'confirmed' ? 'order-confirmed' : 'order-received').catch(console.error);
+
         return newOrder;
       }
     } catch (err) {
@@ -187,6 +200,13 @@ export const useOrders = () => {
           setOrders(previousOrders);
           setError('Failed to update order. Please try again.');
         });
+
+      // Auto-send confirmation email when status transitions to 'confirmed'
+      if (updates.status === 'confirmed') {
+        const updated = updatedOrders.find(o => o.id === id);
+        const cust = customers.find(c => c.id === updated?.customerId);
+        if (updated && cust) autoSendOrderEmail(updated, cust, 'order-confirmed').catch(console.error);
+      }
 
       return true;
     } catch (err) {

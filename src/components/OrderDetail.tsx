@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Calendar, Clock, Package, FileText, Pencil, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift, RefreshCw, Loader2 } from 'lucide-react';
 import { Order, Customer } from '../types';
 import StaffComments from './StaffComments';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import { generateEmailData, populateTemplate, openEmailClient } from '../utils/emailUtils';
-import { sendTemplateEmail, emailSettings, emailLog } from '../services/emailService';
+import { sendTemplateEmail, emailSettings } from '../services/emailService';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { toast } from './Toast';
 
@@ -29,6 +29,11 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   const { templates, getTemplate } = useEmailTemplates();
   const { addStaffNote } = useStaffNotes();
   const [sendingTemplate, setSendingTemplate] = useState<string | null>(null);
+  const [fromAddress, setFromAddress] = useState<string>('');
+
+  useEffect(() => {
+    emailSettings.get().then(s => { if (s?.fromAddress) setFromAddress(s.fromAddress); }).catch(() => {});
+  }, []);
 
   const handleSendEmail = async (templateId: string) => {
     if (!customer) { toast.error('Customer information not available'); return; }
@@ -52,37 +57,6 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
       setSendingTemplate(null);
     }
   };
-
-  // ── Automated email on status change to 'confirmed' ────────
-  // Fires only on live transition (caller passes newStatus). Guards:
-  // - automation enabled + template_order_confirmed toggle on
-  // - not already sent for this order
-  // - customer has email
-  // This is triggered by the parent via onStatusChange -> parent
-  // calls a wrapper that invokes this helper. For simplicity we
-  // expose it through the same onStatusChange flow.
-  React.useEffect(() => {
-    if (order.status !== 'confirmed') return;
-    let cancelled = false;
-    (async () => {
-      const settings = await emailSettings.get();
-      if (!settings || !settings.automationEnabled || !settings.templateOrderConfirmed) return;
-      const already = await emailLog.wasSent(order.id, 'order-confirmed');
-      if (already || cancelled) return;
-      const template = getTemplate('order-confirmed');
-      if (!template || !customer || !customer.email) return;
-      const result = await sendTemplateEmail(template, order, customer, 'Automation');
-      if (!cancelled) {
-        if (result.success) {
-          addStaffNote(order.id, 'System', `📧 Order Confirmed email auto-sent to ${customer.email}`);
-        } else {
-          console.warn('Auto order-confirmed email failed:', result.error);
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order.status, order.id]);
 
   const getNextStatus = (currentStatus: Order['status']): Order['status'] | null => {
     switch (currentStatus) {
@@ -296,7 +270,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
           </div>
           <div className="flex items-center justify-between mt-2">
             <p className="text-xs text-fergbutcher-green-400">
-              Sends directly from {customer.email ? 'orders@fergbutcher.com' : '—'} to {customer.email}
+              Sends directly from {customer.email ? (fromAddress || 'orders@fergbutcher.com') : '—'} to {customer.email}
             </p>
             <button
               onClick={() => {
