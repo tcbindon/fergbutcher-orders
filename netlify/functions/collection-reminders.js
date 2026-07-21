@@ -144,7 +144,7 @@ exports.handler = async (event, context) => {
   }
 
   // Filter to active statuses (exclude cancelled/collected)
-  const activeStatuses = new Set(['confirmed', 'prepared']);
+  const activeStatuses = new Set(['pending', 'confirmed', 'prepared']);
   orders = (orders || []).filter(o => activeStatuses.has(o.status));
 
   if (orders.length === 0) {
@@ -193,10 +193,6 @@ exports.handler = async (event, context) => {
     }
     const customer = customersById.get(order.customerId);
     if (!customer || !customer.email) {
-      skipped++;
-      continue;
-    }
-    if (customer.reminderOptOut || customer.reminder_opt_out) {
       skipped++;
       continue;
     }

@@ -6,7 +6,6 @@ export interface Customer {
   phone: string;
   company?: string;
   notes?: string;
-  reminderOptOut?: boolean;
   createdAt: string;
 }
 

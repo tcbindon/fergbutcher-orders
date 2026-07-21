@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext } from 'react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 
@@ -28,7 +28,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const orders = useOrders();
   const customers = useCustomers();
 
-  const value = useMemo<AppDataContextValue>(() => ({
+  const value: AppDataContextValue = {
     // Spread all orders methods/data (excluding ambiguous fields)
     orders: orders.orders,
     addOrder: orders.addOrder,
@@ -66,8 +66,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Combined convenience fields for components that only care about one
     loading: orders.loading || customers.loading,
     error: orders.error || customers.error,
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [orders.orders, orders.loading, orders.error, customers.customers, customers.loading, customers.error]);
+  };
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 };
