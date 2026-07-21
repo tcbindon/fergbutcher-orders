@@ -4,11 +4,16 @@
 // Finds orders with collectionDate = tomorrow and sends the
 // collection-reminder email template to each customer.
 //
-// Guarded by the email_settings.template_collection_reminder flag
-// (read from Supabase). If disabled, exits immediately.
+// Data sources:
+//   - Orders + customers: fetched from the PHP/SiteGround backend
+//     (same API the app uses via the api.js proxy).
+//   - Email settings + email log: Supabase (service role key).
+//
+// Guarded by the email_settings.template_collection_reminder flag.
 // ============================================================
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
+const PHP_API_BASE = 'https://orders.fergbutcher.com/api';
 
 // Default collection-reminder template (used by the scheduled job
 // since templates live in client localStorage and aren't reachable here)
@@ -56,9 +61,9 @@ const populateTemplate = (tmpl, order, customer) => {
     email: customer.email || '',
     orderId: order.id,
     orderItems: itemsText,
-    collectionDate: formatCollectionDate(order.collection_date || order.collectionDate),
-    collectionTime: order.collection_time || order.collectionTime ? ` at ${(order.collection_time || order.collectionTime)}` : '',
-    additionalNotes: order.additional_notes || order.additionalNotes || '',
+    collectionDate: formatCollectionDate(order.collectionDate),
+    collectionTime: order.collectionTime ? ` at ${order.collectionTime}` : '',
+    additionalNotes: order.additionalNotes || '',
   };
   const fill = (str) => str.replace(/\{(\w+)\}/g, (_, k) => data[k] ?? '');
   return {
@@ -66,6 +71,25 @@ const populateTemplate = (tmpl, order, customer) => {
     body: fill(tmpl.body),
   };
 };
+
+// Fetch JSON from the PHP backend (returns the `data` payload)
+async function fetchFromPhp(endpoint, query = '') {
+  const apiSecret = process.env.API_SECRET;
+  if (!apiSecret) throw new Error('API_SECRET not configured');
+
+  const url = `${PHP_API_BASE}/${endpoint}.php${query}`;
+  const res = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiSecret,
+    },
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || `PHP API HTTP ${res.status}`);
+  }
+  return json.data;
+}
 
 exports.handler = async (event, context) => {
   const apiKey = process.env.RESEND_API_KEY;
@@ -106,13 +130,23 @@ exports.handler = async (event, context) => {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
-  // 3. Fetch orders for tomorrow (exclude cancelled/collected)
-  const ordersRes = await fetch(
-    `${supabaseUrl}/rest/v1/orders?collection_date=eq.${tomorrowStr}&status=in.(pending,confirmed,prepared)`,
-    { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } }
-  );
-  const ordersJson = await ordersRes.json();
-  const orders = ordersJson || [];
+  // 3. Fetch orders for tomorrow from the PHP backend
+  let orders;
+  try {
+    orders = await fetchFromPhp('orders', `?from=${tomorrowStr}&to=${tomorrowStr}`);
+  } catch (err) {
+    console.error('Failed to fetch orders from PHP backend:', err.message);
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ skipped: true, reason: 'orders-fetch-failed', error: err.message }),
+    };
+  }
+
+  // Filter to active statuses (exclude cancelled/collected)
+  const activeStatuses = new Set(['pending', 'confirmed', 'prepared']);
+  orders = (orders || []).filter(o => activeStatuses.has(o.status));
+
   if (orders.length === 0) {
     console.log(`No orders for ${tomorrowStr}; exiting`);
     return {
@@ -122,14 +156,21 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // 4. Fetch all customers (to resolve emails by ID)
-  const customersRes = await fetch(`${supabaseUrl}/rest/v1/customers`, {
-    headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` },
-  });
-  const customersJson = await customersRes.json();
-  const customersById = new Map((customersJson || []).map(c => [c.id, c]));
+  // 4. Fetch all customers from the PHP backend (to resolve emails by ID)
+  let customers;
+  try {
+    customers = await fetchFromPhp('customers');
+  } catch (err) {
+    console.error('Failed to fetch customers from PHP backend:', err.message);
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ skipped: true, reason: 'customers-fetch-failed', error: err.message }),
+    };
+  }
+  const customersById = new Map((customers || []).map(c => [c.id, c]));
 
-  // 5. Fetch already-sent reminder logs for today to avoid duplicates
+  // 5. Fetch already-sent reminder logs from Supabase to avoid duplicates
   const orderIdsCsv = orders.map(o => o.id).join(',');
   const logRes = await fetch(
     `${supabaseUrl}/rest/v1/email_log?template_id=eq.collection-reminder&order_id=in.(${orderIdsCsv})`,
@@ -150,7 +191,7 @@ exports.handler = async (event, context) => {
       skipped++;
       continue;
     }
-    const customer = customersById.get(order.customer_id || order.customerId);
+    const customer = customersById.get(order.customerId);
     if (!customer || !customer.email) {
       skipped++;
       continue;
@@ -202,7 +243,7 @@ exports.handler = async (event, context) => {
         },
         body: JSON.stringify({
           order_id: order.id,
-          customer_id: order.customer_id || order.customerId,
+          customer_id: order.customerId,
           template_id: 'collection-reminder',
           recipient: customer.email,
           subject,
