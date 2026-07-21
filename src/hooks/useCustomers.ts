@@ -10,6 +10,9 @@ import { useGoogleSheets } from './useGoogleSheets';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { customersApi } from './useApi';
+import { readCache, writeCache } from '../utils/apiCache';
+
+const CUSTOMERS_CACHE_KEY = 'customers';
 
 const sortByFirstName = (arr: Customer[]) =>
   [...arr].sort((a, b) => a.firstName.localeCompare(b.firstName));
@@ -21,12 +24,24 @@ export const useCustomers = () => {
   const { isConnected, syncCustomers } = useGoogleSheets();
   const { addUndoAction } = useUndo();
 
-  // ── Load all customers from DB on mount ──────────────────
+  // ── Load all customers from DB on mount (stale-while-revalidate) ──
+  // Hydrate instantly from localStorage cache, then fetch fresh data in the background.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+
+    const cached = readCache<Customer[]>(CUSTOMERS_CACHE_KEY);
+    if (cached && cached.length > 0) {
+      setCustomers(sortByFirstName(cached));
+      setLoading(false); // Instant render from cache
+    }
+
     customersApi.getAll()
-      .then(data => { if (!cancelled) { setCustomers(sortByFirstName(data)); setError(null); } })
+      .then(data => {
+        if (cancelled) return;
+        setCustomers(sortByFirstName(data));
+        writeCache(CUSTOMERS_CACHE_KEY, data);
+        setError(null);
+      })
       .catch(err => {
         if (!cancelled) {
           console.error('Error loading customers:', err);

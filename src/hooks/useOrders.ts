@@ -12,6 +12,9 @@ import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { autoSendOrderEmail } from '../services/emailService';
 import { ordersApi } from './useApi';
+import { readCache, writeCache } from '../utils/apiCache';
+
+const ORDERS_CACHE_KEY = 'orders';
 
 const parseDateLocal = (s: string) => {
   const [y, m, d] = s.split('-').map(Number);
@@ -27,18 +30,29 @@ export const useOrders = () => {
   const { isConnected, syncOrders, syncChristmasOrders } = useGoogleSheets();
   const { addUndoAction } = useUndo();
 
-  // ── Load all orders from DB on mount ─────────────────────
+  // ── Load all orders from DB on mount (stale-while-revalidate) ──
+  // Hydrate instantly from localStorage cache, then fetch fresh data in the background.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+
+    const cached = readCache<Order[]>(ORDERS_CACHE_KEY);
+    if (cached && cached.length > 0) {
+      setOrders(cached);
+      setLoading(false); // Instant render from cache
+    }
+
     ordersApi.getAll()
-      .then(data => { if (!cancelled) { setOrders(data); setError(null); } })
+      .then(data => {
+        if (cancelled) return;
+        setOrders(data);
+        writeCache(ORDERS_CACHE_KEY, data);
+        setError(null);
+      })
       .catch(err => {
-        if (!cancelled) {
-          console.error('Error loading orders:', err);
-          errorLogger.error('Failed to load orders', err);
-          setError('Failed to load orders. Please check your connection.');
-        }
+        if (cancelled) return;
+        console.error('Error loading orders:', err);
+        errorLogger.error('Failed to load orders', err);
+        setError('Failed to load orders. Please check your connection.');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
