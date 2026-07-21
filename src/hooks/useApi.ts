@@ -35,7 +35,10 @@ const SENTINEL_DATE = '1900-01-01';
 
 const encodeDateForApi = <T extends { collectionDate?: string | null }>(
   obj: T
-): Omit<T, 'collectionDate'> & { collectionDate: string } => {
+): T => {
+  // Partial updates (e.g. status-only) may omit collectionDate entirely;
+  // only encode the sentinel when the field is actually present.
+  if (!('collectionDate' in obj)) return obj;
   const { collectionDate, ...rest } = obj as any;
   return { ...rest, collectionDate: collectionDate || SENTINEL_DATE };
 };
