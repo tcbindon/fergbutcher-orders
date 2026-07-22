@@ -2,16 +2,10 @@
 // ============================================================
 // Proxy function — forwards all API requests to SiteGround
 // No CORS issues — this runs server-to-server.
-// Includes a lightweight in-memory GET cache (15s TTL) for
-// warm function instances to reduce repeat cold-start cost.
 // ============================================================
  
 const API_BASE   = 'https://orders.fergbutcher.com/api';
 const API_SECRET = process.env.API_SECRET;
-const CACHE_TTL  = 15_000; // 15 seconds
-
-// Simple in-memory cache: Map<key, { data: string, status: number, ts: number }>
-const memCache = new Map();
  
 exports.handler = async (event) => {
  
@@ -40,25 +34,6 @@ exports.handler = async (event) => {
  
   const url = API_BASE + phpFile + queryString;
 
-  // Check in-memory cache for GET requests
-  const isGet = event.httpMethod === 'GET';
-  if (isGet) {
-    const cacheKey = event.httpMethod + ' ' + url;
-    const cached = memCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < CACHE_TTL) {
-      return {
-        statusCode: cached.status,
-        headers: {
-          'Content-Type':  'application/json',
-          'Cache-Control': 'public, max-age=15',
-          'X-Cache':       'HIT',
-          ...corsHeaders(),
-        },
-        body: cached.data,
-      };
-    }
-  }
-
   // Don't send body for GET/HEAD requests
   const hasBody = !['GET', 'HEAD'].includes(event.httpMethod) && event.body;
  
@@ -73,24 +48,12 @@ exports.handler = async (event) => {
     });
  
     const data = await response.text();
-
-    // Cache successful GET responses
-    if (isGet && response.status >= 200 && response.status < 300) {
-      const cacheKey = event.httpMethod + ' ' + url;
-      memCache.set(cacheKey, { data, status: response.status, ts: Date.now() });
-      // Prune old entries if cache grows large
-      if (memCache.size > 50) {
-        const oldestKey = memCache.keys().next().value;
-        if (oldestKey) memCache.delete(oldestKey);
-      }
-    }
  
     return {
       statusCode: response.status,
       headers: {
         'Content-Type':  'application/json',
-        'Cache-Control': 'public, max-age=15',
-        'X-Cache':       'MISS',
+        'Cache-Control': 'no-cache',
         ...corsHeaders(),
       },
       body: data,

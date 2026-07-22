@@ -11,8 +11,10 @@ const headers = {
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  // Add cache-buster to GET requests to prevent stale responses
   const isGet = !options.method || options.method === 'GET';
-  const url = `${API_BASE}${path}`;
+  const separator = path.includes('?') ? '&' : '?';
+  const url = isGet ? `${API_BASE}${path}${separator}_=${Date.now()}` : `${API_BASE}${path}`;
 
   const res = await fetch(url, { ...options, headers });
   const json = await res.json();

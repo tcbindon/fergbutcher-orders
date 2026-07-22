@@ -11,7 +11,6 @@ import { useGoogleSheets } from './useGoogleSheets';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { ordersApi } from './useApi';
-import { staleWhileRevalidate } from '../utils/apiCache';
 import { emailSettings, emailLog, sendTemplateEmail } from '../services/emailService';
 
 const parseDateLocal = (s: string) => {
@@ -64,16 +63,12 @@ export const useOrders = () => {
   const { isConnected, syncOrders, syncChristmasOrders } = useGoogleSheets();
   const { addUndoAction } = useUndo();
 
-  // ── Load all orders from DB on mount (stale-while-revalidate) ──
+  // ── Load all orders from DB on mount ─────────────────────
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    staleWhileRevalidate<Order[]>(
-      'orders',
-      () => ordersApi.getAll(),
-      (stale) => { if (!cancelled) setOrders(stale); },
-      (fresh) => { if (!cancelled) { setOrders(fresh); setError(null); } }
-    )
+    ordersApi.getAll()
+      .then(data => { if (!cancelled) { setOrders(data); setError(null); } })
       .catch(err => {
         if (!cancelled) {
           console.error('Error loading orders:', err);

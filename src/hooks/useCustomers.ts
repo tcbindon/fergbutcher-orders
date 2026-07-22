@@ -10,7 +10,6 @@ import { useGoogleSheets } from './useGoogleSheets';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { customersApi } from './useApi';
-import { staleWhileRevalidate } from '../utils/apiCache';
 
 const sortByFirstName = (arr: Customer[]) =>
   [...arr].sort((a, b) => a.firstName.localeCompare(b.firstName));
@@ -22,16 +21,12 @@ export const useCustomers = () => {
   const { isConnected, syncCustomers } = useGoogleSheets();
   const { addUndoAction } = useUndo();
 
-  // ── Load all customers from DB on mount (stale-while-revalidate) ──
+  // ── Load all customers from DB on mount ──────────────────
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    staleWhileRevalidate<Customer[]>(
-      'customers',
-      () => customersApi.getAll(),
-      (stale) => { if (!cancelled) setCustomers(sortByFirstName(stale)); },
-      (fresh) => { if (!cancelled) { setCustomers(sortByFirstName(fresh)); setError(null); } }
-    )
+    customersApi.getAll()
+      .then(data => { if (!cancelled) { setCustomers(sortByFirstName(data)); setError(null); } })
       .catch(err => {
         if (!cancelled) {
           console.error('Error loading customers:', err);
