@@ -1,4 +1,5 @@
 import { Customer, Order } from '../types';
+import { customersApi, ordersApi } from '../hooks/useApi';
 
 interface BackupData {
   customers: Customer[];
@@ -42,12 +43,14 @@ class BackupService {
     scheduleNextBackup();
   }
 
-  // Perform automatic backup
+  // Perform automatic backup — fetches live data from the DB, not stale localStorage
   private async performAutoBackup() {
     try {
-      const customers = this.getStoredCustomers();
-      const orders = this.getStoredOrders();
-      
+      const [customers, orders] = await Promise.all([
+        customersApi.getAll(),
+        ordersApi.getAll(),
+      ]);
+
       if (customers.length > 0 || orders.length > 0) {
         await this.createBackup(customers, orders, 'automatic');
         console.log('Automatic backup completed successfully');
@@ -200,25 +203,6 @@ class BackupService {
     }
     
     return next830PM;
-  }
-
-  // Helper methods
-  private getStoredCustomers(): Customer[] {
-    try {
-      const stored = localStorage.getItem('fergbutcher_customers');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private getStoredOrders(): Order[] {
-    try {
-      const stored = localStorage.getItem('fergbutcher_orders');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
   }
 
   private getStoredBackups(): Record<string, BackupData> {
