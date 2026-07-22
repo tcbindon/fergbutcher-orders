@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Pencil, Eye, Mail, Phone, Building, User, Trash2, AlertTriangle, Copy, Package, MessageSquare, Loader2 } from 'lucide-react';
+import { Search, Plus, Pencil, Eye, Mail, Phone, Building, User, Trash2, AlertTriangle, Copy, Package, MessageSquare, Loader2, Bell, BellOff } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import { toast } from './Toast';
@@ -165,8 +165,18 @@ const Customers: React.FC = () => {
                           <User className="h-6 w-6 text-fergbutcher-green-600" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-fergbutcher-black-900">
-                            {customer.firstName} {customer.lastName}
+                          <h3 className="text-lg font-semibold text-fergbutcher-black-900 flex items-center space-x-2">
+                            <span>{customer.firstName} {customer.lastName}</span>
+                            {customer.email && !customer.reminderOptOut && (
+                              <span title="Collection reminders enabled" className="inline-flex">
+                                <Bell className="h-4 w-4 text-fergbutcher-green-600" />
+                              </span>
+                            )}
+                            {customer.email && customer.reminderOptOut && (
+                              <span title="Opted out of collection reminders" className="inline-flex">
+                                <BellOff className="h-4 w-4 text-fergbutcher-gold-400" />
+                              </span>
+                            )}
                           </h3>
                           <div className="flex items-center space-x-4 mt-1">
                             {customer.email && (

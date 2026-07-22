@@ -6,11 +6,13 @@
 // ============================================================
 import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Order, Customer } from '../types';
+import { Order, Customer, EmailTemplate } from '../types';
 import { useGoogleSheets } from './useGoogleSheets';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { ordersApi } from './useApi';
+import { staleWhileRevalidate } from '../utils/apiCache';
+import { emailSettings, emailLog, sendTemplateEmail } from '../services/emailService';
 
 const parseDateLocal = (s: string) => {
   const [y, m, d] = s.split('-').map(Number);
@@ -19,6 +21,42 @@ const parseDateLocal = (s: string) => {
 const formatDateLocal = (dt: Date) =>
   `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 
+function getTemplateFromStorage(templateId: string): EmailTemplate | null {
+  try {
+    const saved = localStorage.getItem('fergbutcher_email_templates');
+    if (saved) {
+      const templates: EmailTemplate[] = JSON.parse(saved);
+      return templates.find(t => t.id === templateId) || null;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+async function autoSendOrderEmail(
+  order: Order,
+  customer: Customer | undefined,
+  templateId: 'order-received' | 'order-confirmed',
+  sentBy: string
+) {
+  if (!customer || !customer.email) return;
+  try {
+    const settings = await emailSettings.get();
+    if (!settings || !settings.automationEnabled) return;
+    if (templateId === 'order-received' && !settings.templateOrderReceived) return;
+    if (templateId === 'order-confirmed' && !settings.templateOrderConfirmed) return;
+    const already = await emailLog.wasSent(order.id, templateId);
+    if (already) return;
+    const template = getTemplateFromStorage(templateId);
+    if (!template) return;
+    const result = await sendTemplateEmail(template, order, customer, sentBy);
+    if (!result.success) {
+      console.warn(`Auto ${templateId} email failed:`, result.error);
+    }
+  } catch (err) {
+    console.error(`Auto ${templateId} email error:`, err);
+  }
+}
+
 export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,12 +64,16 @@ export const useOrders = () => {
   const { isConnected, syncOrders, syncChristmasOrders } = useGoogleSheets();
   const { addUndoAction } = useUndo();
 
-  // ── Load all orders from DB on mount ─────────────────────
+  // ── Load all orders from DB on mount (stale-while-revalidate) ──
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    ordersApi.getAll()
-      .then(data => { if (!cancelled) { setOrders(data); setError(null); } })
+    staleWhileRevalidate<Order[]>(
+      'orders',
+      () => ordersApi.getAll(),
+      (stale) => { if (!cancelled) setOrders(stale); },
+      (fresh) => { if (!cancelled) { setOrders(fresh); setError(null); } }
+    )
       .catch(err => {
         if (!cancelled) {
           console.error('Error loading orders:', err);
@@ -120,6 +162,14 @@ export const useOrders = () => {
         });
 
         errorLogger.info(`Created ${newOrders.length} recurring orders`);
+
+        // Auto-send emails for each recurring occurrence
+        const recurringCustomer = customers.find(c => c.id === orderData.customerId);
+        const tplId = orderData.status === 'confirmed' ? 'order-confirmed' : orderData.status === 'pending' ? 'order-received' : null;
+        if (tplId) {
+          newOrders.forEach(o => autoSendOrderEmail(o, recurringCustomer, tplId, 'Automation'));
+        }
+
         return newOrders[0];
 
       } else {
@@ -162,6 +212,15 @@ export const useOrders = () => {
         });
 
         errorLogger.info(`Order created: #${newOrder.id}`);
+
+        // Auto-send email on creation
+        const newCustomer = customers.find(c => c.id === newOrder.customerId);
+        if (newOrder.status === 'confirmed') {
+          autoSendOrderEmail(newOrder, newCustomer, 'order-confirmed', 'Automation');
+        } else if (newOrder.status === 'pending') {
+          autoSendOrderEmail(newOrder, newCustomer, 'order-received', 'Automation');
+        }
+
         return newOrder;
       }
     } catch (err) {
@@ -179,6 +238,15 @@ export const useOrders = () => {
       const previousOrders = [...orders];
       const updatedOrders = orders.map(o => o.id === id ? { ...o, ...updates, updatedAt } : o);
       setOrders(updatedOrders);
+
+      // Auto-send confirmation email on status change to 'confirmed'
+      if (updates.status === 'confirmed') {
+        const previousOrder = orders.find(o => o.id === id);
+        if (previousOrder && previousOrder.status !== 'confirmed') {
+          const customer = customers.find(c => c.id === previousOrder.customerId);
+          autoSendOrderEmail({ ...previousOrder, ...updates, updatedAt } as Order, customer, 'order-confirmed', 'Automation');
+        }
+      }
 
       ordersApi.update(id, { ...updates, updatedAt })
         .then(() => triggerSync(updatedOrders, customers))

@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Mail, Phone, Building, Calendar, Pencil, Trash2, ShoppingCart, FileText } from 'lucide-react';
+import { User, Mail, Phone, Building, Calendar, Pencil, Trash2, ShoppingCart, FileText, Bell, BellOff } from 'lucide-react';
 import { Customer } from '../types';
 
 interface CustomerDetailProps {
@@ -129,6 +129,22 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({
               </p>
             </div>
           </div>
+
+          {customer.email && (
+            <div className="flex items-center space-x-3">
+              <div className="bg-fergbutcher-green-100 p-2 rounded-lg">
+                {customer.reminderOptOut
+                  ? <BellOff className="h-4 w-4 text-fergbutcher-gold-400" />
+                  : <Bell className="h-4 w-4 text-fergbutcher-green-600" />}
+              </div>
+              <div>
+                <p className="text-sm text-fergbutcher-green-400">Collection Reminders</p>
+                <p className="font-medium text-fergbutcher-black-900">
+                  {customer.reminderOptOut ? 'Opted out' : 'Enabled'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

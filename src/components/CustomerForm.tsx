@@ -20,7 +20,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     email: '',
     phone: '',
     company: '',
-    notes: ''
+    notes: '',
+    reminderOptOut: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -32,7 +33,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         email: customer.email || '',
         phone: customer.phone,
         company: customer.company || '',
-        notes: customer.notes || ''
+        notes: customer.notes || '',
+        reminderOptOut: customer.reminderOptOut || false
       });
     }
   }, [customer]);
@@ -72,7 +74,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         email: formData.email.trim().toLowerCase() || undefined,
         phone: formData.phone.trim(),
         company: formData.company.trim() || undefined,
-        notes: formData.notes.trim() || undefined
+        notes: formData.notes.trim() || undefined,
+        reminderOptOut: formData.reminderOptOut
       });
     }
   };
@@ -83,6 +86,10 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleToggleChange = (field: string, value: boolean) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -142,6 +149,21 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         />
         {errors.email && (
           <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+        )}
+        {formData.email.trim() && (
+          <div className="mt-3 flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="reminderOptOut"
+              checked={formData.reminderOptOut}
+              onChange={(e) => handleToggleChange('reminderOptOut', e.target.checked)}
+              className="h-4 w-4 text-fergbutcher-green-600 focus:ring-fergbutcher-green-500 border-fergbutcher-gold-300 rounded"
+              disabled={isLoading}
+            />
+            <label htmlFor="reminderOptOut" className="text-sm text-fergbutcher-gold-700">
+              Opt out of collection reminder emails
+            </label>
+          </div>
         )}
       </div>
       
