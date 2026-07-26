@@ -4,10 +4,10 @@
 // Identical public API — components need zero changes.
 // Data now lives in MySQL via the SiteGround PHP API.
 // ============================================================
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Order, Customer, EmailTemplate } from '../types';
-import { useGoogleSheets } from './useGoogleSheets';
+import { useGoogleSheetsContext } from '../context/GoogleSheetsContext';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { ordersApi } from './useApi';
@@ -60,7 +60,7 @@ export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isConnected, syncOrders, syncChristmasOrders } = useGoogleSheets();
+  const { isConnected, syncOrders, syncChristmasOrders } = useGoogleSheetsContext();
   const { addUndoAction } = useUndo();
 
   // ── Load all orders from DB on mount ─────────────────────
@@ -90,9 +90,28 @@ export const useOrders = () => {
     return (max + 1).toString();
   };
 
+  // ── Pending sync queue ────────────────────────────────────
+  // If Google Sheets isn't connected yet when an order changes, stash the
+  // latest orders+customers and retry once isConnected flips true.
+  const pendingSyncRef = useRef<{ orders: Order[]; customers: Customer[] } | null>(null);
+
+  useEffect(() => {
+    if (isConnected && pendingSyncRef.current) {
+      const { orders: pendingOrders, customers: pendingCustomers } = pendingSyncRef.current;
+      pendingSyncRef.current = null;
+      const standardOrders  = pendingOrders.filter(o => o.orderType !== 'christmas');
+      const christmasOrders = pendingOrders.filter(o => o.orderType === 'christmas');
+      syncOrders(standardOrders, pendingCustomers).catch(console.error);
+      syncChristmasOrders(christmasOrders, pendingCustomers).catch(console.error);
+    }
+  }, [isConnected, syncOrders, syncChristmasOrders]);
+
   // ── Sync helper ───────────────────────────────────────────
   const triggerSync = useCallback((allOrders: Order[], customers: Customer[]) => {
-    if (!isConnected) return;
+    if (!isConnected) {
+      pendingSyncRef.current = { orders: allOrders, customers };
+      return;
+    }
     const standardOrders  = allOrders.filter(o => o.orderType !== 'christmas');
     const christmasOrders = allOrders.filter(o => o.orderType === 'christmas');
     // Always sync both sheets, even when empty, so deleted orders are removed

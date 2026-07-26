@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Clock, FileText, Trash2, Gift, RefreshCw, Loader2, Send, Bell } from 'lucide-react';
-import { useGoogleSheets } from '../hooks/useGoogleSheets';
+import { useGoogleSheetsContext } from '../context/GoogleSheetsContext';
 import { useAppData } from '../context/AppDataContext';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
 import { useChristmasProducts } from '../hooks/useChristmasProducts';
@@ -23,7 +23,7 @@ const Settings: React.FC = () => {
   const [testEmailAddr, setTestEmailAddr] = useState('');
   const [recentEmails, setRecentEmails] = useState<EmailLogEntry[]>([]);
 
-  const { isConnected, isLoading, error, lastSync, syncAll, disconnect } = useGoogleSheets();
+  const { isConnected, isLoading, error, lastSync, syncAll, disconnect } = useGoogleSheetsContext();
   const { customers, setAllCustomers, orders, setAllOrders } = useAppData();
   const { templates, updateTemplate, resetToDefaults } = useEmailTemplates();
   const {

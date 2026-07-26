@@ -6,7 +6,7 @@
 // ============================================================
 import { useState, useEffect, useCallback } from 'react';
 import { Customer } from '../types';
-import { useGoogleSheets } from './useGoogleSheets';
+import { useGoogleSheetsContext } from '../context/GoogleSheetsContext';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { customersApi } from './useApi';
@@ -18,7 +18,7 @@ export const useCustomers = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isConnected, syncCustomers } = useGoogleSheets();
+  const { isConnected, syncCustomers } = useGoogleSheetsContext();
   const { addUndoAction } = useUndo();
 
   // ── Load all customers from DB on mount ──────────────────

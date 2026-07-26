@@ -14,6 +14,7 @@ import CalendarView from './components/CalendarView';
 import Settings from './components/Settings';
 import TodayChecklist from './components/TodayChecklist';
 import { AppDataProvider } from './context/AppDataContext';
+import { GoogleSheetsProvider } from './context/GoogleSheetsContext';
 import { ViewType } from './types';
 
 function App() {
@@ -110,6 +111,7 @@ function App() {
   };
 
   return (
+    <GoogleSheetsProvider>
     <AppDataProvider>
       <ToastContainer />
       <Layout currentView={currentView} onViewChange={handleViewChange} onLogout={handleLogout}>
@@ -123,6 +125,7 @@ function App() {
         onDismiss={hideUndoNotification}
       />
     </AppDataProvider>
+    </GoogleSheetsProvider>
   );
 }
 

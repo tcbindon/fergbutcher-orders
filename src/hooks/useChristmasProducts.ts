@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChristmasProduct } from '../types';
-import { useGoogleSheets } from './useGoogleSheets';
+import { useGoogleSheetsContext } from '../context/GoogleSheetsContext';
 import errorLogger from '../services/errorLogger';
 
 // Fallback Christmas products (used when Google Sheets is not available)
@@ -60,7 +60,7 @@ export const useChristmasProducts = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
-  const { isConnected, fetchChristmasProducts } = useGoogleSheets();
+  const { isConnected, fetchChristmasProducts } = useGoogleSheetsContext();
 
   // Cache key for localStorage
   const CACHE_KEY = 'fergbutcher_christmas_products';
