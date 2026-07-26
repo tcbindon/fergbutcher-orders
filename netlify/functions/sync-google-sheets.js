@@ -373,23 +373,22 @@ async function syncCustomers(doc, customers) {
   console.log(`Synced ${customers.length} customers`);
 }
 
-// Sync orders to Google Sheets (upsert – preserves user formatting)
+// Sync orders to Google Sheets (clear + batch rewrite – avoids per-row API calls)
 async function syncOrders(doc, orders, customers) {
   const sheet = doc.sheetsByTitle['Orders'];
 
-  // Set header row to ensure column mapping is loaded into memory (mirrors syncChristmasOrders pattern)
+  // Ensure headers are correct
   await sheet.setHeaderRow(['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Created Date', 'Updated Date']);
 
-  // Build a lookup of incoming data keyed by Order ID
-  const incomingById = {};
-  for (const order of orders) {
+  // Build all rows upfront
+  const orderRows = orders.map(order => {
     const customer = customers.find(c => c.id === order.customerId);
     const customerName = customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown';
     const itemsText = (order.items || []).map(item =>
       `${item.description} (${item.quantity} ${item.unit})`
     ).join('; ');
 
-    incomingById[order.id] = {
+    return {
       'Order ID': order.id,
       'Customer ID': order.customerId,
       'Customer Name': customerName,
@@ -401,44 +400,16 @@ async function syncOrders(doc, orders, customers) {
       'Created Date': new Date(order.createdAt).toLocaleDateString('en-NZ'),
       'Updated Date': new Date(order.updatedAt).toLocaleDateString('en-NZ')
     };
+  });
+
+  // Clear existing data (except headers) and write all rows in one batch
+  await sheet.clear('A2:Z1000');
+
+  if (orderRows.length > 0) {
+    await sheet.addRows(orderRows);
   }
 
-  // Read existing rows and upsert
-  const existingRows = await sheet.getRows();
-
-  // Separate into rows to update vs rows to delete
-  const seenIds = new Set();
-  const rowsToDelete = [];
-
-  for (const row of existingRows) {
-    const orderId = row.get('Order ID');
-    if (incomingById[orderId]) {
-      const data = incomingById[orderId];
-      for (const [key, value] of Object.entries(data)) {
-        row.set(key, value);
-      }
-      await row.save();
-      seenIds.add(orderId);
-    } else {
-      rowsToDelete.push(row);
-    }
-  }
-
-  // Delete removed rows in reverse order to avoid row-number shifting
-  for (const row of rowsToDelete.reverse()) {
-    await row.delete();
-  }
-
-  // Append new rows
-  const newRows = Object.entries(incomingById)
-    .filter(([id]) => !seenIds.has(id))
-    .map(([, data]) => data);
-
-  if (newRows.length > 0) {
-    await sheet.addRows(newRows);
-  }
-
-  console.log(`Orders sheet upserted: ${Object.keys(incomingById).length} active, ${rowsToDelete.length} removed, ${newRows.length} added`);
+  console.log(`Orders sheet synced: ${orderRows.length} orders`);
 }
 
 // Sync daily collections
