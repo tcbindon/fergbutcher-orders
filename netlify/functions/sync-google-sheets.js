@@ -385,7 +385,7 @@ async function syncOrders(doc, orders, customers) {
   for (const order of orders) {
     const customer = customers.find(c => c.id === order.customerId);
     const customerName = customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown';
-    const itemsText = order.items.map(item =>
+    const itemsText = (order.items || []).map(item =>
       `${item.description} (${item.quantity} ${item.unit})`
     ).join('; ');
 
