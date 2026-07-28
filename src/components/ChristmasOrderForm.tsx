@@ -11,7 +11,6 @@ interface ChristmasOrderFormProps {
   onSubmit: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
   isLoading?: boolean;
-  showCloseButton?: boolean;
 }
 
 const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
@@ -21,8 +20,7 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
   initialCustomerId,
   onSubmit,
   onCancel,
-  isLoading = false,
-  showCloseButton = false
+  isLoading = false
 }) => {
   const { products: christmasProducts, loading: productsLoading, error: productsError } = useChristmasProducts();
   
@@ -272,20 +270,7 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
   }
 
   return (
-    <div className="relative space-y-6">
-      {showCloseButton && (
-        <button
-          type="button"
-          onClick={onCancel}
-          className="absolute top-0 right-0 -mt-2 -mr-2 p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors z-10"
-          disabled={isLoading}
-          title="Close"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      )}
+    <div className="space-y-6">
       {/* Christmas Header */}
       <div className="bg-gradient-to-r from-fergbutcher-green-50 to-fergbutcher-yellow-50 border border-fergbutcher-green-200 rounded-lg p-4">
         <div className="flex items-center space-x-3">

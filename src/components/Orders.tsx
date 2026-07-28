@@ -618,8 +618,16 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Create Standard Order</h3>
+              <button
+                type="button"
+                onClick={() => { setShowCreateModal(false); setPendingNewCustomerId(undefined); }}
+                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <div className="p-6">
               {ordersError && (
@@ -635,7 +643,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                 onSubmit={handleAddOrder}
                 onCancel={() => { setShowCreateModal(false); setPendingNewCustomerId(undefined); }}
                 isLoading={isSubmitting}
-                showCloseButton={true}
               />
             </div>
           </div>
@@ -646,11 +653,19 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       {showChristmasModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900 flex items-center space-x-2">
                 <Gift className="h-5 w-5 text-fergbutcher-green-600" />
                 <span>Create Christmas Order</span>
               </h3>
+              <button
+                type="button"
+                onClick={() => { setShowChristmasModal(false); setPendingNewCustomerId(undefined); }}
+                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <div className="p-6">
               {ordersError && (
@@ -666,7 +681,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                 onSubmit={handleAddChristmasOrder}
                 onCancel={() => { setShowChristmasModal(false); setPendingNewCustomerId(undefined); }}
                 isLoading={isSubmitting}
-                showCloseButton={true}
               />
             </div>
           </div>
@@ -677,8 +691,16 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       {editingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
+              <button
+                type="button"
+                onClick={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
+                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <div className="p-6">
               {editingOrder.orderType === 'christmas' ? (
@@ -690,7 +712,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   onSubmit={handleUpdateOrder}
                   onCancel={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}
-                  showCloseButton={true}
                 />
               ) : (
                 <OrderForm
@@ -701,7 +722,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   onSubmit={handleUpdateOrder}
                   onCancel={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}
-                  showCloseButton={true}
                 />
               )}
             </div>
@@ -713,9 +733,19 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       {duplicatingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
-              <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
+            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
+                <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
+                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <div className="p-6">
               {duplicatingOrder.orderType === 'christmas' ? (
@@ -729,7 +759,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   }}
                   onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}
-                  showCloseButton={true}
                 />
               ) : (
                 <OrderForm
@@ -743,7 +772,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
                   isLoading={isSubmitting}
                   initialData={duplicatingOrder}
-                  showCloseButton={true}
                 />
               )}
             </div>

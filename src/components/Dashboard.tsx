@@ -16,7 +16,8 @@ import {
   RefreshCw,
   ChevronDown,
   Printer,
-  ClipboardList
+  ClipboardList,
+  X
 } from 'lucide-react';
 import { Order, ViewType } from '../types';
 
@@ -472,8 +473,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
       {editingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
+              <button
+                type="button"
+                onClick={() => setEditingOrder(null)}
+                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <div className="p-6">
               {editingOrder.orderType === 'christmas' ? (
@@ -493,7 +502,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                   onSubmit={handleUpdateOrder}
                   onCancel={() => setEditingOrder(null)}
                   isLoading={isSubmitting}
-                  showCloseButton={true}
                 />
               )}
             </div>
@@ -558,9 +566,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
       {duplicatingOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
-              <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
+            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
+                <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDuplicatingOrder(null)}
+                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <div className="p-6">
               {duplicatingOrder.orderType === 'christmas' ? (
@@ -576,7 +594,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                   }}
                   onCancel={() => setDuplicatingOrder(null)}
                   isLoading={isSubmitting}
-                  showCloseButton={true}
                 />
               ) : (
                 <OrderForm
@@ -592,7 +609,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                   onCancel={() => setDuplicatingOrder(null)}
                   isLoading={isSubmitting}
                   initialData={duplicatingOrder}
-                  showCloseButton={true}
                 />
               )}
             </div>
