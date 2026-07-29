@@ -1,5 +1,8 @@
 import React from 'react';
 import { useAppData } from '../context/AppDataContext';
+import { useGoogleSheetsContext } from '../context/GoogleSheetsContext';
+import { emailSettings } from '../services/emailService';
+import backupService from '../services/backupService';
 import { toast } from './Toast';
 import OrderDetail from './OrderDetail';
 import OrderForm from './OrderForm';
@@ -12,7 +15,7 @@ import {
   Clock,
   Package,
   Gift,
-  AlertTriangle,
+ AlertTriangle,
   RefreshCw,
   ChevronDown,
   Printer,
@@ -29,6 +32,34 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders }) => {
   const { customers, addCustomer, orders, getOrderStats, updateOrder, updateOrderAndSeries, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useAppData();
   const orderStats = getOrderStats();
+  const { isConnected: sheetsConnected } = useGoogleSheetsContext();
+
+  const [emailActive, setEmailActive] = React.useState<boolean | null>(null);
+  const [lastBackup, setLastBackup] = React.useState<Date | null>(null);
+
+  React.useEffect(() => {
+    emailSettings.get().then(s => setEmailActive(!!s?.automationEnabled));
+  }, []);
+
+  React.useEffect(() => {
+    const updateBackup = () => {
+      const list = backupService.getBackupList();
+      setLastBackup(list.length > 0 ? new Date(list[0].timestamp) : null);
+    };
+    updateBackup();
+    const interval = setInterval(updateBackup, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatBackupTime = (date: Date): string => {
+    const diffMs = Date.now() - date.getTime();
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays > 0) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+    if (diffHours > 0) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+    const diffMins = Math.floor(diffMs / 60000);
+    return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+  };
 
   const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
@@ -674,16 +705,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
           <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">System Status</h3>
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-fergbutcher-green-500 rounded-full"></div>
-              <span className="text-sm text-fergbutcher-green-400">Google Sheets Connected</span>
+              <div className={`w-2 h-2 rounded-full ${sheetsConnected ? 'bg-fergbutcher-green-500' : 'bg-red-500'}`}></div>
+              <span className="text-sm text-fergbutcher-green-400">
+                Google Sheets {sheetsConnected ? 'Connected' : 'Not Connected'}
+              </span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-fergbutcher-green-500 rounded-full"></div>
-              <span className="text-sm text-fergbutcher-green-400">Email Service Active</span>
+              <div className={`w-2 h-2 rounded-full ${emailActive === null ? 'bg-fergbutcher-gold-400' : emailActive ? 'bg-fergbutcher-green-500' : 'bg-red-500'}`}></div>
+              <span className="text-sm text-fergbutcher-green-400">
+                Email Service {emailActive === null ? 'Checking…' : emailActive ? 'Active' : 'Inactive'}
+              </span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-fergbutcher-gold-400 rounded-full"></div>
-              <span className="text-sm text-fergbutcher-green-400">Last Backup: 2 hours ago</span>
+              <div className={`w-2 h-2 rounded-full ${lastBackup ? 'bg-fergbutcher-green-500' : 'bg-fergbutcher-gold-400'}`}></div>
+              <span className="text-sm text-fergbutcher-green-400">
+                Last Backup: {lastBackup ? formatBackupTime(lastBackup) : 'Never'}
+              </span>
             </div>
           </div>
         </div>
