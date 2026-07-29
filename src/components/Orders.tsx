@@ -40,7 +40,9 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const { getNotesForOrder } = useStaffNotes();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter ?? 'all');
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<Order['status']>>(
+    () => initialStatusFilter ? new Set([initialStatusFilter as Order['status']]) : new Set()
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showChristmasModal, setShowChristmasModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -66,13 +68,11 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     if (pastFilter === 'all') {
       filteredOrders = orders;
     } else if (pastFilter === 'last7') {
-      // Include dateless pending orders alongside last-7-days orders
-      filteredOrders = orders.filter(order => !order.collectionDate || order.collectionDate >= sevenDaysAgo);
+      // Past 7 days (from 7 days ago through yesterday); dateless orders await a date
+      filteredOrders = orders.filter(order => !order.collectionDate || (order.collectionDate >= sevenDaysAgo && order.collectionDate < today));
     } else {
-      // Upcoming: include dateless pending orders (awaiting a date) alongside future orders
-      filteredOrders = orders.filter(order =>
-        order.status !== 'cancelled' && (!order.collectionDate || order.collectionDate >= today)
-      );
+      // Upcoming: include dateless orders (awaiting a date) alongside today and future orders
+      filteredOrders = orders.filter(order => !order.collectionDate || order.collectionDate >= today);
     }
 
     return filteredOrders.sort((a, b) => {
@@ -90,18 +90,18 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
 
   const filteredOrders = getSortedOrders(
     searchOrders(searchTerm, customers).filter(order =>
-      (statusFilter === 'all' || order.status === statusFilter) &&
+      (selectedStatuses.size === 0 ? order.status !== 'cancelled' : selectedStatuses.has(order.status)) &&
       (!initialCollectionDate || order.collectionDate === initialCollectionDate) &&
       (!dateFrom || (order.collectionDate && order.collectionDate >= dateFrom)) &&
       (!dateTo || (order.collectionDate && order.collectionDate <= dateTo))
     )
   );
 
-  const hasActiveFilters = !!(searchTerm || statusFilter !== 'all' || dateFrom || dateTo);
+  const hasActiveFilters = !!(searchTerm || selectedStatuses.size > 0 || dateFrom || dateTo);
 
   const filterLabel = [
     searchTerm && `"${searchTerm}"`,
-    statusFilter !== 'all' && `Status: ${statusFilter}`,
+    selectedStatuses.size > 0 && `Status: ${Array.from(selectedStatuses).join(', ')}`,
     dateFrom && `From: ${new Date(dateFrom + 'T12:00:00').toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })}`,
     dateTo && `To: ${new Date(dateTo + 'T12:00:00').toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })}`,
     pastFilter !== 'all' && (pastFilter === 'upcoming' ? 'Upcoming' : 'Last 7 days'),
@@ -300,20 +300,38 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-1 flex-1 min-w-[140px]">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <Filter className="h-4 w-4 text-fergbutcher-gold-500 flex-shrink-0" />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="flex-1 px-2 py-2 border border-fergbutcher-gold-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-600 focus:border-transparent text-sm"
+                  <button
+                    onClick={() => setSelectedStatuses(new Set())}
+                    className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      selectedStatuses.size === 0
+                        ? 'bg-fergbutcher-green-600 text-white border-fergbutcher-green-600'
+                        : 'bg-white text-fergbutcher-green-600 border-fergbutcher-gold-300 hover:bg-fergbutcher-gold-50'
+                    }`}
                   >
-                    <option value="all">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="prepared">Prepared</option>
-                    <option value="collected">Collected</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                    All
+                  </button>
+                  {(['pending', 'confirmed', 'prepared', 'collected', 'cancelled'] as Order['status'][]).map((status) => {
+                    const active = selectedStatuses.has(status);
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => setSelectedStatuses(prev => {
+                          const next = new Set(prev);
+                          if (next.has(status)) next.delete(status); else next.add(status);
+                          return next;
+                        })}
+                        className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors capitalize ${
+                          active
+                            ? getStatusBadge(status)
+                            : 'bg-white text-fergbutcher-green-600 border-fergbutcher-gold-300 hover:bg-fergbutcher-gold-50'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <Calendar className="h-4 w-4 text-fergbutcher-gold-500 flex-shrink-0" />
@@ -543,9 +561,9 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                 <div className="p-12 text-center">
                   <Package className="h-12 w-12 text-fergbutcher-gold-400 mx-auto mb-4" />
                   <p className="text-fergbutcher-green-400">
-                    {searchTerm || statusFilter !== 'all' ? 'No orders found matching your criteria.' : 'No orders yet.'}
+                    {searchTerm || selectedStatuses.size > 0 ? 'No orders found matching your criteria.' : 'No orders yet.'}
                   </p>
-                  {!searchTerm && statusFilter === 'all' && (
+                  {!searchTerm && selectedStatuses.size === 0 && (
                     <button
                       onClick={() => { clearOrdersError(); setShowCreateModal(true); }}
                       className="mt-4 text-fergbutcher-green-600 hover:text-fergbutcher-green-700 font-medium"
