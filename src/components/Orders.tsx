@@ -181,16 +181,26 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
 
   const handleBulkStatusApply = () => {
     if (isDateRequiredStatus(bulkStatus)) {
-      const needDate = Array.from(selectedOrderIds).filter(id => {
+      const allIds = Array.from(selectedOrderIds);
+      const needDate = allIds.filter(id => {
         const o = orders.find(ord => ord.id === id);
         return o && !o.collectionDate;
       });
-      if (needDate.length > 0) {
-        setDatePrompt({ orderIds: needDate, desiredStatus: bulkStatus });
-        return;
+      const haveDate = allIds.filter(id => !needDate.includes(id));
+      if (haveDate.length > 0) {
+        bulkUpdateStatus(haveDate, bulkStatus, customers);
       }
+      if (needDate.length > 0) {
+        toast.info(
+          `${needDate.length} order${needDate.length !== 1 ? 's' : ''} skipped — add a collection date first.`
+        );
+      } else {
+        toast.success(`${haveDate.length} order${haveDate.length !== 1 ? 's' : ''} marked as ${bulkStatus}.`);
+      }
+      setSelectedOrderIds(new Set());
+    } else {
+      applyBulkStatus(Array.from(selectedOrderIds), bulkStatus);
     }
-    applyBulkStatus(Array.from(selectedOrderIds), bulkStatus);
   };
 
   const applyBulkStatus = (ids: string[], status: Order['status'], collectionDate?: string) => {

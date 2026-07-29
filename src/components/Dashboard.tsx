@@ -356,12 +356,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                           {order.items.map(i => `${i.description} (${i.quantity} ${i.unit})`).join(', ')}
                         </span>
                       </div>
-                      <button
-                        onClick={() => setEditingOrder(order)}
-                        className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors border border-blue-200 flex-shrink-0 min-h-[36px]"
-                      >
-                        Assign Date
-                      </button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => setViewingOrder(order)}
+                          className="text-xs bg-fergbutcher-gold-50 text-fergbutcher-brown-700 px-3 py-1.5 rounded hover:bg-fergbutcher-gold-100 transition-colors border border-fergbutcher-gold-200 min-h-[36px]"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => setEditingOrder(order)}
+                          className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors border border-blue-200 flex-shrink-0 min-h-[36px]"
+                        >
+                          Assign Date
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
