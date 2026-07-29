@@ -133,35 +133,33 @@ const OrderForm: React.FC<OrderFormProps> = ({
       newErrors.items = 'At least one valid item is required';
     }
 
-    // Date and recurring validations only apply when CREATING new orders.
-    // Existing orders were valid at creation — don't block edits.
-    if (!isEditing) {
-      if (dateRequired && !formData.collectionDate) {
-        newErrors.collectionDate = 'Collection date is required when confirming an order';
-      } else if (formData.collectionDate) {
-        const selectedDate = new Date(formData.collectionDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (selectedDate < today) {
-          newErrors.collectionDate = 'Collection date cannot be in the past';
-        }
+    // A collection date is required for any status other than pending or
+    // cancelled, on both new orders and edits.
+    if (dateRequired && !formData.collectionDate) {
+      newErrors.collectionDate = 'A collection date is required before setting the status to ' + formData.status;
+    } else if (!isEditing && formData.collectionDate) {
+      const selectedDate = new Date(formData.collectionDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (selectedDate < today) {
+        newErrors.collectionDate = 'Collection date cannot be in the past';
       }
+    }
 
-      if (formData.isRecurring) {
-        if (!formData.collectionDate) {
-          newErrors.collectionDate = 'A start date is required for recurring orders';
-        }
-        if (!formData.recurrencePattern) {
-          newErrors.recurrencePattern = 'Please select a recurrence pattern';
-        }
-        if (!formData.recurrenceEndDate) {
-          newErrors.recurrenceEndDate = 'Please select an end date for recurring orders';
-        } else if (formData.collectionDate) {
-          const endDate = new Date(formData.recurrenceEndDate);
-          const collectionDate = new Date(formData.collectionDate);
-          if (endDate <= collectionDate) {
-            newErrors.recurrenceEndDate = 'End date must be after the first collection date';
-          }
+    if (formData.isRecurring) {
+      if (!formData.collectionDate) {
+        newErrors.collectionDate = 'A start date is required for recurring orders';
+      }
+      if (!formData.recurrencePattern) {
+        newErrors.recurrencePattern = 'Please select a recurrence pattern';
+      }
+      if (!formData.recurrenceEndDate) {
+        newErrors.recurrenceEndDate = 'Please select an end date for recurring orders';
+      } else if (formData.collectionDate) {
+        const endDate = new Date(formData.recurrenceEndDate);
+        const collectionDate = new Date(formData.collectionDate);
+        if (endDate <= collectionDate) {
+          newErrors.recurrenceEndDate = 'End date must be after the first collection date';
         }
       }
     }
@@ -274,9 +272,9 @@ const OrderForm: React.FC<OrderFormProps> = ({
             <option value="cancelled">Cancelled</option>
           </select>
           <p className="text-xs text-fergbutcher-brown-500 mt-1">
-            {formData.status === 'pending'
-              ? 'Pending orders can be saved without a collection date.'
-              : 'Confirmed orders require a collection date.'}
+            {dateRequired
+              ? 'A collection date is required for this status. Add one below before saving.'
+              : 'Pending and cancelled orders can be saved without a collection date.'}
           </p>
         </div>
 

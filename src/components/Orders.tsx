@@ -7,6 +7,7 @@ import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import CustomerForm from './CustomerForm';
 import OrderDetail from './OrderDetail';
+import CollectionDatePromptModal, { isDateRequiredStatus } from './CollectionDatePromptModal';
 import PrintResults from './PrintResults';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { Order, Customer } from '../types';
@@ -58,6 +59,10 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showPrintResults, setShowPrintResults] = useState(false);
+  const [datePrompt, setDatePrompt] = useState<{
+    orderIds: string[];
+    desiredStatus: Order['status'];
+  } | null>(null);
 
   const getSortedOrders = (orders: Order[]) => {
     const today = new Date().toISOString().split('T')[0];
@@ -154,14 +159,52 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   };
 
   const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
-    const success = updateOrder(orderId, { status: newStatus }, customers);
+    if (isDateRequiredStatus(newStatus)) {
+      const order = orders.find(o => o.id === orderId);
+      if (order && !order.collectionDate) {
+        setDatePrompt({ orderIds: [orderId], desiredStatus: newStatus });
+        return;
+      }
+    }
+    applyStatusChange(orderId, newStatus);
+  };
+
+  const applyStatusChange = (orderId: string, newStatus: Order['status'], collectionDate?: string) => {
+    const updates: Partial<Omit<Order, 'id' | 'createdAt'>> = { status: newStatus };
+    if (collectionDate) updates.collectionDate = collectionDate;
+    const success = updateOrder(orderId, updates, customers);
     if (success && viewingOrder?.id === orderId) {
-      setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+      setViewingOrder(prev => prev ? { ...prev, ...updates, updatedAt: new Date().toISOString() } : null);
     }
   };
 
   const handleBulkStatusApply = () => {
-    bulkUpdateStatus(Array.from(selectedOrderIds), bulkStatus, customers);
+    if (isDateRequiredStatus(bulkStatus)) {
+      const needDate = Array.from(selectedOrderIds).filter(id => {
+        const o = orders.find(ord => ord.id === id);
+        return o && !o.collectionDate;
+      });
+      if (needDate.length > 0) {
+        setDatePrompt({ orderIds: needDate, desiredStatus: bulkStatus });
+        return;
+      }
+    }
+    applyBulkStatus(Array.from(selectedOrderIds), bulkStatus);
+  };
+
+  const applyBulkStatus = (ids: string[], status: Order['status'], collectionDate?: string) => {
+    const idSet = new Set(ids);
+    if (collectionDate && isDateRequiredStatus(status)) {
+      const needDateIds = new Set(ids.filter(id => {
+        const o = orders.find(ord => ord.id === id);
+        return o && !o.collectionDate;
+      }));
+      needDateIds.forEach(id => updateOrder(id, { status, collectionDate }, customers));
+      const haveDateIds = ids.filter(id => !needDateIds.has(id));
+      if (haveDateIds.length > 0) bulkUpdateStatus(haveDateIds, status, customers);
+    } else {
+      bulkUpdateStatus(ids, status, customers);
+    }
     setSelectedOrderIds(new Set());
   };
 
@@ -814,6 +857,24 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
             </div>
           </div>
         </div>
+      )}
+
+      {/* Collection Date Prompt */}
+      {datePrompt && (
+        <CollectionDatePromptModal
+          orderIds={datePrompt.orderIds}
+          desiredStatus={datePrompt.desiredStatus}
+          onClose={() => setDatePrompt(null)}
+          onConfirm={(date) => {
+            if (datePrompt.orderIds.length === 1) {
+              applyStatusChange(datePrompt.orderIds[0], datePrompt.desiredStatus, date);
+            } else {
+              applyBulkStatus(datePrompt.orderIds, datePrompt.desiredStatus, date);
+            }
+            setDatePrompt(null);
+            toast.success(`Collection date set and ${datePrompt.orderIds.length} order${datePrompt.orderIds.length !== 1 ? 's' : ''} marked as ${datePrompt.desiredStatus}.`);
+          }}
+        />
       )}
 
       {/* Print Search Results */}
