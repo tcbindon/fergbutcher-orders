@@ -68,11 +68,11 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     if (pastFilter === 'all') {
       filteredOrders = orders;
     } else if (pastFilter === 'last7') {
-      // Past 7 days (from 7 days ago through yesterday); dateless orders await a date
-      filteredOrders = orders.filter(order => !order.collectionDate || (order.collectionDate >= sevenDaysAgo && order.collectionDate < today));
+      // Past 7 days (from 7 days ago through yesterday); dateless orders only appear under "All"
+      filteredOrders = orders.filter(order => order.collectionDate && order.collectionDate >= sevenDaysAgo && order.collectionDate < today);
     } else {
-      // Upcoming: include dateless orders (awaiting a date) alongside today and future orders
-      filteredOrders = orders.filter(order => !order.collectionDate || order.collectionDate >= today);
+      // Upcoming: today and future orders only; dateless orders appear under "All"
+      filteredOrders = orders.filter(order => order.collectionDate && order.collectionDate >= today);
     }
 
     return filteredOrders.sort((a, b) => {
