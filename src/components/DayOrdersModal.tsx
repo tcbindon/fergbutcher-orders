@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Clock, User, Package, AlertTriangle, Eye, MessageSquare } from 'lucide-react';
+import { X, Calendar, Clock, User, Package, AlertTriangle, Eye, MessageSquare, Pencil } from 'lucide-react';
 import { Gift } from 'lucide-react';
 import { Order, Customer } from '../types';
 import OrderDetail from './OrderDetail';
@@ -210,6 +210,18 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
                           >
                             <Eye className="h-4 w-4" />
                           </button>
+                          {onEdit && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(order);
+                              }}
+                              className="p-2 text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
+                              title="Edit Order"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(order.status, 'sm')}
                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusBadge(order.status)}`}>
