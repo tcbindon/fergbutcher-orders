@@ -347,7 +347,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                 {pendingRequests.slice(0, 5).map(order => {
                   const customer = customers.find(c => c.id === order.customerId);
                   return (
-                    <div key={order.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-blue-200 rounded-lg px-4 py-2 gap-2">
+                    <div
+                      key={order.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-blue-200 rounded-lg px-4 py-2 gap-2 cursor-pointer hover:bg-blue-50 transition-colors"
+                      onClick={() => setViewingOrder(order)}
+                    >
                       <div className="min-w-0">
                         <span className="font-medium text-fergbutcher-black-900 truncate block">
                           {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
@@ -356,20 +360,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                           {order.items.map(i => `${i.description} (${i.quantity} ${i.unit})`).join(', ')}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => setViewingOrder(order)}
-                          className="text-xs bg-fergbutcher-gold-50 text-fergbutcher-brown-700 px-3 py-1.5 rounded hover:bg-fergbutcher-gold-100 transition-colors border border-fergbutcher-gold-200 min-h-[36px]"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => setEditingOrder(order)}
-                          className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors border border-blue-200 flex-shrink-0 min-h-[36px]"
-                        >
-                          Assign Date
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingOrder(order); }}
+                        className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors border border-blue-200 flex-shrink-0 min-h-[36px]"
+                      >
+                        Assign Date
+                      </button>
                     </div>
                   );
                 })}
