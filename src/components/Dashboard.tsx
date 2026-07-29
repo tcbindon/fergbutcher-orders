@@ -77,13 +77,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
     o => o.collectionDate && o.collectionDate < today && o.status !== 'collected' && o.status !== 'cancelled'
   );
 
-  const approachingUnconfirmed = orders.filter(
-    o => o.status === 'pending' && o.collectionDate && o.collectionDate >= today && o.collectionDate <= dayAfterTomorrow
-  );
-
-  const pendingRequests = orders.filter(
-    o => o.status === 'pending' && !o.collectionDate
-  );
+  const allPendingOrders = orders
+    .filter(o => o.status === 'pending')
+    .sort((a, b) => {
+      if (!a.collectionDate && !b.collectionDate) return 0;
+      if (!a.collectionDate) return 1;
+      if (!b.collectionDate) return -1;
+      return a.collectionDate.localeCompare(b.collectionDate);
+    });
 
   const tomorrowCount = orders.filter(
     o => o.collectionDate === tomorrow && o.status !== 'cancelled'
@@ -240,7 +241,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
       </div>
 
       {/* Attention Required Alerts */}
-      {(overdueOrders.length > 0 || approachingUnconfirmed.length > 0 || pendingRequests.length > 0) && (
+      {(overdueOrders.length > 0 || allPendingOrders.length > 0) && (
         <div className="space-y-3">
           {overdueOrders.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -291,87 +292,74 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
             </div>
           )}
 
-          {approachingUnconfirmed.length > 0 && (
+          {allPendingOrders.length > 0 && (
             <div className="bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded-xl p-4">
               <div className="flex items-center space-x-2 mb-3">
-                <AlertTriangle className="h-5 w-5 text-fergbutcher-gold-600" />
+                <Clock className="h-5 w-5 text-fergbutcher-gold-600" />
                 <h3 className="font-semibold text-fergbutcher-gold-700">
-                  {approachingUnconfirmed.length} Unconfirmed {approachingUnconfirmed.length === 1 ? 'Order' : 'Orders'} Approaching
+                  {allPendingOrders.length} Pending {allPendingOrders.length === 1 ? 'Order' : 'Orders'}
                 </h3>
               </div>
               <div className="space-y-2">
-                {approachingUnconfirmed.map(order => {
+                {allPendingOrders.map(order => {
                   const customer = customers.find(c => c.id === order.customerId);
                   const isToday = order.collectionDate === today;
+                  const isTomorrow = order.collectionDate === tomorrow;
+                  const isUrgent = isToday || isTomorrow;
+                  const hasDate = !!order.collectionDate;
                   return (
                     <div
                       key={order.id}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-fergbutcher-gold-300 rounded-lg px-4 py-2 gap-2 cursor-pointer hover:bg-fergbutcher-gold-50 transition-colors"
+                      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg px-4 py-2 gap-2 cursor-pointer transition-colors ${
+                        isUrgent
+                          ? 'bg-amber-50 border border-amber-300 hover:bg-amber-100'
+                          : 'bg-white border border-fergbutcher-gold-200 hover:bg-fergbutcher-gold-50'
+                      }`}
                       onClick={() => setViewingOrder(order)}
                     >
                       <div className="min-w-0">
-                        <span className="font-medium text-fergbutcher-black-900 truncate block">
-                          {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
-                        </span>
-                        <span className="text-sm text-fergbutcher-gold-700">
-                          {isToday ? 'today' : 'tomorrow'}
-                          {customer?.phone && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-fergbutcher-black-900 truncate">
+                            {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
+                          </span>
+                          {isUrgent && (
+                            <span className="text-xs font-semibold text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded flex-shrink-0">
+                              {isToday ? 'TODAY' : 'TOMORROW'}
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-sm truncate block ${isUrgent ? 'text-amber-800' : 'text-fergbutcher-brown-500'}`}>
+                          {hasDate
+                            ? new Date(order.collectionDate + 'T00:00:00').toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' })
+                            : 'No date set'}
+                          {customer?.phone && isUrgent && (
                             <a href={`tel:${customer.phone}`} className="ml-2 text-fergbutcher-green-600 hover:underline" onClick={e => e.stopPropagation()}>
                               {customer.phone}
                             </a>
                           )}
                         </span>
                       </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'confirmed'); }}
-                        className="text-xs bg-fergbutcher-green-50 text-fergbutcher-green-600 px-3 py-1.5 rounded hover:bg-fergbutcher-green-100 transition-colors border border-fergbutcher-green-200 flex-shrink-0 min-h-[36px]"
-                      >
-                        Confirm
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {pendingRequests.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <div className="flex items-center space-x-2 mb-3">
-                <Clock className="h-5 w-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-800">
-                  {pendingRequests.length} Pending {pendingRequests.length === 1 ? 'Request' : 'Requests'} — No Date Set
-                </h3>
-              </div>
-              <div className="space-y-2">
-                {pendingRequests.slice(0, 5).map(order => {
-                  const customer = customers.find(c => c.id === order.customerId);
-                  return (
-                    <div
-                      key={order.id}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-blue-200 rounded-lg px-4 py-2 gap-2 cursor-pointer hover:bg-blue-50 transition-colors"
-                      onClick={() => setViewingOrder(order)}
-                    >
-                      <div className="min-w-0">
-                        <span className="font-medium text-fergbutcher-black-900 truncate block">
-                          {customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer'}
-                        </span>
-                        <span className="text-sm text-blue-600 truncate block">
-                          {order.items.map(i => `${i.description} (${i.quantity} ${i.unit})`).join(', ')}
-                        </span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!hasDate && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEditingOrder(order); }}
+                            className="text-xs bg-fergbutcher-gold-100 text-fergbutcher-gold-700 px-3 py-1.5 rounded hover:bg-fergbutcher-gold-200 transition-colors border border-fergbutcher-gold-300 min-h-[36px]"
+                          >
+                            Assign Date
+                          </button>
+                        )}
+                        {hasDate && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleStatusChange(order.id, 'confirmed'); }}
+                            className="text-xs bg-fergbutcher-green-50 text-fergbutcher-green-600 px-3 py-1.5 rounded hover:bg-fergbutcher-green-100 transition-colors border border-fergbutcher-green-200 min-h-[36px]"
+                          >
+                            Confirm
+                          </button>
+                        )}
                       </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setEditingOrder(order); }}
-                        className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors border border-blue-200 flex-shrink-0 min-h-[36px]"
-                      >
-                        Assign Date
-                      </button>
                     </div>
                   );
                 })}
-                {pendingRequests.length > 5 && (
-                  <p className="text-sm text-blue-600 pl-1">+{pendingRequests.length - 5} more pending requests</p>
-                )}
               </div>
             </div>
           )}
