@@ -620,13 +620,38 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
             <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
               Collection Time
             </label>
-            <input
-              type="time"
-              value={formData.collectionTime}
-              onChange={(e) => handleChange('collectionTime', e.target.value)}
-              className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-              disabled={isLoading}
-            />
+            <div className="flex space-x-2">
+              <select
+                value={formData.collectionTime ? formData.collectionTime.split(':')[0] : ''}
+                onChange={(e) => {
+                  const minute = formData.collectionTime ? formData.collectionTime.split(':')[1] : '00';
+                  const newTime = e.target.value ? `${e.target.value}:${minute}` : '';
+                  handleChange('collectionTime', newTime);
+                }}
+                className="flex-1 px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+                disabled={isLoading}
+              >
+                <option value="">Hour</option>
+                {Array.from({ length: 12 }, (_, i) => String(i + 7).padStart(2, '0')).map((h) => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+              <select
+                value={formData.collectionTime ? formData.collectionTime.split(':')[1] : ''}
+                onChange={(e) => {
+                  const hour = formData.collectionTime ? formData.collectionTime.split(':')[0] : '';
+                  const newTime = hour ? `${hour}:${e.target.value}` : '';
+                  handleChange('collectionTime', newTime);
+                }}
+                className="flex-1 px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
+                disabled={isLoading}
+              >
+                <option value="">Min</option>
+                {['00', '15', '30', '45'].map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
