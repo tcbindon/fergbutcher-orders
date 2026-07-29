@@ -260,58 +260,18 @@ const OrderForm: React.FC<OrderFormProps> = ({
           <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-2">
             Order Status *
           </label>
-          <div className="flex gap-2">
-            {(['pending', 'confirmed'] as Order['status'][]).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => handleChange('status', s)}
-                disabled={isLoading}
-                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition-all ${
-                  formData.status === s
-                    ? s === 'confirmed'
-                      ? 'border-fergbutcher-green-500 bg-fergbutcher-green-50 text-fergbutcher-green-700'
-                      : 'border-fergbutcher-gold-400 bg-fergbutcher-gold-50 text-fergbutcher-gold-700'
-                    : 'border-fergbutcher-brown-200 bg-white text-fergbutcher-brown-500 hover:border-fergbutcher-brown-300'
-                }`}
-              >
-                {s === 'pending' ? 'Pending (request)' : 'Confirmed'}
-              </button>
-            ))}
-          </div>
-          {/* Show full status list only when editing */}
-          {order && !['pending', 'confirmed'].includes(formData.status) && (
-            <div className="mt-2">
-              <select
-                value={formData.status}
-                onChange={(e) => handleChange('status', e.target.value)}
-                className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                disabled={isLoading}
-              >
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="prepared">Prepared</option>
-                <option value="collected">Collected</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-          )}
-          {order && ['pending', 'confirmed'].includes(formData.status) && (
-            <div className="mt-2">
-              <select
-                value={formData.status}
-                onChange={(e) => handleChange('status', e.target.value)}
-                className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
-                disabled={isLoading}
-              >
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="prepared">Prepared</option>
-                <option value="collected">Collected</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-          )}
+          <select
+            value={formData.status}
+            onChange={(e) => handleChange('status', e.target.value)}
+            className="w-full px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent text-sm"
+            disabled={isLoading}
+          >
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="prepared">Prepared</option>
+            <option value="collected">Collected</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
           <p className="text-xs text-fergbutcher-brown-500 mt-1">
             {formData.status === 'pending'
               ? 'Pending orders can be saved without a collection date.'
