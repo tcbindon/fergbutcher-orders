@@ -8,13 +8,64 @@ interface BackupData {
   version: string;
 }
 
+export interface BackupMeta {
+  id: string;
+  type: string;
+  created_at: string;
+}
+
+const BACKUPS_ENDPOINT = '/.netlify/functions/backups';
+const LEGACY_BACKUP_KEY = 'fergbutcher_backups';
+const MIGRATION_FLAG_KEY = 'fergbutcher_backups_migrated';
+const MAX_BACKUPS = 30;
+
+async function apiGet<T>(query: string): Promise<{ data: T | null; error: string | null }> {
+  try {
+    const res = await fetch(`${BACKUPS_ENDPOINT}?${query}`);
+    const json = await res.json();
+    if (!res.ok) {
+      return { data: null, error: json?.error || `HTTP ${res.status}` };
+    }
+    return { data: json as T, error: null };
+  } catch (err) {
+    return { data: null, error: (err as Error).message };
+  }
+}
+
+async function apiPost<T>(action: string, body: unknown): Promise<{ data: T | null; error: string | null }> {
+  try {
+    const res = await fetch(`${BACKUPS_ENDPOINT}?action=${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { data: null, error: json?.error || `HTTP ${res.status}` };
+    }
+    return { data: json as T, error: null };
+  } catch (err) {
+    return { data: null, error: (err as Error).message };
+  }
+}
+
+async function apiDelete(action: string, id: string): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const res = await fetch(`${BACKUPS_ENDPOINT}?action=${action}&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!res.ok) return { success: false, error: json?.error || `HTTP ${res.status}` };
+    return { success: true, error: null };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
 class BackupService {
-  private readonly BACKUP_KEY = 'fergbutcher_backups';
-  private readonly MAX_BACKUPS = 30; // Keep 30 days of backups
   private backupTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     this.initializeAutoBackup();
+    this.migrateLegacyBackups();
   }
 
   // Initialize automatic daily backups at 8:30 PM
@@ -22,9 +73,8 @@ class BackupService {
     const scheduleNextBackup = () => {
       const now = new Date();
       const backup830PM = new Date();
-      backup830PM.setHours(20, 30, 0, 0); // 8:30 PM
+      backup830PM.setHours(20, 30, 0, 0);
 
-      // If it's already past 8:30 PM today, schedule for tomorrow
       if (now > backup830PM) {
         backup830PM.setDate(backup830PM.getDate() + 1);
       }
@@ -33,17 +83,13 @@ class BackupService {
 
       this.backupTimer = setTimeout(() => {
         this.performAutoBackup();
-        // Schedule the next backup for tomorrow
         scheduleNextBackup();
       }, timeUntilBackup);
-
-      console.log(`Next automatic backup scheduled for: ${backup830PM.toLocaleString('en-NZ')}`);
     };
 
     scheduleNextBackup();
   }
 
-  // Perform automatic backup — fetches live data from the DB, not stale localStorage
   private async performAutoBackup() {
     try {
       const [customers, orders] = await Promise.all([
@@ -53,216 +99,157 @@ class BackupService {
 
       if (customers.length > 0 || orders.length > 0) {
         await this.createBackup(customers, orders, 'automatic');
-        console.log('Automatic backup completed successfully');
       }
     } catch (error) {
       console.error('Automatic backup failed:', error);
-      this.logError('Automatic backup failed', error);
     }
   }
 
-  // Create a backup
   async createBackup(customers: Customer[], orders: Order[], type: 'manual' | 'automatic' = 'manual'): Promise<boolean> {
-    try {
-      const backupData: BackupData = {
-        customers,
-        orders,
-        timestamp: new Date().toISOString(),
-        version: '1.0.0-beta'
-      };
-
-      const backups = this.getStoredBackups();
-      const backupId = `${type}_${Date.now()}`;
-      
-      backups[backupId] = backupData;
-
-      // Clean up old backups (keep only MAX_BACKUPS)
-      this.cleanupOldBackups(backups);
-
-      localStorage.setItem(this.BACKUP_KEY, JSON.stringify(backups));
-      
-      this.logInfo(`${type.charAt(0).toUpperCase() + type.slice(1)} backup created successfully`);
-      return true;
-    } catch (error) {
+    const { error } = await apiPost('create', {
+      customers,
+      orders,
+      type,
+      version: '1.0.0-beta',
+    });
+    if (error) {
       console.error('Backup creation failed:', error);
-      this.logError('Backup creation failed', error);
       return false;
     }
+    return true;
   }
 
-  // Export data to JSON file
-  exportToFile(customers: Customer[], orders: Order[]): void {
-    try {
-      const backupData: BackupData = {
-        customers,
-        orders,
-        timestamp: new Date().toISOString(),
-        version: '1.0.0-beta'
-      };
+  async getBackupList(): Promise<BackupMeta[]> {
+    const { data, error } = await apiGet<{ backups: BackupMeta[] }>(`action=list&limit=${MAX_BACKUPS}`);
+    if (error || !data?.backups) return [];
+    return data.backups.map((b) => ({
+      id: b.id,
+      type: b.type === 'automatic' ? 'Automatic' : 'Manual',
+      created_at: b.created_at,
+    }));
+  }
 
-      const dataStr = JSON.stringify(backupData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `fergbutcher-backup-${new Date().toISOString().split('T')[0]}.json`;
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      URL.revokeObjectURL(url);
-      this.logInfo('Data exported successfully');
-    } catch (error) {
-      console.error('Export failed:', error);
-      this.logError('Export failed', error);
-      throw error;
+  async restoreFromBackup(backupId: string): Promise<{ customers: Customer[]; orders: Order[] } | null> {
+    const { data, error } = await apiGet<{ backup: BackupData }>(`action=get&id=${encodeURIComponent(backupId)}`);
+    if (error || !data?.backup) {
+      console.error('Restore failed:', error);
+      return null;
     }
+    return {
+      customers: data.backup.customers,
+      orders: data.backup.orders,
+    };
   }
 
-  // Import data from JSON file
-  async importFromFile(file: File): Promise<{ customers: Customer[], orders: Order[] }> {
+  async deleteBackup(backupId: string): Promise<boolean> {
+    const { success } = await apiDelete('delete', backupId);
+    return success;
+  }
+
+  // Export data to JSON file (unchanged — works from in-memory data)
+  exportToFile(customers: Customer[], orders: Order[]): void {
+    const backupData: BackupData = {
+      customers,
+      orders,
+      timestamp: new Date().toISOString(),
+      version: '1.0.0-beta',
+    };
+
+    const dataStr = JSON.stringify(backupData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fergbutcher-backup-${new Date().toISOString().split('T')[0]}.json`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  }
+
+  // Import data from JSON file (unchanged — returns parsed data for the caller to write)
+  async importFromFile(file: File): Promise<{ customers: Customer[]; orders: Order[] }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      
+
       reader.onload = (e) => {
         try {
           const content = e.target?.result as string;
           const backupData: BackupData = JSON.parse(content);
-          
-          // Validate backup data structure
+
           if (!backupData.customers || !backupData.orders || !backupData.timestamp) {
             throw new Error('Invalid backup file format');
           }
 
-          this.logInfo('Data imported successfully');
           resolve({
             customers: backupData.customers,
-            orders: backupData.orders
+            orders: backupData.orders,
           });
         } catch (error) {
-          console.error('Import failed:', error);
-          this.logError('Import failed', error);
           reject(error);
         }
       };
 
       reader.onerror = () => {
-        const error = new Error('Failed to read file');
-        this.logError('File read failed', error);
-        reject(error);
+        reject(new Error('Failed to read file'));
       };
 
       reader.readAsText(file);
     });
   }
 
-  // Get list of available backups
-  getBackupList(): Array<{ id: string, timestamp: string, type: string }> {
-    const backups = this.getStoredBackups();
-    return Object.entries(backups)
-      .map(([id, data]) => ({
-        id,
-        timestamp: data.timestamp,
-        type: id.startsWith('automatic') ? 'Automatic' : 'Manual'
-      }))
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }
-
-  // Restore from backup
-  restoreFromBackup(backupId: string): { customers: Customer[], orders: Order[] } | null {
-    try {
-      const backups = this.getStoredBackups();
-      const backup = backups[backupId];
-      
-      if (!backup) {
-        throw new Error('Backup not found');
-      }
-
-      this.logInfo(`Data restored from backup: ${backup.timestamp}`);
-      return {
-        customers: backup.customers,
-        orders: backup.orders
-      };
-    } catch (error) {
-      console.error('Restore failed:', error);
-      this.logError('Restore failed', error);
-      return null;
-    }
-  }
-
-  // Get next backup time
   getNextBackupTime(): Date {
     const now = new Date();
     const next830PM = new Date();
     next830PM.setHours(20, 30, 0, 0);
-    
+
     if (now > next830PM) {
       next830PM.setDate(next830PM.getDate() + 1);
     }
-    
+
     return next830PM;
   }
 
-  private getStoredBackups(): Record<string, BackupData> {
+  // One-time migration of legacy localStorage backups to Supabase
+  private async migrateLegacyBackups() {
+    if (localStorage.getItem(MIGRATION_FLAG_KEY)) return;
+
     try {
-      const stored = localStorage.getItem(this.BACKUP_KEY);
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  }
-
-  private cleanupOldBackups(backups: Record<string, BackupData>) {
-    const backupEntries = Object.entries(backups);
-    if (backupEntries.length > this.MAX_BACKUPS) {
-      // Sort by timestamp and keep only the most recent
-      const sortedBackups = backupEntries
-        .sort(([, a], [, b]) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(0, this.MAX_BACKUPS);
-      
-      // Clear the backups object and repopulate with recent ones
-      Object.keys(backups).forEach(key => delete backups[key]);
-      sortedBackups.forEach(([id, data]) => {
-        backups[id] = data;
-      });
-    }
-  }
-
-  private logInfo(message: string) {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] INFO: ${message}`);
-    this.saveLog('INFO', message);
-  }
-
-  private logError(message: string, error: any) {
-    const timestamp = new Date().toISOString();
-    console.error(`[${timestamp}] ERROR: ${message}`, error);
-    this.saveLog('ERROR', `${message}: ${error?.message || error}`);
-  }
-
-  private saveLog(level: string, message: string) {
-    try {
-      const logs = JSON.parse(localStorage.getItem('fergbutcher_logs') || '[]');
-      logs.push({
-        timestamp: new Date().toISOString(),
-        level,
-        message
-      });
-      
-      // Keep only last 100 log entries
-      if (logs.length > 100) {
-        logs.splice(0, logs.length - 100);
+      const stored = localStorage.getItem(LEGACY_BACKUP_KEY);
+      if (!stored) {
+        localStorage.setItem(MIGRATION_FLAG_KEY, 'done');
+        return;
       }
-      
-      localStorage.setItem('fergbutcher_logs', JSON.stringify(logs));
-    } catch (error) {
-      console.error('Failed to save log:', error);
+
+      const backups: Record<string, BackupData> = JSON.parse(stored);
+      const entries = Object.entries(backups);
+      if (entries.length === 0) {
+        localStorage.setItem(MIGRATION_FLAG_KEY, 'done');
+        return;
+      }
+
+      const payload = entries.map(([id, data]) => ({
+        type: id.startsWith('automatic') ? 'automatic' : 'manual',
+        customers: data.customers,
+        orders: data.orders,
+        timestamp: data.timestamp,
+        version: data.version || '1.0.0-beta',
+      }));
+
+      const { error } = await apiPost('migrate', { backups: payload });
+      if (!error) {
+        localStorage.removeItem(LEGACY_BACKUP_KEY);
+        localStorage.setItem(MIGRATION_FLAG_KEY, 'done');
+        console.log(`Migrated ${payload.length} legacy backups to Supabase`);
+      }
+    } catch (err) {
+      console.error('Legacy backup migration failed:', err);
     }
   }
 
-  // Cleanup method for component unmounting
   cleanup() {
     if (this.backupTimer) {
       clearTimeout(this.backupTimer);

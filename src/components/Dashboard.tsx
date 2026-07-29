@@ -42,9 +42,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
   }, []);
 
   React.useEffect(() => {
-    const updateBackup = () => {
-      const list = backupService.getBackupList();
-      setLastBackup(list.length > 0 ? new Date(list[0].timestamp) : null);
+    const updateBackup = async () => {
+      const list = await backupService.getBackupList();
+      setLastBackup(list.length > 0 ? new Date(list[0].created_at) : null);
     };
     updateBackup();
     const interval = setInterval(updateBackup, 60000);

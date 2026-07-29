@@ -4,7 +4,7 @@ import { useGoogleSheetsContext } from '../context/GoogleSheetsContext';
 import { useAppData } from '../context/AppDataContext';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
 import { useChristmasProducts } from '../hooks/useChristmasProducts';
-import backupService from '../services/backupService';
+import backupService, { BackupMeta } from '../services/backupService';
 import errorLogger from '../services/errorLogger';
 import { toast } from './Toast';
 import { emailSettings, emailLog, sendTestEmail, EmailSettings as EmailSettingsType, EmailLogEntry } from '../services/emailService';
@@ -13,6 +13,8 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('email');
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [backupList, setBackupList] = useState<BackupMeta[]>([]);
+  const [backupListLoading, setBackupListLoading] = useState(true);
 
   // Email automation state
   const [emailAutoSettings, setEmailAutoSettings] = useState<EmailSettingsType | null>(null);
@@ -45,6 +47,18 @@ const Settings: React.FC = () => {
     { id: 'backup', label: 'Backup & Restore', icon: Database },
     { id: 'system', label: 'System Status', icon: Shield },
   ];
+
+  // Load backup list from Supabase
+  const refreshBackupList = async () => {
+    setBackupListLoading(true);
+    const list = await backupService.getBackupList();
+    setBackupList(list);
+    setBackupListLoading(false);
+  };
+
+  useEffect(() => {
+    refreshBackupList();
+  }, []);
 
   // Load email automation settings + recent log
   useEffect(() => {
@@ -110,6 +124,7 @@ const Settings: React.FC = () => {
       const success = await backupService.createBackup(customers, orders, 'manual');
       if (success) {
         toast.success('Backup created successfully!');
+        refreshBackupList();
       } else {
         toast.error('Failed to create backup. Please try again.');
       }
@@ -156,7 +171,7 @@ const Settings: React.FC = () => {
     if (!window.confirm('Restore from this backup? This will overwrite current data.')) return;
     setIsImporting(true);
     try {
-      const data = backupService.restoreFromBackup(backupId);
+      const data = await backupService.restoreFromBackup(backupId);
       if (data) {
         const customersOk = await setAllCustomers(data.customers);
         const ordersOk = await setAllOrders(data.orders);
@@ -782,29 +797,34 @@ const Settings: React.FC = () => {
                     <span>Recent Backups</span>
                   </h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {backupService.getBackupList().slice(0, 5).map((backup) => (
-                      <div key={backup.id} className="flex items-center justify-between p-2 bg-fergbutcher-gold-50 rounded">
-                        <div>
-                          <span className="text-sm font-medium text-fergbutcher-black-900">
-                            {backup.type} Backup
-                          </span>
-                          <p className="text-xs text-fergbutcher-green-400">
-                            {new Date(backup.timestamp).toLocaleString('en-NZ')}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleRestoreBackup(backup.id)}
-                          disabled={isImporting}
-                          className="text-xs bg-fergbutcher-green-600 text-white px-2 py-1 rounded hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
-                        >
-                          {isImporting ? 'Restoring...' : 'Restore'}
-                        </button>
+                    {backupListLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 text-fergbutcher-gold-400 animate-spin" />
                       </div>
-                    ))}
-                    {backupService.getBackupList().length === 0 && (
+                    ) : backupList.length === 0 ? (
                       <p className="text-sm text-fergbutcher-green-400 text-center py-4">
                         No backups available
                       </p>
+                    ) : (
+                      backupList.slice(0, 5).map((backup) => (
+                        <div key={backup.id} className="flex items-center justify-between p-2 bg-fergbutcher-gold-50 rounded">
+                          <div>
+                            <span className="text-sm font-medium text-fergbutcher-black-900">
+                              {backup.type} Backup
+                            </span>
+                            <p className="text-xs text-fergbutcher-green-400">
+                              {new Date(backup.created_at).toLocaleString('en-NZ')}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleRestoreBackup(backup.id)}
+                            disabled={isImporting}
+                            className="text-xs bg-fergbutcher-green-600 text-white px-2 py-1 rounded hover:bg-fergbutcher-green-700 transition-colors disabled:opacity-50"
+                          >
+                            {isImporting ? 'Restoring...' : 'Restore'}
+                          </button>
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>
