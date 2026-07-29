@@ -6,7 +6,7 @@
 // ============================================================
 import { useState, useEffect, useCallback } from 'react';
 import { Customer } from '../types';
-import { useGoogleSheetsContext } from '../context/GoogleSheetsContext';
+
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { customersApi } from './useApi';
@@ -18,7 +18,6 @@ export const useCustomers = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isConnected, syncCustomers } = useGoogleSheetsContext();
   const { addUndoAction } = useUndo();
 
   // ── Load all customers from DB on mount ──────────────────
@@ -56,9 +55,7 @@ export const useCustomers = () => {
     try {
       await customersApi.save(newCustomer);
 
-      if (isConnected) {
-        syncCustomers(sortByFirstName([...customers, newCustomer]));
-      }
+
 
       addUndoAction({
         id: `add-customer-${newCustomer.id}`,
@@ -79,7 +76,7 @@ export const useCustomers = () => {
       setCustomers(previousCustomers);
       return null;
     }
-  }, [customers, isConnected, syncCustomers, addUndoAction]);
+  }, [customers, addUndoAction]);
 
   // ── updateCustomer ────────────────────────────────────────
   const updateCustomer = useCallback((id: string, updates: Partial<Omit<Customer, 'id' | 'createdAt'>>) => {
@@ -89,9 +86,7 @@ export const useCustomers = () => {
       setCustomers(sortByFirstName(updated));
 
       customersApi.update(id, updates)
-        .then(() => {
-          if (isConnected) syncCustomers(sortByFirstName(updated));
-        })
+        .then(() => {})
         .catch(err => {
           console.error('Failed to update customer in DB:', err);
           setCustomers(previousCustomers);
@@ -104,7 +99,7 @@ export const useCustomers = () => {
       setError('Failed to update customer');
       return false;
     }
-  }, [customers, isConnected, syncCustomers]);
+  }, [customers]);
 
   // ── deleteCustomer ────────────────────────────────────────
   const deleteCustomer = useCallback((id: string) => {
@@ -117,9 +112,7 @@ export const useCustomers = () => {
       setCustomers(remaining);
 
       customersApi.delete(id)
-        .then(() => {
-          if (isConnected) syncCustomers(remaining);
-        })
+        .then(() => {})
         .catch(err => {
           console.error('Failed to delete customer from DB:', err);
           setError('Failed to delete customer. Please try again.');
@@ -144,7 +137,7 @@ export const useCustomers = () => {
       setError('Failed to delete customer');
       return false;
     }
-  }, [customers, isConnected, syncCustomers, addUndoAction]);
+  }, [customers, addUndoAction]);
 
   // ── Read helpers ──────────────────────────────────────────
   const getCustomerById = (id: string) => customers.find(c => c.id === id);

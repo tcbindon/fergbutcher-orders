@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Clock, FileText, Trash2, Gift, RefreshCw, Loader2, Send, Bell } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Save, Download, Upload, Mail, Database, Shield, AlertTriangle, CheckCircle, ExternalLink, FolderSync as Sync, Settings as SettingsIcon, Clock, FileText, Trash2, Gift, RefreshCw, Loader2, Send, Bell, X } from 'lucide-react';
 import { useGoogleSheetsContext } from '../context/GoogleSheetsContext';
 import { useAppData } from '../context/AppDataContext';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
@@ -13,6 +13,9 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('email');
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [restoreProgress, setRestoreProgress] = useState<{ phase: string; message: string; current: number; total: number } | null>(null);
+  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
+  const [pendingRestoreData, setPendingRestoreData] = useState<{ customers: typeof customers; orders: typeof orders } | null>(null);
   const [backupList, setBackupList] = useState<BackupMeta[]>([]);
   const [backupListLoading, setBackupListLoading] = useState(true);
 
@@ -25,8 +28,8 @@ const Settings: React.FC = () => {
   const [testEmailAddr, setTestEmailAddr] = useState('');
   const [recentEmails, setRecentEmails] = useState<EmailLogEntry[]>([]);
 
-  const { isConnected, isLoading, error, lastSync, syncAll, disconnect } = useGoogleSheetsContext();
-  const { customers, setAllCustomers, orders, setAllOrders } = useAppData();
+  const { isConnected, isLoading, error, lastSync, syncAll, disconnect, startHourlySync } = useGoogleSheetsContext();
+  const { customers, setAllCustomers, orders, setAllOrders, staffNotes, setAllStaffNotes } = useAppData();
   const { templates, updateTemplate, resetToDefaults } = useEmailTemplates();
   const {
     products: christmasProducts,
@@ -56,9 +59,13 @@ const Settings: React.FC = () => {
     setBackupListLoading(false);
   };
 
+  // Start hourly Google Sheets sync timer
   useEffect(() => {
-    refreshBackupList();
-  }, []);
+    if (isConnected && startHourlySync) {
+      const cleanup = startHourlySync(() => ({ customers, orders }));
+      return cleanup;
+    }
+  }, [isConnected, startHourlySync, customers, orders]);
 
   // Load email automation settings + recent log
   useEffect(() => {
@@ -121,7 +128,7 @@ const Settings: React.FC = () => {
   const handleCreateBackup = async () => {
     setIsBackingUp(true);
     try {
-      const success = await backupService.createBackup(customers, orders, 'manual');
+      const success = await backupService.createBackup(customers, orders, 'manual', staffNotes);
       if (success) {
         toast.success('Backup created successfully!');
         refreshBackupList();
@@ -135,7 +142,7 @@ const Settings: React.FC = () => {
 
   const handleExportData = () => {
     try {
-      backupService.exportToFile(customers, orders);
+      backupService.exportToFile(customers, orders, staffNotes);
       toast.success('Data exported successfully!');
     } catch (error) {
       toast.error('Failed to export data. Please try again.');
@@ -147,44 +154,83 @@ const Settings: React.FC = () => {
     if (!file) return;
 
     setIsImporting(true);
+    setRestoreProgress({ phase: 'safety-backup', message: 'Preparing…', current: 0, total: 1 });
     try {
       const data = await backupService.importFromFile(file);
-      if (window.confirm(`This will replace all current data with ${data.customers.length} customers and ${data.orders.length} orders. Are you sure?`)) {
-        const customersOk = await setAllCustomers(data.customers);
-        const ordersOk = await setAllOrders(data.orders);
-        if (customersOk && ordersOk) {
-          toast.success(`Restored ${data.customers.length} customers and ${data.orders.length} orders from backup.`);
-        } else {
-          toast.error('Partial restore — some data may not have been restored.');
+      if (!window.confirm(`This will replace all current data with ${data.customers.length} customers, ${data.orders.length} orders, and ${data.staffNotes.length} staff notes. A safety backup will be created first. Continue?`)) {
+        setRestoreProgress(null);
+        return;
+      }
+
+      const result = await backupService.safeRestoreFromData(
+        data,
+        (p) => setRestoreProgress({ phase: p.phase, message: p.message, current: p.current, total: p.total }),
+        setAllCustomers,
+        setAllOrders,
+        setAllStaffNotes,
+      );
+
+      if (result.success) {
+        toast.success('Restore complete! Review the data and sync to Google Sheets when ready.');
+        setPendingRestoreData({ customers, orders });
+        setShowSyncConfirm(true);
+        refreshBackupList();
+      } else {
+        toast.error(`Restore failed: ${result.error}`);
+        if (result.safetyBackupId) {
+          toast.info('A safety backup was created. You can restore from it to recover.');
         }
       }
     } catch (error) {
       toast.error('Failed to import data. Please check the file format.');
+      setRestoreProgress(null);
     } finally {
       setIsImporting(false);
+      setRestoreProgress(null);
     }
 
     event.target.value = '';
   };
 
   const handleRestoreBackup = async (backupId: string) => {
-    if (!window.confirm('Restore from this backup? This will overwrite current data.')) return;
+    if (!window.confirm('Restore from this backup? This will overwrite all current data. A safety backup of your current data will be created first.')) return;
     setIsImporting(true);
+    setRestoreProgress({ phase: 'safety-backup', message: 'Starting…', current: 0, total: 1 });
     try {
-      const data = await backupService.restoreFromBackup(backupId);
-      if (data) {
-        const customersOk = await setAllCustomers(data.customers);
-        const ordersOk = await setAllOrders(data.orders);
-        if (customersOk && ordersOk) {
-          toast.success(`Restored ${data.customers.length} customers and ${data.orders.length} orders.`);
-        } else {
-          toast.error('Partial restore — some data may not have been restored.');
-        }
+      const result = await backupService.safeRestore(
+        backupId,
+        (p) => setRestoreProgress({ phase: p.phase, message: p.message, current: p.current, total: p.total }),
+        setAllCustomers,
+        setAllOrders,
+        setAllStaffNotes,
+      );
+      if (result.success) {
+        toast.success('Restore complete! Review the data and sync to Google Sheets when ready.');
+        setPendingRestoreData({ customers, orders });
+        setShowSyncConfirm(true);
+        refreshBackupList();
       } else {
-        toast.error('Failed to restore backup. Backup may be corrupted.');
+        toast.error(`Restore failed: ${result.error}`);
+        if (result.safetyBackupId) {
+          toast.info('A safety backup was created. You can restore from it to recover.');
+        }
       }
+    } catch (error) {
+      toast.error('Failed to restore backup.');
     } finally {
       setIsImporting(false);
+      setRestoreProgress(null);
+    }
+  };
+
+  const handleConfirmSync = async () => {
+    setShowSyncConfirm(false);
+    setPendingRestoreData(null);
+    const ok = await syncAll(customers, orders);
+    if (ok) {
+      toast.success('Google Sheets synced successfully!');
+    } else {
+      toast.error('Google Sheets sync failed. You can retry from the Google Sheets tab.');
     }
   };
 
@@ -686,6 +732,25 @@ const Settings: React.FC = () => {
 
               {isConnected && (
                 <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-6">
+                  <h4 className="font-medium text-fergbutcher-black-900 mb-3 flex items-center space-x-2">
+                    <Clock className="h-5 w-5 text-fergbutcher-green-600" />
+                    <span>Sync Schedule</span>
+                  </h4>
+                  <p className="text-sm text-fergbutcher-green-400 mb-3">
+                    Google Sheets syncs automatically once per hour. Use the "Sync Now" button above to sync immediately.
+                  </p>
+                  <div className="text-sm text-fergbutcher-green-400">
+                    {lastSync ? (
+                      <span>Last synced: {lastSync.toLocaleString('en-NZ')}</span>
+                    ) : (
+                      <span>Not yet synced this session</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isConnected && (
+                <div className="bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg p-6">
                   <h4 className="font-medium text-fergbutcher-black-900 mb-3">Sync Statistics</h4>
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
@@ -829,10 +894,82 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Restore Progress Indicator */}
+              {restoreProgress && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                    <div className="flex items-center space-x-3 mb-4">
+                      {restoreProgress.phase === 'error' ? (
+                        <AlertTriangle className="h-6 w-6 text-red-600" />
+                      ) : restoreProgress.phase === 'complete' ? (
+                        <CheckCircle className="h-6 w-6 text-green-600" />
+                      ) : (
+                        <Loader2 className="h-6 w-6 text-fergbutcher-green-600 animate-spin" />
+                      )}
+                      <h3 className="text-lg font-semibold text-fergbutcher-black-900">
+                        {restoreProgress.phase === 'complete' ? 'Restore Complete' :
+                         restoreProgress.phase === 'error' ? 'Restore Failed' : 'Restoring…'}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-fergbutcher-green-400 mb-3">{restoreProgress.message}</p>
+                    {restoreProgress.total > 0 && restoreProgress.phase !== 'error' && (
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                        <div
+                          className="bg-fergbutcher-green-600 h-2.5 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.round((restoreProgress.current / restoreProgress.total) * 100)}%` }}
+                        />
+                      </div>
+                    )}
+                    {restoreProgress.total > 0 && (
+                      <p className="text-xs text-fergbutcher-green-400 text-right">
+                        {restoreProgress.current} / {restoreProgress.total}
+                      </p>
+                    )}
+                    {restoreProgress.phase === 'complete' && (
+                      <button
+                        onClick={() => setRestoreProgress(null)}
+                        className="mt-4 w-full bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors"
+                      >
+                        Close
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Sync Confirmation Modal */}
+              {showSyncConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <Sync className="h-6 w-6 text-fergbutcher-green-600" />
+                      <h3 className="text-lg font-semibold text-fergbutcher-black-900">Sync to Google Sheets?</h3>
+                    </div>
+                    <p className="text-sm text-fergbutcher-green-400 mb-4">
+                      Your data has been restored. Before syncing to Google Sheets, please review the restored data
+                      to make sure nothing is missing. Once you're satisfied, sync to update the spreadsheet.
+                    </p>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={handleConfirmSync}
+                        className="flex-1 bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center justify-center space-x-2"
+                      >
+                        <Sync className="h-4 w-4" />
+                        <span>Sync Now</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowSyncConfirm(false); setPendingRestoreData(null); }}
+                        className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Wait, I'll check first
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-
-          {/* System Status Tab */}
           {activeTab === 'system' && (
             <div className="space-y-6">
               <div>

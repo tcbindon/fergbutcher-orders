@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Order, Customer, EmailTemplate } from '../types';
-import { useGoogleSheetsContext } from '../context/GoogleSheetsContext';
+
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { ordersApi } from './useApi';
@@ -60,7 +60,6 @@ export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isConnected, syncOrders, syncChristmasOrders } = useGoogleSheetsContext();
   const { addUndoAction } = useUndo();
 
   // ── Load all orders from DB on mount ─────────────────────
@@ -90,34 +89,8 @@ export const useOrders = () => {
     return (max + 1).toString();
   };
 
-  // ── Pending sync queue ────────────────────────────────────
-  // If Google Sheets isn't connected yet when an order changes, stash the
-  // latest orders+customers and retry once isConnected flips true.
-  const pendingSyncRef = useRef<{ orders: Order[]; customers: Customer[] } | null>(null);
-
-  useEffect(() => {
-    if (isConnected && pendingSyncRef.current) {
-      const { orders: pendingOrders, customers: pendingCustomers } = pendingSyncRef.current;
-      pendingSyncRef.current = null;
-      const standardOrders  = pendingOrders.filter(o => o.orderType !== 'christmas');
-      const christmasOrders = pendingOrders.filter(o => o.orderType === 'christmas');
-      syncOrders(standardOrders, pendingCustomers).catch(console.error);
-      syncChristmasOrders(christmasOrders, pendingCustomers).catch(console.error);
-    }
-  }, [isConnected, syncOrders, syncChristmasOrders]);
-
-  // ── Sync helper ───────────────────────────────────────────
-  const triggerSync = useCallback((allOrders: Order[], customers: Customer[]) => {
-    if (!isConnected) {
-      pendingSyncRef.current = { orders: allOrders, customers };
-      return;
-    }
-    const standardOrders  = allOrders.filter(o => o.orderType !== 'christmas');
-    const christmasOrders = allOrders.filter(o => o.orderType === 'christmas');
-    // Always sync both sheets, even when empty, so deleted orders are removed
-    syncOrders(standardOrders, customers).catch(err => console.error('Standard orders sync failed:', err));
-    syncChristmasOrders(christmasOrders, customers).catch(err => console.error('Christmas orders sync failed:', err));
-  }, [isConnected, syncOrders, syncChristmasOrders]);
+  // Per-change Google Sheets sync is disabled — sync runs hourly or manually.
+  const triggerSync = useCallback((_allOrders: Order[], _customers: Customer[]) => {}, []);
 
   // ── addOrder ──────────────────────────────────────────────
   const addOrder = useCallback(async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, customers: Customer[] = []): Promise<Order | null> => {
@@ -566,18 +539,9 @@ export const useOrders = () => {
     };
   };
 
-  const syncOrdersToSheets = async (customers: Customer[]) => {
-    if (!isConnected) return false;
-    try {
-      const standardOrders  = orders.filter(o => o.orderType !== 'christmas');
-      const christmasOrders = orders.filter(o => o.orderType === 'christmas');
-      await syncOrders(standardOrders, customers);
-      await syncChristmasOrders(christmasOrders, customers);
-      return true;
-    } catch (err) {
-      console.error('Error syncing to sheets:', err);
-      return false;
-    }
+  const syncOrdersToSheets = async (_customers: Customer[]) => {
+    // Per-change sync disabled — use the manual Sync Now button or hourly auto-sync.
+    return false;
   };
 
   // setAllOrders — used by Settings restore from backup

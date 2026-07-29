@@ -93,6 +93,7 @@ exports.handler = async (event) => {
     const data = {
       customers: payload.customers,
       orders: payload.orders,
+      staffNotes: payload.staffNotes || [],
       timestamp: new Date().toISOString(),
       version: payload.version || '1.0.0-beta',
     };

@@ -1,23 +1,23 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
+import { useStaffNotes } from '../hooks/useStaffNotes';
 
 type OrdersHook = ReturnType<typeof useOrders>;
 type CustomersHook = ReturnType<typeof useCustomers>;
+type StaffNotesHook = ReturnType<typeof useStaffNotes>;
 
-// Merge both hooks, disambiguating the shared fields that each hook exposes.
-// Components that previously called useOrders() get ordersLoading / ordersError.
-// Components that called useCustomers() get customersLoading / customersError.
-// The bare `loading` / `error` fields resolve to the combined state so components
-// that only check one still behave correctly.
-interface AppDataContextValue extends Omit<OrdersHook, 'loading' | 'error' | 'clearError'>, Omit<CustomersHook, 'loading' | 'error'> {
-  // Per-hook loading/error for components that need to distinguish them
+interface AppDataContextValue
+  extends Omit<OrdersHook, 'loading' | 'error' | 'clearError'>,
+          Omit<CustomersHook, 'loading' | 'error'>,
+          Omit<StaffNotesHook, 'loading' | 'error'> {
   ordersLoading: boolean;
   ordersError: string | null;
   clearOrdersError: () => void;
   customersLoading: boolean;
   customersError: string | null;
-  // Combined — used by components that only call one hook (TodayChecklist, CalendarView etc.)
+  staffNotesLoading: boolean;
+  staffNotesError: string | null;
   loading: boolean;
   error: string | null;
 }
@@ -27,9 +27,10 @@ const AppDataContext = createContext<AppDataContextValue | null>(null);
 export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const orders = useOrders();
   const customers = useCustomers();
+  const staffNotes = useStaffNotes();
 
   const value: AppDataContextValue = useMemo(() => ({
-    // Spread all orders methods/data (excluding ambiguous fields)
+    // Orders
     orders: orders.orders,
     addOrder: orders.addOrder,
     updateOrder: orders.updateOrder,
@@ -47,7 +48,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     getOrderStats: orders.getOrderStats,
     syncOrdersToSheets: orders.syncOrdersToSheets,
 
-    // Spread all customers methods/data (excluding ambiguous fields)
+    // Customers
     customers: customers.customers,
     addCustomer: customers.addCustomer,
     updateCustomer: customers.updateCustomer,
@@ -56,17 +57,26 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     getCustomerById: customers.getCustomerById,
     searchCustomers: customers.searchCustomers,
 
-    // Disambiguated per-hook fields
+    // Staff notes
+    staffNotes: staffNotes.staffNotes,
+    addStaffNote: staffNotes.addStaffNote,
+    deleteStaffNote: staffNotes.deleteStaffNote,
+    setAllStaffNotes: staffNotes.setAllStaffNotes,
+    getNotesForOrder: staffNotes.getNotesForOrder,
+
+    // Per-hook loading/error
     ordersLoading: orders.loading,
     ordersError: orders.error,
     clearOrdersError: orders.clearError,
     customersLoading: customers.loading,
     customersError: customers.error,
+    staffNotesLoading: staffNotes.loading,
+    staffNotesError: staffNotes.error,
 
-    // Combined convenience fields for components that only care about one
-    loading: orders.loading || customers.loading,
-    error: orders.error || customers.error,
-  }), [orders, customers, orders.loading, customers.loading, orders.error, customers.error]);
+    // Combined convenience fields
+    loading: orders.loading || customers.loading || staffNotes.loading,
+    error: orders.error || customers.error || staffNotes.error,
+  }), [orders, customers, staffNotes, orders.loading, customers.loading, staffNotes.loading, orders.error, customers.error, staffNotes.error]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 };

@@ -88,12 +88,28 @@ export const useStaffNotes = () => {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
   [staffNotes]);
 
+  // setAllStaffNotes — used by Settings restore from backup
+  const setAllStaffNotes = async (newNotes: StaffNote[]) => {
+    try {
+      setStaffNotes(newNotes);
+      setError(null);
+      errorLogger.info(`Restored ${newNotes.length} staff notes from backup`);
+      return true;
+    } catch (err) {
+      console.error('Error restoring staff notes:', err);
+      errorLogger.error('Failed to restore staff notes', err);
+      setError('Failed to restore staff notes');
+      return false;
+    }
+  };
+
   return {
     staffNotes,
     loading,
     error,
     addStaffNote,
     deleteStaffNote,
+    setAllStaffNotes,
     getNotesForOrder,
   };
 };
