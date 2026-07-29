@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, AlertTriangle } from 'lucide-react';
 import { Order } from '../types';
+import { todayLocal } from '../utils/dateUtils';
 
 interface CollectionDatePromptModalProps {
   orderIds: string[];
@@ -22,7 +23,7 @@ export default function CollectionDatePromptModal({
   onClose,
 }: CollectionDatePromptModalProps) {
   const [date, setDate] = useState('');
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
   const count = orderIds.length;
 
   const handleConfirm = () => {

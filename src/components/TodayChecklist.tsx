@@ -3,6 +3,7 @@ import { Phone, Clock, CheckCircle, Package, XCircle, Printer, ClipboardList, Al
 import { useAppData } from '../context/AppDataContext';
 import PrintSchedule from './PrintSchedule';
 import { Order } from '../types';
+import { todayLocal } from '../utils/dateUtils';
 import { getStatusBadge, getStatusIcon } from '../utils/statusColors';
 
 interface TodayChecklistProps {}
@@ -19,7 +20,7 @@ const TodayChecklist: React.FC<TodayChecklistProps> = () => {
   const { orders, updateOrder, ordersLoading: loading, customers } = useAppData();
   const [showPrint, setShowPrint] = useState(false);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
 
   const todaysOrders = orders
     .filter(o => o.collectionDate === today && o.status !== 'cancelled')

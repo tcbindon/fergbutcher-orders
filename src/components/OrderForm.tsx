@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, RefreshCw, UserPlus } from 'lucide-react';
 import { Order, OrderItem, Customer } from '../types';
+import { todayLocal } from '../utils/dateUtils';
 import CollectionTimePicker from './CollectionTimePicker';
 
 interface OrderFormProps {
@@ -237,7 +238,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
   };
 
-  const getMinDate = () => new Date().toISOString().split('T')[0];
+  const getMinDate = () => todayLocal();
 
   return (
     <div className="space-y-6">

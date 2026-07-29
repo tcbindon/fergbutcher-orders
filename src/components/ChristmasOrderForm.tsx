@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertTriangle, UserPlus, Gift, Package } from 'lucide-react';
 import { Order, ChristmasOrderItem, Customer, ChristmasProduct } from '../types';
+import { todayLocal } from '../utils/dateUtils';
 import CollectionTimePicker from './CollectionTimePicker';
 import { useChristmasProducts } from '../hooks/useChristmasProducts';
 
@@ -257,10 +258,7 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
     }
   };
 
-  const getMinDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
+  const getMinDate = () => todayLocal();
 
   if (productsLoading) {
     return (

@@ -7,6 +7,7 @@ import { useChristmasProducts } from '../hooks/useChristmasProducts';
 import backupService, { BackupMeta } from '../services/backupService';
 import errorLogger from '../services/errorLogger';
 import { toast } from './Toast';
+import { todayLocal } from '../utils/dateUtils';
 import { emailSettings, emailLog, sendTestEmail, EmailSettings as EmailSettingsType, EmailLogEntry } from '../services/emailService';
 
 const Settings: React.FC = () => {
@@ -763,7 +764,7 @@ const Settings: React.FC = () => {
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-fergbutcher-green-600">
-                        {orders.filter(o => o.collectionDate === new Date().toISOString().split('T')[0]).length}
+                        {orders.filter(o => o.collectionDate === todayLocal()).length}
                       </div>
                       <div className="text-sm text-fergbutcher-green-400">Today's Collections</div>
                     </div>

@@ -23,6 +23,7 @@ import {
   X
 } from 'lucide-react';
 import { Order, ViewType } from '../types';
+import { todayLocal, formatDateLocal } from '../utils/dateUtils';
 
 interface DashboardProps {
   onNavigate?: (view: ViewType) => void;
@@ -68,9 +69,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPrintSchedule, setShowPrintSchedule] = React.useState(false);
 
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  const dayAfterTomorrow = new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0];
+  const today = todayLocal();
+  const tomorrow = formatDateLocal(new Date(Date.now() + 86400000));
+  const dayAfterTomorrow = formatDateLocal(new Date(Date.now() + 2 * 86400000));
 
   const overdueOrders = orders.filter(
     o => o.collectionDate && o.collectionDate < today && o.status !== 'collected' && o.status !== 'cancelled'
@@ -120,15 +121,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
 
   const getThisWeeksOrders = () => {
     const todayDate = new Date();
-    const todayString = todayDate.toISOString().split('T')[0];
+    const todayString = formatDateLocal(todayDate);
     const startOfWeek = new Date(todayDate);
     const offset = (todayDate.getDay() + 6) % 7;
     startOfWeek.setDate(todayDate.getDate() - offset);
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
 
-    const startDateString = startOfWeek.toISOString().split('T')[0];
-    const endDateString = endOfWeek.toISOString().split('T')[0];
+    const startDateString = formatDateLocal(startOfWeek);
+    const endDateString = formatDateLocal(endOfWeek);
     const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
 
     return orders

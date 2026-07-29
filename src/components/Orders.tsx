@@ -11,6 +11,7 @@ import CollectionDatePromptModal, { isDateRequiredStatus } from './CollectionDat
 import PrintResults from './PrintResults';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { Order, Customer } from '../types';
+import { todayLocal, formatDateLocal } from '../utils/dateUtils';
 
 interface OrdersProps {
   initialStatusFilter?: string;
@@ -65,8 +66,8 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   } | null>(null);
 
   const getSortedOrders = (orders: Order[]) => {
-    const today = new Date().toISOString().split('T')[0];
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+    const today = todayLocal();
+    const sevenDaysAgo = formatDateLocal(new Date(Date.now() - 7 * 86400000));
     const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
 
     let filteredOrders: Order[];
