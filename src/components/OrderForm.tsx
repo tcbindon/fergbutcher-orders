@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, RefreshCw, UserPlus } from 'lucide-react';
 import { Order, OrderItem, Customer } from '../types';
+import CollectionTimePicker from './CollectionTimePicker';
 
 interface OrderFormProps {
   order?: Order;
@@ -600,38 +601,11 @@ const OrderForm: React.FC<OrderFormProps> = ({
             <label className="block text-sm font-medium text-fergbutcher-brown-700 mb-1">
               Collection Time
             </label>
-            <div className="flex space-x-2">
-              <select
-                value={formData.collectionTime ? formData.collectionTime.split(':')[0] : ''}
-                onChange={(e) => {
-                  const minute = formData.collectionTime ? formData.collectionTime.split(':')[1] : '00';
-                  const newTime = e.target.value ? `${e.target.value}:${minute}` : '';
-                  handleChange('collectionTime', newTime);
-                }}
-                className="flex-1 px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-                disabled={isLoading}
-              >
-                <option value="">Hour</option>
-                {Array.from({ length: 12 }, (_, i) => String(i + 7).padStart(2, '0')).map((h) => (
-                  <option key={h} value={h}>{h}</option>
-                ))}
-              </select>
-              <select
-                value={formData.collectionTime ? formData.collectionTime.split(':')[1] : ''}
-                onChange={(e) => {
-                  const hour = formData.collectionTime ? formData.collectionTime.split(':')[0] : '';
-                  const newTime = hour ? `${hour}:${e.target.value}` : '';
-                  handleChange('collectionTime', newTime);
-                }}
-                className="flex-1 px-3 py-2 border border-fergbutcher-brown-300 rounded-lg focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
-                disabled={isLoading}
-              >
-                <option value="">Min</option>
-                {['00', '15', '30', '45'].map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
+            <CollectionTimePicker
+              value={formData.collectionTime}
+              onChange={(v) => handleChange('collectionTime', v)}
+              disabled={isLoading}
+            />
           </div>
         </div>
 
