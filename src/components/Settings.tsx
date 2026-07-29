@@ -823,7 +823,7 @@ const Settings: React.FC = () => {
                     <span>Export to File</span>
                   </button>
                   <p className="text-xs text-fergbutcher-green-400 mt-2">
-                    Next auto backup: {backupService.getNextBackupTime().toLocaleString('en-NZ')}
+                    Auto backups run at 8am, 12pm, 4pm, and 8pm (NZ time).
                   </p>
                 </div>
 

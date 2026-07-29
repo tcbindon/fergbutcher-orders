@@ -75,49 +75,11 @@ async function apiDelete(action: string, id: string): Promise<{ success: boolean
 }
 
 class BackupService {
-  private backupTimer: ReturnType<typeof setTimeout> | null = null;
+  // Server-side scheduled backups run 4x daily (8am, 12pm, 4pm, 8pm NZ time)
+  // via the Netlify scheduled-backup function. No client-side timer needed.
 
   constructor() {
-    this.initializeAutoBackup();
     this.migrateLegacyBackups();
-  }
-
-  // Initialize automatic daily backups at 8:30 PM
-  initializeAutoBackup() {
-    const scheduleNextBackup = () => {
-      const now = new Date();
-      const backup830PM = new Date();
-      backup830PM.setHours(20, 30, 0, 0);
-
-      if (now > backup830PM) {
-        backup830PM.setDate(backup830PM.getDate() + 1);
-      }
-
-      const timeUntilBackup = backup830PM.getTime() - now.getTime();
-
-      this.backupTimer = setTimeout(() => {
-        this.performAutoBackup();
-        scheduleNextBackup();
-      }, timeUntilBackup);
-    };
-
-    scheduleNextBackup();
-  }
-
-  private async performAutoBackup() {
-    try {
-      const [customers, orders, staffNotes] = await Promise.all([
-        customersApi.getAll(),
-        ordersApi.getAll(),
-        staffNotesApi.getAll(),
-      ]);
-
-      if (customers.length > 0 || orders.length > 0 || staffNotes.length > 0) {
-        await this.createBackup(customers, orders, 'automatic', staffNotes);
-      }
-    } catch (error) {
-      console.error('Automatic backup failed:', error);
-    }
   }
 
   async createBackup(
@@ -364,18 +326,6 @@ class BackupService {
     });
   }
 
-  getNextBackupTime(): Date {
-    const now = new Date();
-    const next830PM = new Date();
-    next830PM.setHours(20, 30, 0, 0);
-
-    if (now > next830PM) {
-      next830PM.setDate(next830PM.getDate() + 1);
-    }
-
-    return next830PM;
-  }
-
   // One-time migration of legacy localStorage backups to Supabase
   private async migrateLegacyBackups() {
     if (localStorage.getItem(MIGRATION_FLAG_KEY)) return;
@@ -545,10 +495,6 @@ class BackupService {
   }
 
   cleanup() {
-    if (this.backupTimer) {
-      clearTimeout(this.backupTimer);
-      this.backupTimer = null;
-    }
   }
 }
 
