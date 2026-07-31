@@ -36,6 +36,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateOrder: orders.updateOrder,
     bulkUpdateStatus: orders.bulkUpdateStatus,
     updateOrderAndSeries: orders.updateOrderAndSeries,
+    updateOrderAndFuture: orders.updateOrderAndFuture,
     deleteOrder: orders.deleteOrder,
     deleteRecurringSeries: orders.deleteRecurringSeries,
     setAllOrders: orders.setAllOrders,

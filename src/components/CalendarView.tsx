@@ -6,6 +6,7 @@ import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import { CalendarViewMode, Order } from '../types';
 import DayOrdersModal from './DayOrdersModal';
+import RecurringScopeModal from './RecurringScopeModal';
 import PrintSchedule from './PrintSchedule';
 import { getStatusDot, STATUS_DOT } from '../utils/statusColors';
 
@@ -14,6 +15,7 @@ const CalendarView: React.FC = () => {
     orders,
     updateOrder,
     updateOrderAndSeries,
+    updateOrderAndFuture,
     getDuplicateOrderData,
     addOrder,
     customers,
@@ -29,6 +31,10 @@ const CalendarView: React.FC = () => {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<Omit<Order, 'id' | 'createdAt' | 'updatedAt'> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editScopePrompt, setEditScopePrompt] = useState<{
+    orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>;
+    orderCount: number;
+  } | null>(null);
   const [printDate, setPrintDate] = useState<string>('');
 
   useEffect(() => {
@@ -42,10 +48,24 @@ const CalendarView: React.FC = () => {
   }, [viewMode]);
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
+    if (editingOrder.isRecurring && editingOrder.parentOrderId) {
+      const seriesCount = orders.filter(
+        o => o.parentOrderId === editingOrder.parentOrderId &&
+             o.collectionDate >= (editingOrder.collectionDate || '')
+      ).length;
+      setEditScopePrompt({ orderData, orderCount: seriesCount });
+      return;
+    }
+    applyUpdateOrder(orderData, false);
+  };
 
+  const applyUpdateOrder = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, applyToFuture: boolean) => {
+    if (!editingOrder) return;
     setIsSubmitting(true);
     try {
-      const success = updateOrderAndSeries(editingOrder, orderData, customers);
+      const success = applyToFuture
+        ? updateOrderAndFuture(editingOrder, orderData, true, customers)
+        : updateOrderAndSeries(editingOrder, orderData, customers);
       if (success) {
         setEditingOrder(null);
       }
@@ -492,6 +512,7 @@ const CalendarView: React.FC = () => {
           ))}
           customers={customers}
           onUpdateOrder={(id, updates) => updateOrder(id, updates, customers)}
+          onUpdateOrderAndFuture={(anchorOrder, updates, applyToFuture, custs) => updateOrderAndFuture(anchorOrder, updates, applyToFuture, custs)}
           onEdit={(order) => {
             setEditingOrder(order);
             setShowDayDetailModal(false);
@@ -611,6 +632,22 @@ const CalendarView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Scope Prompt (recurring) */}
+      {editScopePrompt && (
+        <RecurringScopeModal
+          open={true}
+          orderCount={editScopePrompt.orderCount}
+          title="Save changes to which orders?"
+          message="This is a recurring order. Choose how far your edits should apply."
+          onChoose={(applyToFuture) => {
+            const data = editScopePrompt.orderData;
+            setEditScopePrompt(null);
+            applyUpdateOrder(data, applyToFuture);
+          }}
+          onCancel={() => setEditScopePrompt(null)}
+        />
       )}
     </div>
   );

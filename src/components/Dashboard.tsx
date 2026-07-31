@@ -8,6 +8,8 @@ import OrderDetail from './OrderDetail';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import PrintSchedule from './PrintSchedule';
+import RecurringScopeModal from './RecurringScopeModal';
+import { collapsePendingRecurring, countPendingInSeries } from '../utils/recurringUtils';
 import { getStatusBadge, getStatusIcon } from '../utils/statusColors';
 import {
   ShoppingCart,
@@ -31,7 +33,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders }) => {
-  const { customers, addCustomer, orders, getOrderStats, updateOrder, updateOrderAndSeries, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useAppData();
+  const { customers, addCustomer, orders, getOrderStats, updateOrder, updateOrderAndSeries, updateOrderAndFuture, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useAppData();
   const orderStats = getOrderStats();
   const { isConnected: sheetsConnected } = useGoogleSheetsContext();
 
@@ -68,6 +70,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
   const [duplicatingOrder, setDuplicatingOrder] = React.useState<any>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPrintSchedule, setShowPrintSchedule] = React.useState(false);
+  const [editScopePrompt, setEditScopePrompt] = React.useState<{
+    orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>;
+    orderCount: number;
+  } | null>(null);
+  const [statusScopePrompt, setStatusScopePrompt] = React.useState<{
+    orderId: string;
+    newStatus: Order['status'];
+    orderCount: number;
+  } | null>(null);
 
   const today = todayLocal();
   const tomorrow = formatDateLocal(new Date(Date.now() + 86400000));
@@ -77,14 +88,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
     o => o.collectionDate && o.collectionDate < today && o.status !== 'collected' && o.status !== 'cancelled'
   );
 
-  const allPendingOrders = orders
-    .filter(o => o.status === 'pending')
-    .sort((a, b) => {
-      if (!a.collectionDate && !b.collectionDate) return 0;
-      if (!a.collectionDate) return 1;
-      if (!b.collectionDate) return -1;
-      return a.collectionDate.localeCompare(b.collectionDate);
-    });
+  const allPendingOrders = collapsePendingRecurring(
+    orders
+      .filter(o => o.status === 'pending')
+      .sort((a, b) => {
+        if (!a.collectionDate && !b.collectionDate) return 0;
+        if (!a.collectionDate) return 1;
+        if (!b.collectionDate) return -1;
+        return a.collectionDate.localeCompare(b.collectionDate);
+      })
+  );
 
   const tomorrowCount = orders.filter(
     o => o.collectionDate === tomorrow && o.status !== 'cancelled'
@@ -133,9 +146,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
     const endDateString = formatDateLocal(endOfWeek);
     const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
 
-    return orders
-      .filter(order => order.collectionDate >= startDateString && order.collectionDate <= endDateString)
-      .filter(order => order.collectionDate >= todayString)
+    return collapsePendingRecurring(
+      orders
+        .filter(order => order.collectionDate >= startDateString && order.collectionDate <= endDateString)
+        .filter(order => order.collectionDate >= todayString)
+    )
       .sort((a, b) => {
         const dateComparison = new Date(a.collectionDate).getTime() - new Date(b.collectionDate).getTime();
         if (dateComparison !== 0) return dateComparison;
@@ -159,9 +174,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
 
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
+    if (editingOrder.isRecurring && editingOrder.parentOrderId) {
+      const seriesCount = orders.filter(
+        o => o.parentOrderId === editingOrder.parentOrderId &&
+             o.collectionDate >= (editingOrder.collectionDate || '')
+      ).length;
+      setEditScopePrompt({ orderData, orderCount: seriesCount });
+      return;
+    }
+    applyUpdateOrder(orderData, false);
+  };
+
+  const applyUpdateOrder = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, applyToFuture: boolean) => {
+    if (!editingOrder) return;
     setIsSubmitting(true);
     try {
-      const success = updateOrderAndSeries(editingOrder, orderData, customers);
+      const success = applyToFuture
+        ? updateOrderAndFuture(editingOrder, orderData, true, customers)
+        : updateOrderAndSeries(editingOrder, orderData, customers);
       if (success) {
         setEditingOrder(null);
         if (viewingOrder?.id === editingOrder.id) {
@@ -204,6 +234,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
   };
 
   const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
+    const order = orders.find(o => o.id === orderId);
+    if (order && order.isRecurring && order.parentOrderId) {
+      const seriesCount = orders.filter(
+        o => o.parentOrderId === order.parentOrderId &&
+             o.collectionDate >= (order.collectionDate || '')
+      ).length;
+      setStatusScopePrompt({ orderId, newStatus, orderCount: seriesCount });
+      return;
+    }
+    applyStatusChange(orderId, newStatus);
+  };
+
+  const applyStatusChange = (orderId: string, newStatus: Order['status']) => {
     const success = updateOrder(orderId, { status: newStatus }, customers);
     if (success && viewingOrder?.id === orderId) {
       setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
@@ -647,6 +690,46 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
           orders={orders}
           customers={customers}
           onClose={() => setShowPrintSchedule(false)}
+        />
+      )}
+
+      {/* Edit Scope Prompt (recurring) */}
+      {editScopePrompt && (
+        <RecurringScopeModal
+          open={true}
+          orderCount={editScopePrompt.orderCount}
+          title="Save changes to which orders?"
+          message="This is a recurring order. Choose how far your edits should apply."
+          onChoose={(applyToFuture) => {
+            const data = editScopePrompt.orderData;
+            setEditScopePrompt(null);
+            applyUpdateOrder(data, applyToFuture);
+          }}
+          onCancel={() => setEditScopePrompt(null)}
+        />
+      )}
+
+      {/* Status Scope Prompt (recurring) */}
+      {statusScopePrompt && (
+        <RecurringScopeModal
+          open={true}
+          orderCount={statusScopePrompt.orderCount}
+          title={`Mark as ${statusScopePrompt.newStatus} — which orders?`}
+          message="This is a recurring order. Choose how far the status change should apply."
+          onChoose={(applyToFuture) => {
+            const { orderId, newStatus } = statusScopePrompt;
+            const order = orders.find(o => o.id === orderId);
+            setStatusScopePrompt(null);
+            if (order && applyToFuture) {
+              updateOrderAndFuture(order, { status: newStatus }, true, customers);
+              if (viewingOrder?.id === orderId) {
+                setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+              }
+            } else {
+              applyStatusChange(orderId, newStatus);
+            }
+          }}
+          onCancel={() => setStatusScopePrompt(null)}
         />
       )}
 

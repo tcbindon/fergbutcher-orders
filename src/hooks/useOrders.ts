@@ -388,6 +388,73 @@ export const useOrders = () => {
     }
   }, [orders, updateOrder, triggerSync]);
 
+  // ── updateOrderAndFuture ──────────────────────────────────
+  // Applies updates to a single order, or to that order plus all future
+  // orders in the same recurring series (collectionDate >= anchor's date).
+  // Each future order keeps its own collectionDate/collectionTime; only the
+  // edited fields are copied across. Used by the edit form scope selector
+  // and the status-change scope popup.
+  const updateOrderAndFuture = useCallback((
+    anchorOrder: Order,
+    updates: Partial<Omit<Order, 'id' | 'createdAt'>>,
+    applyToFuture: boolean,
+    customers: Customer[] = []
+  ) => {
+    try {
+      if (!applyToFuture || !anchorOrder.parentOrderId) {
+        return updateOrder(anchorOrder.id, updates, customers);
+      }
+
+      const updatedAt = new Date().toISOString();
+      const parentId = anchorOrder.parentOrderId;
+      const anchorDate = anchorOrder.collectionDate || '';
+
+      // Fields that should NOT be copied across future orders
+      const { collectionDate, collectionTime, ...sharedUpdates } = updates;
+
+      const previousOrders = [...orders];
+      const targetIds = new Set(
+        orders
+          .filter(o => o.parentOrderId === parentId && o.collectionDate >= anchorDate)
+          .map(o => o.id)
+      );
+
+      // Always include the anchor even if date comparison missed it
+      targetIds.add(anchorOrder.id);
+
+      const updatedOrders = orders.map(o =>
+        targetIds.has(o.id) ? { ...o, ...sharedUpdates, updatedAt } : o
+      );
+      setOrders(updatedOrders);
+
+      // Auto-send confirmation emails for orders newly confirmed
+      if (sharedUpdates.status === 'confirmed') {
+        const customer = customers.find(c => c.id === anchorOrder.customerId);
+        targetIds.forEach(id => {
+          const prev = orders.find(o => o.id === id);
+          if (prev && prev.status !== 'confirmed') {
+            autoSendOrderEmail({ ...prev, ...sharedUpdates, updatedAt } as Order, customer, 'order-confirmed', 'Automation');
+          }
+        });
+      }
+
+      const ids = Array.from(targetIds);
+      Promise.all(ids.map(id => ordersApi.update(id, { ...sharedUpdates, updatedAt })))
+        .then(() => triggerSync(updatedOrders, customers))
+        .catch(err => {
+          console.error('Failed to update future recurring orders:', err);
+          setOrders(previousOrders);
+          setError('Failed to update recurring orders. Please try again.');
+        });
+
+      return true;
+    } catch (err) {
+      console.error('Error in updateOrderAndFuture:', err);
+      setError('Failed to update order');
+      return false;
+    }
+  }, [orders, updateOrder, triggerSync]);
+
   // ── deleteOrder ───────────────────────────────────────────
   const deleteOrder = useCallback((id: string, customers: Customer[] = []) => {
     try {
@@ -569,6 +636,7 @@ export const useOrders = () => {
     updateOrder,
     bulkUpdateStatus,
     updateOrderAndSeries,
+    updateOrderAndFuture,
     deleteOrder,
     deleteRecurringSeries,
     setAllOrders,

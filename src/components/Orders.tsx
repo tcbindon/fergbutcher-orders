@@ -8,7 +8,9 @@ import ChristmasOrderForm from './ChristmasOrderForm';
 import CustomerForm from './CustomerForm';
 import OrderDetail from './OrderDetail';
 import CollectionDatePromptModal, { isDateRequiredStatus } from './CollectionDatePromptModal';
+import RecurringScopeModal from './RecurringScopeModal';
 import PrintResults from './PrintResults';
+import { collapsePendingRecurring, countPendingInSeries } from '../utils/recurringUtils';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { Order, Customer } from '../types';
 import { todayLocal, formatDateLocal } from '../utils/dateUtils';
@@ -28,6 +30,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     updateOrder,
     bulkUpdateStatus,
     updateOrderAndSeries,
+    updateOrderAndFuture,
     getDuplicateOrderData,
     searchOrders,
     customers,
@@ -64,6 +67,16 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     orderIds: string[];
     desiredStatus: Order['status'];
   } | null>(null);
+  const [editScopePrompt, setEditScopePrompt] = useState<{
+    orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>;
+    orderCount: number;
+  } | null>(null);
+  const [statusScopePrompt, setStatusScopePrompt] = useState<{
+    orderId: string;
+    newStatus: Order['status'];
+    collectionDate?: string;
+    orderCount: number;
+  } | null>(null);
 
   const getSortedOrders = (orders: Order[]) => {
     const today = todayLocal();
@@ -94,12 +107,14 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     });
   };
 
-  const filteredOrders = getSortedOrders(
-    searchOrders(searchTerm, customers).filter(order =>
-      (selectedStatuses.size === 0 ? order.status !== 'cancelled' : selectedStatuses.has(order.status)) &&
-      (!initialCollectionDate || order.collectionDate === initialCollectionDate) &&
-      (!dateFrom || (order.collectionDate && order.collectionDate >= dateFrom)) &&
-      (!dateTo || (order.collectionDate && order.collectionDate <= dateTo))
+  const filteredOrders = collapsePendingRecurring(
+    getSortedOrders(
+      searchOrders(searchTerm, customers).filter(order =>
+        (selectedStatuses.size === 0 ? order.status !== 'cancelled' : selectedStatuses.has(order.status)) &&
+        (!initialCollectionDate || order.collectionDate === initialCollectionDate) &&
+        (!dateFrom || (order.collectionDate && order.collectionDate >= dateFrom)) &&
+        (!dateTo || (order.collectionDate && order.collectionDate <= dateTo))
+      )
     )
   );
 
@@ -135,9 +150,25 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
 
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
+    // If recurring, ask scope; otherwise apply directly
+    if (editingOrder.isRecurring && editingOrder.parentOrderId) {
+      const seriesCount = orders.filter(
+        o => o.parentOrderId === editingOrder.parentOrderId &&
+             o.collectionDate >= (editingOrder.collectionDate || '')
+      ).length;
+      setEditScopePrompt({ orderData, orderCount: seriesCount });
+      return;
+    }
+    applyUpdateOrder(orderData, false);
+  };
+
+  const applyUpdateOrder = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, applyToFuture: boolean) => {
+    if (!editingOrder) return;
     setIsSubmitting(true);
     try {
-      const success = updateOrderAndSeries(editingOrder, orderData, customers);
+      const success = applyToFuture
+        ? updateOrderAndFuture(editingOrder, orderData, true, customers)
+        : updateOrderAndSeries(editingOrder, orderData, customers);
       if (success) {
         setEditingOrder(null);
         if (viewingOrder?.id === editingOrder.id) {
@@ -160,12 +191,19 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   };
 
   const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
-    if (isDateRequiredStatus(newStatus)) {
-      const order = orders.find(o => o.id === orderId);
-      if (order && !order.collectionDate) {
-        setDatePrompt({ orderIds: [orderId], desiredStatus: newStatus });
-        return;
-      }
+    const order = orders.find(o => o.id === orderId);
+    if (isDateRequiredStatus(newStatus) && order && !order.collectionDate) {
+      setDatePrompt({ orderIds: [orderId], desiredStatus: newStatus });
+      return;
+    }
+    // If recurring, ask scope
+    if (order && order.isRecurring && order.parentOrderId) {
+      const seriesCount = orders.filter(
+        o => o.parentOrderId === order.parentOrderId &&
+             o.collectionDate >= (order.collectionDate || '')
+      ).length;
+      setStatusScopePrompt({ orderId, newStatus, orderCount: seriesCount });
+      return;
     }
     applyStatusChange(orderId, newStatus);
   };
@@ -477,6 +515,11 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-fergbutcher-gold-100 text-fergbutcher-gold-700 border border-fergbutcher-gold-300 flex-shrink-0">
                                   <RefreshCw className="h-3 w-3 mr-1" />
                                   Recurring
+                                  {order.status === 'pending' && (() => {
+                                    const cnt = countPendingInSeries(orders, order);
+                                    if (cnt > 1) return <span className="ml-1 px-1 rounded-full bg-fergbutcher-green-600 text-white text-[10px]">{cnt}</span>;
+                                    return null;
+                                  })()}
                                 </span>
                               )}
                             </div>
@@ -868,6 +911,46 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Scope Prompt (recurring) */}
+      {editScopePrompt && (
+        <RecurringScopeModal
+          open={true}
+          orderCount={editScopePrompt.orderCount}
+          title="Save changes to which orders?"
+          message="This is a recurring order. Choose how far your edits should apply."
+          onChoose={(applyToFuture) => {
+            const data = editScopePrompt.orderData;
+            setEditScopePrompt(null);
+            applyUpdateOrder(data, applyToFuture);
+          }}
+          onCancel={() => setEditScopePrompt(null)}
+        />
+      )}
+
+      {/* Status Scope Prompt (recurring) */}
+      {statusScopePrompt && (
+        <RecurringScopeModal
+          open={true}
+          orderCount={statusScopePrompt.orderCount}
+          title={`Mark as ${statusScopePrompt.newStatus} — which orders?`}
+          message="This is a recurring order. Choose how far the status change should apply."
+          onChoose={(applyToFuture) => {
+            const { orderId, newStatus } = statusScopePrompt;
+            const order = orders.find(o => o.id === orderId);
+            setStatusScopePrompt(null);
+            if (order && applyToFuture) {
+              updateOrderAndFuture(order, { status: newStatus }, true, customers);
+              if (viewingOrder?.id === orderId) {
+                setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+              }
+            } else {
+              applyStatusChange(orderId, newStatus);
+            }
+          }}
+          onCancel={() => setStatusScopePrompt(null)}
+        />
       )}
 
       {/* Collection Date Prompt */}

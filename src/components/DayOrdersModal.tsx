@@ -3,7 +3,9 @@ import { X, Calendar, Clock, User, Package, AlertTriangle, Eye, MessageSquare, P
 import { Gift } from 'lucide-react';
 import { Order, Customer } from '../types';
 import OrderDetail from './OrderDetail';
+import RecurringScopeModal from './RecurringScopeModal';
 import { getStatusBadge, getStatusIcon, STATUS_DOT } from '../utils/statusColors';
+import { countPendingInSeries } from '../utils/recurringUtils';
 
 interface DayOrdersModalProps {
   date: Date;
@@ -11,6 +13,7 @@ interface DayOrdersModalProps {
   customers: Customer[];
   onClose: () => void;
   onUpdateOrder?: (id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>) => boolean;
+  onUpdateOrderAndFuture?: (anchorOrder: Order, updates: Partial<Omit<Order, 'id' | 'createdAt'>>, applyToFuture: boolean, customers: Customer[]) => boolean;
   onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
   onEdit?: (order: Order) => void;
   onDuplicate?: (orderId: string) => void;
@@ -22,6 +25,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   customers,
   onClose,
   onUpdateOrder,
+  onUpdateOrderAndFuture,
   onAddCustomer,
   onEdit,
   onDuplicate
@@ -29,6 +33,15 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [editScopePrompt, setEditScopePrompt] = React.useState<{
+    orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>;
+    orderCount: number;
+  } | null>(null);
+  const [statusScopePrompt, setStatusScopePrompt] = React.useState<{
+    orderId: string;
+    newStatus: Order['status'];
+    orderCount: number;
+  } | null>(null);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-NZ', {
@@ -42,11 +55,25 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   const isToday = date.toDateString() === new Date().toDateString();
 
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!editingOrder || !onUpdateOrder) return;
+    if (!editingOrder) return;
+    if (editingOrder.isRecurring && editingOrder.parentOrderId && onUpdateOrderAndFuture) {
+      const seriesCount = orders.filter(
+        o => o.parentOrderId === editingOrder.parentOrderId &&
+             o.collectionDate >= (editingOrder.collectionDate || '')
+      ).length;
+      setEditScopePrompt({ orderData, orderCount: seriesCount });
+      return;
+    }
+    applyUpdateOrder(orderData, false);
+  };
 
+  const applyUpdateOrder = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, applyToFuture: boolean) => {
+    if (!editingOrder) return;
     setIsSubmitting(true);
     try {
-      const success = onUpdateOrder(editingOrder.id, orderData);
+      const success = applyToFuture && onUpdateOrderAndFuture
+        ? onUpdateOrderAndFuture(editingOrder, orderData, true, customers)
+        : onUpdateOrder ? onUpdateOrder(editingOrder.id, orderData) : false;
       if (success) {
         setEditingOrder(null);
         if (viewingOrder?.id === editingOrder.id) {
@@ -66,8 +93,20 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   };
 
   const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
-    if (!onUpdateOrder) return;
+    const order = orders.find(o => o.id === orderId);
+    if (order && order.isRecurring && order.parentOrderId && onUpdateOrderAndFuture) {
+      const seriesCount = orders.filter(
+        o => o.parentOrderId === order.parentOrderId &&
+             o.collectionDate >= (order.collectionDate || '')
+      ).length;
+      setStatusScopePrompt({ orderId, newStatus, orderCount: seriesCount });
+      return;
+    }
+    applyStatusChange(orderId, newStatus);
+  };
 
+  const applyStatusChange = (orderId: string, newStatus: Order['status']) => {
+    if (!onUpdateOrder) return;
     const success = onUpdateOrder(orderId, { status: newStatus });
     if (success && viewingOrder?.id === orderId) {
       setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
@@ -309,7 +348,47 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
             </div>
           </div>
         )}
-      </div>
+
+      {/* Edit Scope Prompt (recurring) */}
+      {editScopePrompt && (
+        <RecurringScopeModal
+          open={true}
+          orderCount={editScopePrompt.orderCount}
+          title="Save changes to which orders?"
+          message="This is a recurring order. Choose how far your edits should apply."
+          onChoose={(applyToFuture) => {
+            const data = editScopePrompt.orderData;
+            setEditScopePrompt(null);
+            applyUpdateOrder(data, applyToFuture);
+          }}
+          onCancel={() => setEditScopePrompt(null)}
+        />
+      )}
+
+      {/* Status Scope Prompt (recurring) */}
+      {statusScopePrompt && (
+        <RecurringScopeModal
+          open={true}
+          orderCount={statusScopePrompt.orderCount}
+          title={`Mark as ${statusScopePrompt.newStatus} — which orders?`}
+          message="This is a recurring order. Choose how far the status change should apply."
+          onChoose={(applyToFuture) => {
+            const { orderId, newStatus } = statusScopePrompt;
+            const order = orders.find(o => o.id === orderId);
+            setStatusScopePrompt(null);
+            if (order && applyToFuture && onUpdateOrderAndFuture) {
+              onUpdateOrderAndFuture(order, { status: newStatus }, true, customers);
+              if (viewingOrder?.id === orderId) {
+                setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+              }
+            } else {
+              applyStatusChange(orderId, newStatus);
+            }
+          }}
+          onCancel={() => setStatusScopePrompt(null)}
+        />
+      )}
+    </div>
     </div>
   );
 };
