@@ -150,6 +150,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
       orders
         .filter(order => order.collectionDate >= startDateString && order.collectionDate <= endDateString)
         .filter(order => order.collectionDate >= todayString)
+        .filter(order => order.status !== 'cancelled')
     )
       .sort((a, b) => {
         const dateComparison = new Date(a.collectionDate).getTime() - new Date(b.collectionDate).getTime();
