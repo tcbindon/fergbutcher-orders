@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { User, Calendar, Clock, Package, FileText, Pencil, CheckCircle, XCircle, AlertTriangle, Copy, Mail, Send, Gift, RefreshCw, Loader2 } from 'lucide-react';
+import { User, Calendar, Clock, Package, FileText, Pencil, Copy, Mail, Send, Gift, RefreshCw, Loader2 } from 'lucide-react';
 import { Order, Customer } from '../types';
-import StaffComments from './StaffComments';
+import OrderTimeline from './OrderTimeline';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
 import { useStaffNotes } from '../hooks/useStaffNotes';
 import { generateEmailData, populateTemplate, openEmailClient } from '../utils/emailUtils';
@@ -76,7 +76,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   return (
     <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
+      <div className="px-6 py-4 border-b border-fergbutcher-gold-300 sticky top-0 bg-white z-10 rounded-t-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="bg-fergbutcher-green-100 p-3 rounded-full">
@@ -292,30 +292,9 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
         </div>
       )}
 
-      {/* Order Timeline */}
-      <div className="px-6 py-4">
-        <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-3">Order Timeline</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-fergbutcher-green-400">Created</span>
-            <span className="font-medium text-fergbutcher-black-900">
-              {new Date(order.createdAt).toLocaleDateString('en-NZ')} at {new Date(order.createdAt).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-          {order.updatedAt !== order.createdAt && (
-            <div className="flex justify-between items-center">
-              <span className="text-fergbutcher-green-400">Last Updated</span>
-              <span className="font-medium text-fergbutcher-black-900">
-                {new Date(order.updatedAt).toLocaleDateString('en-NZ')} at {new Date(order.updatedAt).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Staff Comments */}
+      {/* Unified Order Timeline (system events, staff comments, email history) */}
       <div className="px-6 py-4 border-t border-fergbutcher-gold-300">
-        <StaffComments orderId={order.id} />
+        <OrderTimeline order={order} />
       </div>
     </div>
   );
