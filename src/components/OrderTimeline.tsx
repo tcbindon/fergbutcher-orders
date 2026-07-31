@@ -3,13 +3,11 @@ import {
   MessageSquare,
   Plus,
   Trash2,
-  User,
   Mail,
   CheckCircle,
   XCircle,
   Clock,
   Package,
-  RefreshCw,
   Loader2,
 } from 'lucide-react';
 import { useStaffNotes } from '../hooks/useStaffNotes';
@@ -216,76 +214,69 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
         </form>
       )}
 
-      <div className="space-y-3">
+      <div className="relative">
         {entries.length > 0 ? (
-          entries.map((entry) => (
-            <div
-              key={entry.id}
-              className="bg-white border border-fergbutcher-gold-300 rounded-lg p-4 flex items-start space-x-3"
-            >
-              <div className="flex-shrink-0">
-                {entry.kind === 'comment' ? (
-                  <div className="bg-fergbutcher-gold-100 p-2 rounded-full">
-                    <MessageSquare className="h-4 w-4 text-fergbutcher-gold-700" />
-                  </div>
-                ) : entry.kind === 'email' ? (
-                  <div className="bg-fergbutcher-green-100 p-2 rounded-full">
+          <ul className="space-y-0">
+            {entries.map((entry, idx) => (
+              <li
+                key={entry.id}
+                className={`relative flex items-start gap-3 py-2 ${
+                  idx !== entries.length - 1
+                    ? 'border-b border-fergbutcher-gold-100'
+                    : ''
+                }`}
+              >
+                <div className="flex-shrink-0 mt-0.5">
+                  {entry.kind === 'comment' ? (
+                    <MessageSquare className="h-4 w-4 text-fergbutcher-gold-600" />
+                  ) : entry.kind === 'email' ? (
                     <Mail className="h-4 w-4 text-fergbutcher-green-600" />
-                  </div>
-                ) : (
-                  <div className="bg-fergbutcher-green-100 p-2 rounded-full">
-                    <Package className="h-4 w-4 text-fergbutcher-green-600" />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium text-fergbutcher-black-900 text-sm">
-                      {entry.actor}
-                    </span>
-                    {entry.emailStatus && (
-                      <span
-                        className={`inline-flex items-center space-x-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                          entry.emailStatus === 'sent'
-                            ? 'bg-fergbutcher-green-100 text-fergbutcher-green-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
-                      >
-                        {entry.emailStatus === 'sent' ? (
-                          <CheckCircle className="h-3 w-3" />
-                        ) : (
-                          <XCircle className="h-3 w-3" />
-                        )}
-                        <span>{entry.emailStatus === 'sent' ? 'Sent' : 'Failed'}</span>
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-1 text-xs text-fergbutcher-green-400">
-                      <Clock className="h-3 w-3" />
-                      <span>{formatTimestamp(entry.timestamp)}</span>
-                    </div>
-                    {entry.deletable && entry.onDelete && (
-                      <button
-                        onClick={() => {
-                          if (window.confirm('Delete this comment?')) entry.onDelete?.();
-                        }}
-                        className="p-1 text-fergbutcher-gold-400 hover:text-red-600 hover:bg-red-100 rounded transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
+                  ) : (
+                    <Package className="h-4 w-4 text-fergbutcher-green-500" />
+                  )}
                 </div>
-                <p className="text-fergbutcher-gold-700 text-sm leading-relaxed">
-                  {entry.message}
-                </p>
-              </div>
-            </div>
-          ))
+
+                <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-medium text-fergbutcher-black-900 text-sm">
+                    {entry.actor}
+                  </span>
+                  <span className="text-fergbutcher-gold-700 text-sm">
+                    {entry.message}
+                  </span>
+                  {entry.emailStatus && (
+                    <span
+                      className={`inline-flex items-center gap-0.5 text-xs font-medium ${
+                        entry.emailStatus === 'sent'
+                          ? 'text-fergbutcher-green-600'
+                          : 'text-red-600'
+                      }`}
+                    >
+                      {entry.emailStatus === 'sent' ? (
+                        <CheckCircle className="h-3 w-3" />
+                      ) : (
+                        <XCircle className="h-3 w-3" />
+                      )}
+                      <span>{entry.emailStatus === 'sent' ? 'Sent' : 'Failed'}</span>
+                    </span>
+                  )}
+                  <span className="text-xs text-fergbutcher-green-400 ml-auto whitespace-nowrap">
+                    {formatTimestamp(entry.timestamp)}
+                  </span>
+                  {entry.deletable && entry.onDelete && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Delete this comment?')) entry.onDelete?.();
+                      }}
+                      className="p-1 text-fergbutcher-gold-300 hover:text-red-600 rounded transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : (
           <div className="text-center py-6 text-fergbutcher-green-400">
             <Clock className="h-8 w-8 mx-auto mb-2 text-fergbutcher-gold-300" />
