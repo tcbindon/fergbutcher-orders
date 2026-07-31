@@ -105,6 +105,35 @@ export const emailLog = {
   },
 };
 
+const SIGNATURE_IMG_URL = 'https://orders.fergbutcher.com/Official_Ferg_Signatures_(3.png';
+
+function buildHtml(bodyText: string): string {
+  const bodyHtml = bodyText
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;">
+    <tr><td align="center" style="padding:32px 16px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr><td style="padding:32px 36px;color:#333333;font-size:15px;line-height:1.6;">
+          ${bodyHtml}
+        </td></tr>
+        <tr><td style="padding:0;">
+          <img src="${SIGNATURE_IMG_URL}" alt="Fergbutcher signature" width="600" style="display:block;width:100%;max-width:600px;border:0;">
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 // ── Send via Netlify Function ───────────────────────────────
 export async function sendEmail(
   to: string,
@@ -119,7 +148,7 @@ export async function sendEmail(
     to,
     subject,
     text: body,
-    html: body.replace(/\n/g, '<br>'),
+    html: buildHtml(body),
     templateId,
     orderId,
     customerId,
