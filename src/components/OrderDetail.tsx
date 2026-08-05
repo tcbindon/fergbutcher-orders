@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Calendar, Clock, Package, FileText, Pencil, Copy, Mail, Send, Gift, RefreshCw, Loader2 } from 'lucide-react';
+import { User, Calendar, Clock, Package, FileText, Pencil, Copy, Mail, Send, Gift, RefreshCw, Loader2, ExternalLink } from 'lucide-react';
 import { Order, Customer } from '../types';
 import OrderTimeline from './OrderTimeline';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
@@ -16,6 +16,7 @@ interface OrderDetailProps {
   onDelete: () => void;
   onDuplicate?: () => void;
   onStatusChange: (status: Order['status']) => void;
+  onViewCustomer?: (customer: Customer) => void;
 }
 
 const OrderDetail: React.FC<OrderDetailProps> = ({
@@ -24,7 +25,8 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   onEdit,
   onDelete,
   onDuplicate,
-  onStatusChange
+  onStatusChange,
+  onViewCustomer
 }) => {
   const { templates, getTemplate } = useEmailTemplates();
   const { addStaffNote } = useStaffNotes();
@@ -168,7 +170,19 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
               <User className="h-4 w-4 text-fergbutcher-green-600" />
             </div>
             <div>
-              <p className="font-medium text-fergbutcher-black-900">{customer.firstName} {customer.lastName}</p>
+              {onViewCustomer ? (
+                <button
+                  type="button"
+                  onClick={() => onViewCustomer(customer)}
+                  className="group inline-flex items-center space-x-1 font-medium text-fergbutcher-black-900 hover:text-fergbutcher-green-600 transition-colors text-left"
+                  title="View customer details"
+                >
+                  <span className="group-hover:underline">{customer.firstName} {customer.lastName}</span>
+                  <ExternalLink className="h-3.5 w-3.5 text-fergbutcher-gold-400 group-hover:text-fergbutcher-green-600 transition-colors" />
+                </button>
+              ) : (
+                <p className="font-medium text-fergbutcher-black-900">{customer.firstName} {customer.lastName}</p>
+              )}
               {customer.email && <p className="text-sm text-fergbutcher-green-400">{customer.email}</p>}
               {customer.phone && (
                 <a href={`tel:${customer.phone}`} className="text-sm text-fergbutcher-green-600 hover:underline">

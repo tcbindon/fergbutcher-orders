@@ -7,6 +7,7 @@ import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import CustomerForm from './CustomerForm';
 import OrderDetail from './OrderDetail';
+import CustomerDetailModal from './CustomerDetailModal';
 import CollectionDatePromptModal, { isDateRequiredStatus } from './CollectionDatePromptModal';
 import RecurringScopeModal from './RecurringScopeModal';
 import PrintResults from './PrintResults';
@@ -52,6 +53,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const [showChristmasModal, setShowChristmasModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [showingComments, setShowingComments] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -723,10 +725,29 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                 onDelete={() => {}}
                 onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
                 onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
+                onViewCustomer={(customer) => setViewingCustomer(customer)}
               />
             </div>
           </div>
         </div>
+      )}
+
+      {/* Customer Detail Modal (from order preview) */}
+      {viewingCustomer && (
+        <CustomerDetailModal
+          customer={viewingCustomer}
+          orders={orders}
+          onClose={() => setViewingCustomer(null)}
+          onDuplicateOrder={(orderId) => {
+            setViewingCustomer(null);
+            handleDuplicateOrder(orderId);
+          }}
+          onEditOrder={(order) => {
+            setViewingCustomer(null);
+            setEditingOrder(order);
+          }}
+          onStatusChange={(orderId, status) => handleStatusChange(orderId, status)}
+        />
       )}
 
       {/* Create Order Modal */}

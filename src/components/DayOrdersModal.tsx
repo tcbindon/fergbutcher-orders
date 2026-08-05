@@ -3,6 +3,7 @@ import { X, Calendar, Clock, User, Package, AlertTriangle, Eye, MessageSquare, P
 import { Gift } from 'lucide-react';
 import { Order, Customer } from '../types';
 import OrderDetail from './OrderDetail';
+import CustomerDetailModal from './CustomerDetailModal';
 import RecurringScopeModal from './RecurringScopeModal';
 import { getStatusBadge, getStatusIcon, STATUS_DOT } from '../utils/statusColors';
 import { countPendingInSeries } from '../utils/recurringUtils';
@@ -32,6 +33,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
 }) => {
   const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
+  const [viewingCustomer, setViewingCustomer] = React.useState<Customer | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [editScopePrompt, setEditScopePrompt] = React.useState<{
     orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>;
@@ -148,10 +150,33 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
               onDelete={() => {}}
               onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
               onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
+              onViewCustomer={(customer) => setViewingCustomer(customer)}
             />
           </div>
         </div>
       </div>
+    );
+  }
+
+  // When viewing a customer from the order preview, show the customer modal on top
+  if (viewingCustomer) {
+    return (
+      <CustomerDetailModal
+        customer={viewingCustomer}
+        orders={orders}
+        onClose={() => setViewingCustomer(null)}
+        onDuplicateOrder={(orderId) => {
+          setViewingCustomer(null);
+          handleDuplicateOrder(orderId);
+        }}
+        onEditOrder={(order) => {
+          setViewingCustomer(null);
+          if (onEdit) {
+            onEdit(order);
+          }
+        }}
+        onStatusChange={(orderId, status) => handleStatusChange(orderId, status)}
+      />
     );
   }
 

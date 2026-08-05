@@ -5,6 +5,7 @@ import { emailSettings } from '../services/emailService';
 import backupService from '../services/backupService';
 import { toast } from './Toast';
 import OrderDetail from './OrderDetail';
+import CustomerDetailModal from './CustomerDetailModal';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import PrintSchedule from './PrintSchedule';
@@ -24,7 +25,7 @@ import {
   ClipboardList,
   X
 } from 'lucide-react';
-import { Order, ViewType } from '../types';
+import { Order, ViewType, Customer } from '../types';
 import { todayLocal, formatDateLocal } from '../utils/dateUtils';
 
 interface DashboardProps {
@@ -66,6 +67,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
 
   const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
+  const [viewingCustomer, setViewingCustomer] = React.useState<Customer | null>(null);
   const [deletingOrder, setDeletingOrder] = React.useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = React.useState<any>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -531,10 +533,29 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
                 }}
                 onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
                 onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
+                onViewCustomer={(customer) => setViewingCustomer(customer)}
               />
             </div>
           </div>
         </div>
+      )}
+
+      {/* Customer Detail Modal (from order preview) */}
+      {viewingCustomer && (
+        <CustomerDetailModal
+          customer={viewingCustomer}
+          orders={orders}
+          onClose={() => setViewingCustomer(null)}
+          onDuplicateOrder={(orderId) => {
+            setViewingCustomer(null);
+            handleDuplicateOrder(orderId);
+          }}
+          onEditOrder={(order) => {
+            setViewingCustomer(null);
+            setEditingOrder(order);
+          }}
+          onStatusChange={(orderId, status) => handleStatusChange(orderId, status)}
+        />
       )}
 
       {/* Edit Order Modal */}
