@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone, Loader2, X, Printer } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
-import { useStaffNotes } from '../hooks/useStaffNotes';
 import { toast } from './Toast';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
@@ -43,7 +42,9 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const ordersLoading = loading;
   const ordersError = error;
   const clearOrdersError = clearError;
-  const { getNotesForOrder } = useStaffNotes();
+  const { getNotesForOrder, loadStaffNotes } = useAppData();
+
+  useEffect(() => { loadStaffNotes(); }, [loadStaffNotes]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<Set<Order['status']>>(

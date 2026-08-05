@@ -1,7 +1,7 @@
 // src/hooks/useApi.ts
 // ============================================================
 // Calls the Netlify proxy function — no CORS issues.
-// Cache-busting added to all GET requests.
+// GET requests use default browser caching (no cache-buster).
 // ============================================================
 
 const API_BASE = '/.netlify/functions/api';
@@ -11,10 +11,7 @@ const headers = {
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  // Add cache-buster to GET requests to prevent stale responses
-  const isGet = !options.method || options.method === 'GET';
-  const separator = path.includes('?') ? '&' : '?';
-  const url = isGet ? `${API_BASE}${path}${separator}_=${Date.now()}` : `${API_BASE}${path}`;
+  const url = `${API_BASE}${path}`;
 
   const res = await fetch(url, { ...options, headers });
   const json = await res.json();
@@ -25,6 +22,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 import type { Customer, Order, StaffNote } from '../types';
+
+// ── COMBINED FETCH (single round trip) ──────────────────────
+export const combinedApi = {
+  getAll: async (): Promise<{ customers: Customer[]; orders: Order[]; staffNotes: StaffNote[] }> => {
+    const data = await request<{ customers: Customer[]; orders: Order[]; staffNotes: StaffNote[] }>('/all');
+    return {
+      customers: data.customers || [],
+      orders: decodeOrderDates(data.orders || []),
+      staffNotes: data.staffNotes || [],
+    };
+  },
+};
 
 // ── ORDERS – sentinel date ────────────────────────────────────
 // The backend DB column is NOT NULL, so we use a sentinel date

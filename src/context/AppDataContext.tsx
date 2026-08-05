@@ -1,16 +1,17 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useEffect } from 'react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
+import { combinedApi } from '../hooks/useApi';
 
 type OrdersHook = ReturnType<typeof useOrders>;
 type CustomersHook = ReturnType<typeof useCustomers>;
 type StaffNotesHook = ReturnType<typeof useStaffNotes>;
 
 interface AppDataContextValue
-  extends Omit<OrdersHook, 'loading' | 'error' | 'clearError'>,
-          Omit<CustomersHook, 'loading' | 'error'>,
-          Omit<StaffNotesHook, 'loading' | 'error'> {
+  extends Omit<OrdersHook, 'loading' | 'error' | 'clearError' | 'hydrate'>,
+          Omit<CustomersHook, 'loading' | 'error' | 'hydrate'>,
+          Omit<StaffNotesHook, 'loading' | 'error' | 'hydrate'> {
   ordersLoading: boolean;
   ordersError: string | null;
   clearOrdersError: () => void;
@@ -25,9 +26,32 @@ interface AppDataContextValue
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
 export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const orders = useOrders();
-  const customers = useCustomers();
+  // Pass skipInitialFetch so each hook skips its own mount-time request;
+  // we perform a single combined fetch below.
+  const orders = useOrders({ skipInitialFetch: true });
+  const customers = useCustomers({ skipInitialFetch: true });
   const staffNotes = useStaffNotes();
+
+  // Single combined round trip on mount: customers + orders + staff notes.
+  useEffect(() => {
+    let cancelled = false;
+    combinedApi.getAll()
+      .then(data => {
+        if (cancelled) return;
+        customers.hydrate(data.customers);
+        orders.hydrate(data.orders);
+        staffNotes.hydrate(data.staffNotes);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        console.error('Combined data fetch failed:', err);
+        // Fallback: let each hook load independently so the app still works.
+        customers.hydrate([]);
+        orders.hydrate([]);
+        staffNotes.hydrate([]);
+      });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value: AppDataContextValue = useMemo(() => ({
     // Orders
@@ -64,6 +88,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     deleteStaffNote: staffNotes.deleteStaffNote,
     setAllStaffNotes: staffNotes.setAllStaffNotes,
     getNotesForOrder: staffNotes.getNotesForOrder,
+    loadStaffNotes: staffNotes.loadStaffNotes,
 
     // Per-hook loading/error
     ordersLoading: orders.loading,

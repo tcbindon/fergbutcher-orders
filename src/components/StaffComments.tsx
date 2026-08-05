@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageSquare, Plus, Trash2, User, Clock } from 'lucide-react';
-import { useStaffNotes } from '../hooks/useStaffNotes';
+import { useAppData } from '../context/AppDataContext';
 
 interface StaffCommentsProps {
   orderId: string;
 }
 
 const StaffComments: React.FC<StaffCommentsProps> = ({ orderId }) => {
-  const { getNotesForOrder, addStaffNote, deleteStaffNote, loading, error } = useStaffNotes();
+  const { getNotesForOrder, addStaffNote, deleteStaffNote, loadStaffNotes, staffNotesLoading: loading, staffNotesError: error } = useAppData();
+
+  useEffect(() => { loadStaffNotes(); }, [loadStaffNotes]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [staffName, setStaffName] = useState('');

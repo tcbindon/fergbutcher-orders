@@ -1,33 +1,37 @@
 // src/hooks/useStaffNotes.ts
 // ============================================================
-// DROP-IN REPLACEMENT for the original useStaffNotes.ts
-// Identical public API — components need zero changes.
-// Data now lives in MySQL via the SiteGround PHP API.
+// Staff notes hook — lazy-loaded to avoid a third network
+// request on initial page load. Components that display notes
+// call loadStaffNotes() on mount; the rest of the app never
+// fetches them.
 // ============================================================
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { StaffNote } from '../types';
 import errorLogger from '../services/errorLogger';
 import { staffNotesApi } from './useApi';
 
 export const useStaffNotes = () => {
   const [staffNotes, setStaffNotes] = useState<StaffNote[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadedRef = useRef(false);
 
-  // ── Load all notes from DB on mount ──────────────────────
-  useEffect(() => {
-    let cancelled = false;
+  // ── Lazy load: only called by components that actually show notes ──
+  const loadStaffNotes = useCallback(async () => {
+    if (loadedRef.current) return; // already loaded, don't re-fetch
+    loadedRef.current = true;
     setLoading(true);
-    staffNotesApi.getAll()
-      .then(data => { if (!cancelled) { setStaffNotes(data); setError(null); } })
-      .catch(err => {
-        if (!cancelled) {
-          console.error('Error loading staff notes:', err);
-          setError('Failed to load staff notes.');
-        }
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    setError(null);
+    try {
+      const data = await staffNotesApi.getAll();
+      setStaffNotes(data);
+    } catch (err) {
+      console.error('Error loading staff notes:', err);
+      setError('Failed to load staff notes.');
+      loadedRef.current = false; // allow retry
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // ── addStaffNote ──────────────────────────────────────────
@@ -92,6 +96,7 @@ export const useStaffNotes = () => {
   const setAllStaffNotes = async (newNotes: StaffNote[]) => {
     try {
       setStaffNotes(newNotes);
+      loadedRef.current = true;
       setError(null);
       errorLogger.info(`Restored ${newNotes.length} staff notes from backup`);
       return true;
@@ -103,6 +108,14 @@ export const useStaffNotes = () => {
     }
   };
 
+  // Hydrate from a combined fetch (avoids a separate round trip)
+  const hydrate = useCallback((data: StaffNote[]) => {
+    setStaffNotes(data);
+    loadedRef.current = true;
+    setLoading(false);
+    setError(null);
+  }, []);
+
   return {
     staffNotes,
     loading,
@@ -111,5 +124,7 @@ export const useStaffNotes = () => {
     deleteStaffNote,
     setAllStaffNotes,
     getNotesForOrder,
+    loadStaffNotes,
+    hydrate,
   };
 };

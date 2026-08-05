@@ -56,14 +56,16 @@ async function autoSendOrderEmail(
   }
 }
 
-export const useOrders = () => {
+export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
+  const { skipInitialFetch = false } = opts;
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!skipInitialFetch);
   const [error, setError] = useState<string | null>(null);
   const { addUndoAction } = useUndo();
 
   // ── Load all orders from DB on mount ─────────────────────
   useEffect(() => {
+    if (skipInitialFetch) return;
     let cancelled = false;
     setLoading(true);
     ordersApi.getAll()
@@ -77,6 +79,13 @@ export const useOrders = () => {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
+  }, [skipInitialFetch]);
+
+  // Hydrate from a combined fetch (avoids a separate round trip)
+  const hydrate = useCallback((data: Order[]) => {
+    setOrders(data);
+    setLoading(false);
+    setError(null);
   }, []);
 
   // ── Helpers ───────────────────────────────────────────────
@@ -632,6 +641,7 @@ export const useOrders = () => {
     loading,
     error,
     clearError: () => setError(null),
+    hydrate,
     addOrder,
     updateOrder,
     bulkUpdateStatus,

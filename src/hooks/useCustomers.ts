@@ -14,14 +14,16 @@ import { customersApi } from './useApi';
 const sortByFirstName = (arr: Customer[]) =>
   [...arr].sort((a, b) => a.firstName.localeCompare(b.firstName));
 
-export const useCustomers = () => {
+export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
+  const { skipInitialFetch = false } = opts;
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!skipInitialFetch);
   const [error, setError] = useState<string | null>(null);
   const { addUndoAction } = useUndo();
 
   // ── Load all customers from DB on mount ──────────────────
   useEffect(() => {
+    if (skipInitialFetch) return;
     let cancelled = false;
     setLoading(true);
     customersApi.getAll()
@@ -35,6 +37,13 @@ export const useCustomers = () => {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
+  }, [skipInitialFetch]);
+
+  // Hydrate from a combined fetch (avoids a separate round trip)
+  const hydrate = useCallback((data: Customer[]) => {
+    setCustomers(sortByFirstName(data));
+    setLoading(false);
+    setError(null);
   }, []);
 
   // ── addCustomer ───────────────────────────────────────────
@@ -175,6 +184,7 @@ export const useCustomers = () => {
     customers,
     loading,
     error,
+    hydrate,
     addCustomer,
     updateCustomer,
     deleteCustomer,

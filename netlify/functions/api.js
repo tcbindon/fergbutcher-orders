@@ -3,22 +3,60 @@
 // Proxy function — forwards all API requests to SiteGround
 // No CORS issues — this runs server-to-server.
 // ============================================================
- 
+
 const API_BASE   = 'https://orders.fergbutcher.com/api';
 const API_SECRET = process.env.API_SECRET;
- 
+
 exports.handler = async (event) => {
- 
+
   const path = event.path
     .replace('/.netlify/functions/api', '')
     .replace(/\/$/, '');
- 
+
+  // Combined endpoint — fetches customers, orders, and staff notes
+  // in a single round trip so the app loads with one request instead of three.
+  if (path === '/all') {
+    try {
+      const qs = event.queryStringParameters
+        ? '?' + new URLSearchParams(event.queryStringParameters).toString()
+        : '';
+      const hdrs = { 'Content-Type': 'application/json', 'X-API-Key': API_SECRET };
+      const [custRes, ordRes, notesRes] = await Promise.all([
+        fetch(`${API_BASE}/customers.php`, { headers: hdrs }),
+        fetch(`${API_BASE}/orders.php${qs}`, { headers: hdrs }),
+        fetch(`${API_BASE}/staff-notes.php`, { headers: hdrs }),
+      ]);
+      const [customers, orders, staffNotes] = await Promise.all([
+        custRes.json(), ordRes.json(), notesRes.json(),
+      ]);
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', ...corsHeaders() },
+        body: JSON.stringify({
+          success: true,
+          data: {
+            customers: customers.data || [],
+            orders: orders.data || [],
+            staffNotes: staffNotes.data || [],
+          },
+        }),
+      };
+    } catch (err) {
+      console.error('Proxy /all error:', err);
+      return {
+        statusCode: 502,
+        headers: corsHeaders(),
+        body: JSON.stringify({ success: false, error: 'Proxy error: ' + err.message }),
+      };
+    }
+  }
+
   const endpointMap = {
     '/customers':   '/customers.php',
     '/orders':      '/orders.php',
     '/staff-notes': '/staff-notes.php',
   };
- 
+
   const phpFile = endpointMap[path];
   if (!phpFile) {
     return {
@@ -27,16 +65,16 @@ exports.handler = async (event) => {
       body: JSON.stringify({ success: false, error: `Unknown endpoint: ${path}` }),
     };
   }
- 
+
   const queryString = event.queryStringParameters
     ? '?' + new URLSearchParams(event.queryStringParameters).toString()
     : '';
- 
+
   const url = API_BASE + phpFile + queryString;
 
   // Don't send body for GET/HEAD requests
   const hasBody = !['GET', 'HEAD'].includes(event.httpMethod) && event.body;
- 
+
   try {
     const response = await fetch(url, {
       method:  event.httpMethod,
@@ -46,9 +84,9 @@ exports.handler = async (event) => {
       },
       body: hasBody ? event.body : undefined,
     });
- 
+
     const data = await response.text();
- 
+
     return {
       statusCode: response.status,
       headers: {
@@ -58,7 +96,7 @@ exports.handler = async (event) => {
       },
       body: data,
     };
- 
+
   } catch (err) {
     console.error('Proxy error:', err);
     return {
@@ -68,7 +106,7 @@ exports.handler = async (event) => {
     };
   }
 };
- 
+
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin':  '*',

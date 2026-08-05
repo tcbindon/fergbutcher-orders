@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, Pencil, Eye, Mail, Phone, Building, User, Trash2, AlertTriangle, Copy, Package, MessageSquare, Loader2, Bell, BellOff } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
-import { useStaffNotes } from '../hooks/useStaffNotes';
 import { toast } from './Toast';
 import CustomerForm from './CustomerForm';
 import OrderForm from './OrderForm';
@@ -24,7 +23,9 @@ const Customers: React.FC = () => {
     addOrder,
     getDuplicateOrderData,
   } = useAppData();
-  const { getNotesForOrder } = useStaffNotes();
+  const { getNotesForOrder, loadStaffNotes } = useAppData();
+
+  useEffect(() => { loadStaffNotes(); }, [loadStaffNotes]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);

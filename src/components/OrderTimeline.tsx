@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Plus,
@@ -10,7 +10,7 @@ import {
   Package,
   Loader2,
 } from 'lucide-react';
-import { useStaffNotes } from '../hooks/useStaffNotes';
+import { useAppData } from '../context/AppDataContext';
 import { emailLog, EmailLogEntry } from '../services/emailService';
 
 interface OrderTimelineProps {
@@ -49,7 +49,9 @@ const formatTimestamp = (iso: string) =>
   });
 
 const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
-  const { getNotesForOrder, addStaffNote, deleteStaffNote } = useStaffNotes();
+  const { getNotesForOrder, addStaffNote, deleteStaffNote, loadStaffNotes } = useAppData();
+
+  useEffect(() => { loadStaffNotes(); }, [loadStaffNotes]);
   const [emailEntries, setEmailEntries] = useState<EmailLogEntry[]>([]);
   const [loadingEmails, setLoadingEmails] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);

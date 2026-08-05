@@ -3,7 +3,7 @@ import { User, Calendar, Clock, Package, FileText, Pencil, Copy, Mail, Send, Gif
 import { Order, Customer } from '../types';
 import OrderTimeline from './OrderTimeline';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
-import { useStaffNotes } from '../hooks/useStaffNotes';
+import { useAppData } from '../context/AppDataContext';
 import { generateEmailData, populateTemplate, openEmailClient } from '../utils/emailUtils';
 import { sendTemplateEmail, emailSettings } from '../services/emailService';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
@@ -29,7 +29,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   onViewCustomer
 }) => {
   const { templates, getTemplate } = useEmailTemplates();
-  const { addStaffNote } = useStaffNotes();
+  const { addStaffNote } = useAppData();
   const [sendingTemplate, setSendingTemplate] = useState<string | null>(null);
   const [fromAddress, setFromAddress] = useState<string>('');
 
