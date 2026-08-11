@@ -379,8 +379,8 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                     onClick={() => setSelectedStatuses(new Set(ACTIVE_STATUSES))}
                     className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                       ACTIVE_STATUSES.every(status => selectedStatuses.has(status)) && !selectedStatuses.has('cancelled')
-                        ? 'bg-fergbutcher-green-600 text-white border-fergbutcher-green-600'
-                        : 'bg-white text-fergbutcher-green-600 border-fergbutcher-gold-300 hover:bg-fergbutcher-gold-50'
+                        ? 'bg-fergbutcher-green-800 text-white border-fergbutcher-green-800 shadow-sm'
+                        : 'bg-transparent text-fergbutcher-black-700 border-fergbutcher-gold-300 hover:bg-fergbutcher-gold-50'
                     }`}
                   >
                     All
@@ -397,8 +397,8 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                         })}
                         className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors capitalize ${
                           active
-                            ? getStatusBadge(status)
-                            : 'bg-white text-fergbutcher-green-600 border-fergbutcher-gold-300 hover:bg-fergbutcher-gold-50'
+                            ? 'bg-fergbutcher-green-800 text-white border-fergbutcher-green-800 shadow-sm'
+                            : 'bg-transparent text-fergbutcher-black-700 border-fergbutcher-gold-300 hover:bg-fergbutcher-gold-50'
                         }`}
                       >
                         {status}
