@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Printer, Gift, RefreshCw, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Gift, RefreshCw, X } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 import { toast } from './Toast';
 import OrderForm from './OrderForm';
@@ -7,8 +7,8 @@ import ChristmasOrderForm from './ChristmasOrderForm';
 import { CalendarViewMode, Order } from '../types';
 import DayOrdersModal from './DayOrdersModal';
 import RecurringScopeModal from './RecurringScopeModal';
-import PrintSchedule from './PrintSchedule';
 import { getStatusDot, STATUS_DOT } from '../utils/statusColors';
+import { todayLocal, parseDateLocal } from '../utils/dateUtils';
 
 const CalendarView: React.FC = () => {
   const {
@@ -21,13 +21,12 @@ const CalendarView: React.FC = () => {
     customers,
     addCustomer,
   } = useAppData();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(() => parseDateLocal(todayLocal()));
   const [viewMode, setViewMode] = useState<CalendarViewMode>(() =>
     window.innerWidth < 768 ? 'day' : 'month'
   );
   const [selectedDayForModal, setSelectedDayForModal] = useState<Date | null>(null);
   const [showDayDetailModal, setShowDayDetailModal] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<Omit<Order, 'id' | 'createdAt' | 'updatedAt'> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,7 +34,6 @@ const CalendarView: React.FC = () => {
     orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>;
     orderCount: number;
   } | null>(null);
-  const [printDate, setPrintDate] = useState<string>('');
 
   useEffect(() => {
     const handleResize = () => {
@@ -158,7 +156,7 @@ const CalendarView: React.FC = () => {
     for (let day = 1; day <= daysInMonth; day++) {
       const dateString = formatDateString(currentDate.getFullYear(), currentDate.getMonth(), day);
       const dayOrders = getOrdersForDate(dateString);
-      const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
+      const isToday = todayLocal() === formatDateString(currentDate.getFullYear(), currentDate.getMonth(), day);
       const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
 
       days.push(
@@ -211,7 +209,7 @@ const CalendarView: React.FC = () => {
         {weekDays.map((day, index) => {
           const dateString = formatDateString(day.getFullYear(), day.getMonth(), day.getDate());
           const dayOrders = getOrdersForDate(dateString);
-          const isToday = new Date().toDateString() === day.toDateString();
+          const isToday = todayLocal() === formatDateString(day.getFullYear(), day.getMonth(), day.getDate());
 
           return (
             <div
@@ -257,7 +255,7 @@ const CalendarView: React.FC = () => {
   const renderDayView = () => {
     const dateString = formatDateString(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
     const dayOrders = getOrdersForDate(dateString);
-    const isToday = new Date().toDateString() === currentDate.toDateString();
+    const isToday = todayLocal() === formatDateString(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
 
     return (
       <div className="space-y-4">
@@ -480,25 +478,6 @@ const CalendarView: React.FC = () => {
           {viewMode === 'day' && renderDayView()}
         </div>
 
-        {/* Print Button */}
-        <div className="px-6 py-4 border-t border-fergbutcher-gold-300 bg-fergbutcher-gold-50">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-fergbutcher-green-400">
-              Print collection schedules for easy reference
-            </span>
-            <button
-              onClick={() => {
-                const dateString = formatDateString(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-                setPrintDate(dateString);
-                setShowPrintModal(true);
-              }}
-              className="bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors flex items-center space-x-2"
-            >
-              <Printer className="h-4 w-4" />
-              <span>Print Schedule</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Day Orders Modal */}
@@ -527,16 +506,6 @@ const CalendarView: React.FC = () => {
             setShowDayDetailModal(false);
             setSelectedDayForModal(null);
           }}
-        />
-      )}
-
-      {/* Print Schedule Modal */}
-      {showPrintModal && (
-        <PrintSchedule
-          date={printDate}
-          orders={orders}
-          customers={customers}
-          onClose={() => setShowPrintModal(false)}
         />
       )}
 

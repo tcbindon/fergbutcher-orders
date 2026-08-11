@@ -13,14 +13,17 @@ import PrintResults from './PrintResults';
 import { collapsePendingRecurring, countPendingInSeries } from '../utils/recurringUtils';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { Order, Customer } from '../types';
-import { todayLocal, formatDateLocal } from '../utils/dateUtils';
+import { todayLocal, addDaysLocal } from '../utils/dateUtils';
 
 interface OrdersProps {
   initialStatusFilter?: string;
   initialCollectionDate?: string;
+  onClearInitialFilter?: () => void;
 }
 
-const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionDate }) => {
+const ACTIVE_STATUSES: Order['status'][] = ['pending', 'confirmed', 'prepared', 'collected'];
+
+const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionDate, onClearInitialFilter }) => {
   const {
     orders,
     ordersLoading: loading,
@@ -48,7 +51,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<Set<Order['status']>>(
-    () => initialStatusFilter ? new Set([initialStatusFilter as Order['status']]) : new Set()
+    () => initialStatusFilter ? new Set([initialStatusFilter as Order['status']]) : new Set(ACTIVE_STATUSES)
   );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showChristmasModal, setShowChristmasModal] = useState(false);
@@ -58,13 +61,13 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [showingComments, setShowingComments] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pastFilter, setPastFilter] = useState<'upcoming' | 'last7' | 'all'>(initialCollectionDate ? 'all' : 'upcoming');
+
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [pendingNewCustomerId, setPendingNewCustomerId] = useState<string | undefined>(undefined);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<Order['status']>('confirmed');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(() => initialCollectionDate || todayLocal());
+  const [dateTo, setDateTo] = useState(() => initialCollectionDate || addDaysLocal(6));
   const [showPrintResults, setShowPrintResults] = useState(false);
   const [datePrompt, setDatePrompt] = useState<{
     orderIds: string[];
@@ -82,22 +85,9 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   } | null>(null);
 
   const getSortedOrders = (orders: Order[]) => {
-    const today = todayLocal();
-    const sevenDaysAgo = formatDateLocal(new Date(Date.now() - 7 * 86400000));
     const statusPriority: Record<string, number> = { 'confirmed': 1, 'prepared': 2, 'pending': 3, 'collected': 4, 'cancelled': 5 };
 
-    let filteredOrders: Order[];
-    if (pastFilter === 'all') {
-      filteredOrders = orders;
-    } else if (pastFilter === 'last7') {
-      // Past 7 days (from 7 days ago through yesterday); dateless orders only appear under "All"
-      filteredOrders = orders.filter(order => order.collectionDate && order.collectionDate >= sevenDaysAgo && order.collectionDate < today);
-    } else {
-      // Upcoming: today and future orders only; dateless orders appear under "All"
-      filteredOrders = orders.filter(order => order.collectionDate && order.collectionDate >= today);
-    }
-
-    return filteredOrders.sort((a, b) => {
+    return orders.sort((a, b) => {
       // Dateless orders sort to the top
       if (!a.collectionDate && !b.collectionDate) {
         return (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99);
@@ -114,7 +104,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     getSortedOrders(
       searchOrders(searchTerm, customers).filter(order =>
         (selectedStatuses.size === 0 ? order.status !== 'cancelled' : selectedStatuses.has(order.status)) &&
-        (!initialCollectionDate || order.collectionDate === initialCollectionDate) &&
         (!dateFrom || (order.collectionDate && order.collectionDate >= dateFrom)) &&
         (!dateTo || (order.collectionDate && order.collectionDate <= dateTo))
       )
@@ -128,8 +117,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     selectedStatuses.size > 0 && `Status: ${Array.from(selectedStatuses).join(', ')}`,
     dateFrom && `From: ${new Date(dateFrom + 'T12:00:00').toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })}`,
     dateTo && `To: ${new Date(dateTo + 'T12:00:00').toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })}`,
-    pastFilter !== 'all' && (pastFilter === 'upcoming' ? 'Upcoming' : 'Last 7 days'),
-  ].filter(Boolean).join('  ·  ') || 'All orders';
+  ].filter(Boolean).join('  ·  ') || 'Upcoming orders';
 
   const handleAddOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     setIsSubmitting(true);
@@ -306,16 +294,14 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
           <p className="text-fergbutcher-green-400">Manage all customer orders</p>
         </div>
         <div className="flex items-center gap-2">
-          {hasActiveFilters && (
-            <button
+          <button
               onClick={() => setShowPrintResults(true)}
               className="bg-white border border-fergbutcher-gold-300 text-fergbutcher-black-900 px-3 py-2 rounded-lg hover:bg-fergbutcher-gold-50 transition-colors flex items-center space-x-2 text-sm"
-              title="Print filtered results"
+              title="Print orders matching the current filters"
             >
               <Printer className="h-4 w-4" />
               <span className="hidden sm:inline">Print Results</span>
             </button>
-          )}
           <button
             onClick={() => { clearOrdersError(); setShowChristmasModal(true); }}
             className="bg-gradient-to-r from-fergbutcher-green-600 to-fergbutcher-gold-600 text-white px-3 py-2 rounded-lg hover:from-fergbutcher-green-700 hover:to-fergbutcher-gold-700 transition-all flex items-center space-x-2 shadow-lg text-sm"
@@ -355,12 +341,19 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
               </strong>
             </span>
           </div>
-          <a
-            href="#orders"
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setSelectedStatuses(new Set(ACTIVE_STATUSES));
+              setDateFrom(todayLocal());
+              setDateTo(addDaysLocal(6));
+              onClearInitialFilter?.();
+            }}
             className="text-xs text-fergbutcher-green-600 hover:text-fergbutcher-green-800 font-medium flex items-center gap-1 flex-shrink-0"
           >
-            ✕ Clear filter
-          </a>
+            ✕ Reset to upcoming
+          </button>
         </div>
       )}
 
@@ -380,27 +373,12 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded-lg p-1">
-                  {(['upcoming', 'last7', 'all'] as const).map((val) => (
-                    <button
-                      key={val}
-                      onClick={() => setPastFilter(val)}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                        pastFilter === val
-                          ? 'bg-white text-fergbutcher-green-600 shadow-sm border border-fergbutcher-gold-300'
-                          : 'text-fergbutcher-gold-700 hover:text-fergbutcher-black-900'
-                      }`}
-                    >
-                      {val === 'upcoming' ? 'Upcoming' : val === 'last7' ? 'Last 7d' : 'All'}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
+<div className="flex items-center gap-1.5 flex-wrap">
                   <Filter className="h-4 w-4 text-fergbutcher-gold-500 flex-shrink-0" />
                   <button
-                    onClick={() => setSelectedStatuses(new Set())}
+                    onClick={() => setSelectedStatuses(new Set(ACTIVE_STATUSES))}
                     className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                      selectedStatuses.size === 0
+                      ACTIVE_STATUSES.every(status => selectedStatuses.has(status)) && !selectedStatuses.has('cancelled')
                         ? 'bg-fergbutcher-green-600 text-white border-fergbutcher-green-600'
                         : 'bg-white text-fergbutcher-green-600 border-fergbutcher-gold-300 hover:bg-fergbutcher-gold-50'
                     }`}
@@ -447,7 +425,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   />
                   {(dateFrom || dateTo) && (
                     <button
-                      onClick={() => { setDateFrom(''); setDateTo(''); }}
+                      onClick={() => { setDateFrom(todayLocal()); setDateTo(addDaysLocal(6)); }}
                       className="p-1.5 text-fergbutcher-gold-500 hover:text-fergbutcher-black-900 hover:bg-fergbutcher-gold-100 rounded-lg transition-colors"
                       title="Clear date range"
                     >
@@ -470,7 +448,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                   className="rounded border-fergbutcher-gold-300 text-fergbutcher-green-600 focus:ring-fergbutcher-green-600"
                 />
                 <h2 className="text-lg font-semibold text-fergbutcher-black-900">
-                  {pastFilter === 'all' ? 'All Orders' : pastFilter === 'last7' ? 'Last 7 Days' : 'Current & Upcoming'} ({filteredOrders.length.toLocaleString('en-NZ')})
+                  Orders ({filteredOrders.length.toLocaleString('en-NZ')})
                 </h2>
               </div>
               {selectedOrderIds.size > 0 && (
@@ -999,6 +977,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
           orders={filteredOrders}
           customers={customers}
           filterLabel={filterLabel}
+          getNotesForOrder={getNotesForOrder}
           onClose={() => setShowPrintResults(false)}
         />
       )}

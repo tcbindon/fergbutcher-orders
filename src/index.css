@@ -46,5 +46,7 @@
   /* The portal div is a direct child of <body>, outside #root */
   .print-portal {
     display: block !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }

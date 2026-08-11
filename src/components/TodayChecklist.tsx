@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Phone, Clock, CheckCircle, Package, XCircle, Printer, ClipboardList, AlertTriangle } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
-import PrintSchedule from './PrintSchedule';
+import PrintResults from './PrintResults';
 import { Order } from '../types';
 import { todayLocal } from '../utils/dateUtils';
 import { getStatusBadge, getStatusIcon } from '../utils/statusColors';
@@ -17,7 +17,7 @@ function getNextStatus(current: Order['status']): Order['status'] | null {
 }
 
 const TodayChecklist: React.FC<TodayChecklistProps> = () => {
-  const { orders, updateOrder, ordersLoading: loading, customers } = useAppData();
+  const { orders, updateOrder, ordersLoading: loading, customers, getNotesForOrder } = useAppData();
   const [showPrint, setShowPrint] = useState(false);
 
   const today = todayLocal();
@@ -139,7 +139,7 @@ const TodayChecklist: React.FC<TodayChecklistProps> = () => {
             <span>Today's Checklist</span>
           </h1>
           <p className="text-fergbutcher-green-400">
-            {new Date().toLocaleDateString('en-NZ', { weekday: 'long', day: 'numeric', month: 'long' })} —{' '}
+            {new Date(`${today}T12:00:00`).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Auckland', weekday: 'long', day: 'numeric', month: 'long' })} —{' '}
             {todaysOrders.length} order{todaysOrders.length !== 1 ? 's' : ''},{' '}
             {doneOrders.length} collected
           </p>
@@ -184,10 +184,11 @@ const TodayChecklist: React.FC<TodayChecklistProps> = () => {
       )}
 
       {showPrint && (
-        <PrintSchedule
-          date={today}
-          orders={orders}
+        <PrintResults
+          orders={todaysOrders}
           customers={customers}
+          filterLabel="Today's orders"
+          getNotesForOrder={getNotesForOrder}
           onClose={() => setShowPrint(false)}
         />
       )}

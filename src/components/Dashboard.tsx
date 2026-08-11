@@ -8,7 +8,7 @@ import OrderDetail from './OrderDetail';
 import CustomerDetailModal from './CustomerDetailModal';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
-import PrintSchedule from './PrintSchedule';
+import PrintResults from './PrintResults';
 import RecurringScopeModal from './RecurringScopeModal';
 import { collapsePendingRecurring, countPendingInSeries } from '../utils/recurringUtils';
 import { getStatusBadge, getStatusIcon } from '../utils/statusColors';
@@ -26,7 +26,7 @@ import {
   X
 } from 'lucide-react';
 import { Order, ViewType, Customer } from '../types';
-import { todayLocal, formatDateLocal } from '../utils/dateUtils';
+import { todayLocal, formatDateLocal, addDaysLocal } from '../utils/dateUtils';
 
 interface DashboardProps {
   onNavigate?: (view: ViewType) => void;
@@ -34,7 +34,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders }) => {
-  const { customers, addCustomer, orders, getOrderStats, updateOrder, updateOrderAndSeries, updateOrderAndFuture, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder } = useAppData();
+  const { customers, addCustomer, orders, getOrderStats, updateOrder, updateOrderAndSeries, updateOrderAndFuture, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder, getNotesForOrder } = useAppData();
   const orderStats = getOrderStats();
   const { isConnected: sheetsConnected } = useGoogleSheetsContext();
 
@@ -71,7 +71,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
   const [deletingOrder, setDeletingOrder] = React.useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = React.useState<any>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [showPrintSchedule, setShowPrintSchedule] = React.useState(false);
+  const [printMode, setPrintMode] = React.useState<'today' | 'tomorrow' | null>(null);
   const [editScopePrompt, setEditScopePrompt] = React.useState<{
     orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>;
     orderCount: number;
@@ -83,8 +83,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
   } | null>(null);
 
   const today = todayLocal();
-  const tomorrow = formatDateLocal(new Date(Date.now() + 86400000));
-  const dayAfterTomorrow = formatDateLocal(new Date(Date.now() + 2 * 86400000));
+  const tomorrow = addDaysLocal(1);
+  const dayAfterTomorrow = addDaysLocal(2);
+  const printOrders = orders.filter(order => order.collectionDate === (printMode === 'tomorrow' ? tomorrow : today) && order.status !== 'cancelled');
 
   const overdueOrders = orders.filter(
     o => o.collectionDate && o.collectionDate < today && o.status !== 'collected' && o.status !== 'cancelled'
@@ -266,12 +267,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowPrintSchedule(true)}
+            onClick={() => setPrintMode('today')}
             className="flex items-center space-x-2 bg-fergbutcher-gold-100 text-fergbutcher-gold-700 px-3 py-2 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors text-sm font-medium"
           >
             <Printer className="h-4 w-4" />
             <span className="hidden sm:inline">Print Today's Orders</span>
             <span className="sm:hidden">Print</span>
+          </button>
+          <button
+            onClick={() => setPrintMode('tomorrow')}
+            className="flex items-center space-x-2 bg-fergbutcher-gold-50 text-fergbutcher-gold-700 px-3 py-2 rounded-lg hover:bg-fergbutcher-gold-100 transition-colors text-sm font-medium"
+          >
+            <Printer className="h-4 w-4" />
+            <span className="hidden sm:inline">Print Tomorrow's Orders</span>
+            <span className="sm:hidden">Tomorrow</span>
           </button>
           {onNavigate && (
             <button
@@ -705,13 +714,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
         </div>
       )}
 
-      {/* Print Today's Schedule */}
-      {showPrintSchedule && (
-        <PrintSchedule
-          date={today}
-          orders={orders}
+      {printMode && (
+        <PrintResults
+          orders={printOrders}
           customers={customers}
-          onClose={() => setShowPrintSchedule(false)}
+          filterLabel={printMode === 'tomorrow' ? "Tomorrow's orders" : "Today's orders"}
+          getNotesForOrder={getNotesForOrder}
+          onClose={() => setPrintMode(null)}
         />
       )}
 

@@ -100,7 +100,7 @@ function App() {
       case 'customers':
         return <Customers />;
       case 'orders':
-        return <Orders initialStatusFilter={ordersStatusFilter} initialCollectionDate={ordersCollectionDate} />;
+        return <Orders initialStatusFilter={ordersStatusFilter} initialCollectionDate={ordersCollectionDate} onClearInitialFilter={() => { setOrdersStatusFilter(undefined); setOrdersCollectionDate(undefined); }} />;
       case 'calendar':
         return <CalendarView />;
       case 'settings':
