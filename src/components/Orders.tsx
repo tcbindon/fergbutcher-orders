@@ -141,12 +141,15 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
 
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
-    // If recurring, ask scope; otherwise apply directly
-    if (editingOrder.isRecurring && editingOrder.parentOrderId) {
-      const seriesCount = orders.filter(
-        o => o.parentOrderId === editingOrder.parentOrderId &&
-             o.collectionDate >= (editingOrder.collectionDate || '')
-      ).length;
+    const isRecurringSeriesEdit = editingOrder.isRecurring && editingOrder.parentOrderId;
+    const isNewRecurringSeries = !editingOrder.isRecurring && orderData.isRecurring;
+    if (isRecurringSeriesEdit || isNewRecurringSeries) {
+      const seriesCount = isRecurringSeriesEdit
+        ? orders.filter(
+            o => o.parentOrderId === editingOrder.parentOrderId &&
+                 o.collectionDate >= (editingOrder.collectionDate || '')
+          ).length
+        : 1;
       setEditScopePrompt({ orderData, orderCount: seriesCount });
       return;
     }
@@ -157,9 +160,14 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     if (!editingOrder) return;
     setIsSubmitting(true);
     try {
-      const success = applyToFuture
-        ? updateOrderAndFuture(editingOrder, orderData, true, customers)
-        : updateOrderAndSeries(editingOrder, orderData, customers);
+      const isNewRecurringSeries = !editingOrder.isRecurring && orderData.isRecurring;
+      const success = isNewRecurringSeries
+        ? (applyToFuture
+          ? updateOrderAndSeries(editingOrder, orderData, customers)
+          : updateOrder(editingOrder.id, { ...orderData, parentOrderId: null }, customers))
+        : applyToFuture
+          ? updateOrderAndFuture(editingOrder, orderData, true, customers)
+          : updateOrderAndSeries(editingOrder, orderData, customers);
       if (success) {
         setEditingOrder(null);
         if (viewingOrder?.id === editingOrder.id) {

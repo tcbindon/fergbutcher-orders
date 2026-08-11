@@ -508,10 +508,19 @@ const OrderForm: React.FC<OrderFormProps> = ({
                 id="isRecurring"
                 checked={formData.isRecurring}
                 onChange={(e) => {
-                  handleChange('isRecurring', e.target.checked.toString());
-                  if (!e.target.checked) {
-                    handleChange('recurrencePattern', '');
-                    handleChange('recurrenceEndDate', '');
+                  const isRecurring = e.target.checked;
+                  setFormData(prev => ({
+                    ...prev,
+                    isRecurring,
+                    recurrencePattern: isRecurring ? prev.recurrencePattern : null,
+                    recurrenceEndDate: isRecurring ? prev.recurrenceEndDate : null,
+                  }));
+                  if (!isRecurring) {
+                    setErrors(prev => ({
+                      ...prev,
+                      recurrencePattern: '',
+                      recurrenceEndDate: '',
+                    }));
                   }
                 }}
                 className="rounded border-fergbutcher-brown-300 text-fergbutcher-green-600 focus:ring-fergbutcher-green-500"

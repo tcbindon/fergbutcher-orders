@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 import { emailLog, EmailLogEntry } from '../services/emailService';
+import RecurringScopeModal from './RecurringScopeModal';
 
 interface OrderTimelineProps {
   order: {
@@ -19,6 +20,9 @@ interface OrderTimelineProps {
     createdAt: string;
     updatedAt: string;
     status: string;
+    collectionDate?: string;
+    parentOrderId?: string | null;
+    isRecurring?: boolean;
   };
 }
 
@@ -49,7 +53,7 @@ const formatTimestamp = (iso: string) =>
   });
 
 const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
-  const { getNotesForOrder, addStaffNote, deleteStaffNote, loadStaffNotes } = useAppData();
+  const { getNotesForOrder, addStaffNote, deleteStaffNote, loadStaffNotes, orders } = useAppData();
 
   useEffect(() => { loadStaffNotes(); }, [loadStaffNotes]);
   const [emailEntries, setEmailEntries] = useState<EmailLogEntry[]>([]);
@@ -58,6 +62,7 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
   const [newComment, setNewComment] = useState('');
   const [staffName, setStaffName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [commentScopeOpen, setCommentScopeOpen] = useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -129,16 +134,33 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
     );
   }, [order, orderNotes, emailEntries, deleteStaffNote]);
 
+  const saveComment = (applyToFuture: boolean) => {
+    const targetOrderIds = applyToFuture && order.parentOrderId
+      ? orders
+          .filter(candidate =>
+            candidate.parentOrderId === order.parentOrderId &&
+            candidate.collectionDate >= (order.collectionDate || '')
+          )
+          .map(candidate => candidate.id)
+      : [order.id];
+
+    targetOrderIds.forEach(orderId => addStaffNote(orderId, staffName, newComment));
+    setNewComment('');
+    setShowAddForm(false);
+    setCommentScopeOpen(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !staffName.trim()) return;
+    if (order.isRecurring && order.parentOrderId) {
+      setCommentScopeOpen(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const note = addStaffNote(order.id, staffName, newComment);
-      if (note) {
-        setNewComment('');
-        setShowAddForm(false);
-      }
+      saveComment(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -292,6 +314,15 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
           </div>
         )}
       </div>
+
+      <RecurringScopeModal
+        open={commentScopeOpen}
+        orderCount={orders.filter(candidate => candidate.parentOrderId === order.parentOrderId && candidate.collectionDate >= (order.collectionDate || '')).length}
+        onChoose={saveComment}
+        onCancel={() => setCommentScopeOpen(false)}
+        title="Staff comment — apply to which orders?"
+        message="Choose whether this comment should be added to this order only or to this order and all future orders in the series."
+      />
     </div>
   );
 };

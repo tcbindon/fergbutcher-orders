@@ -306,6 +306,72 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         newEndDate: updates.recurrenceEndDate,
       });
 
+      const isBeingConvertedToRecurring =
+        !originalOrder.isRecurring &&
+        updates.isRecurring === true &&
+        updates.recurrencePattern &&
+        updates.recurrenceEndDate &&
+        originalOrder.collectionDate;
+
+      if (isBeingConvertedToRecurring) {
+        const parentId = uuidv4();
+        const intervalDays = updates.recurrencePattern === 'weekly' ? 7 : 14;
+        const endDate = parseDateLocal(updates.recurrenceEndDate!);
+        const generatedOrders: Order[] = [];
+        let currentDate = parseDateLocal(originalOrder.collectionDate);
+        currentDate.setDate(currentDate.getDate() + intervalDays);
+
+        while (currentDate <= endDate && generatedOrders.length < 52) {
+          generatedOrders.push({
+            ...originalOrder,
+            ...updates,
+            id: getNextOrderId(orders, generatedOrders),
+            collectionDate: formatDateLocal(currentDate),
+            isRecurring: true,
+            recurrencePattern: updates.recurrencePattern,
+            recurrenceEndDate: updates.recurrenceEndDate,
+            parentOrderId: parentId,
+            createdAt: updatedAt,
+            updatedAt,
+          });
+          currentDate = new Date(currentDate);
+          currentDate.setDate(currentDate.getDate() + intervalDays);
+        }
+
+        const firstOrder = {
+          ...originalOrder,
+          ...updates,
+          isRecurring: true,
+          recurrencePattern: updates.recurrencePattern,
+          recurrenceEndDate: updates.recurrenceEndDate,
+          parentOrderId: parentId,
+          updatedAt,
+        };
+        const previousOrders = [...orders];
+        const nextOrders = [firstOrder, ...generatedOrders, ...orders.filter(o => o.id !== originalOrder.id)];
+        setOrders(nextOrders);
+
+        Promise.all([
+          ordersApi.update(originalOrder.id, {
+            ...updates,
+            isRecurring: true,
+            recurrencePattern: updates.recurrencePattern,
+            recurrenceEndDate: updates.recurrenceEndDate,
+            parentOrderId: parentId,
+            updatedAt,
+          }),
+          generatedOrders.length > 0 ? ordersApi.saveAll(generatedOrders) : Promise.resolve(),
+        ])
+          .then(() => triggerSync(nextOrders, customers))
+          .catch(err => {
+            console.error('Failed to create recurring series:', err);
+            setOrders(previousOrders);
+            setError('Failed to create recurring orders. Please try again.');
+          });
+
+        return true;
+      }
+
       const needsSeriesSync =
         originalOrder.isRecurring &&
         originalOrder.parentOrderId &&
@@ -389,7 +455,10 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       // No series change needed — plain single-order update
       console.log('[updateOrderAndSeries] falling through to simple updateOrder');
-      return updateOrder(id, updates as Partial<Omit<Order, 'id' | 'createdAt'>>, customers);
+      const safeUpdates = updates.isRecurring === false
+        ? { ...updates, recurrencePattern: null, recurrenceEndDate: null, parentOrderId: null }
+        : updates;
+      return updateOrder(id, safeUpdates as Partial<Omit<Order, 'id' | 'createdAt'>>, customers);
     } catch (err) {
       console.error('[updateOrderAndSeries] CAUGHT ERROR:', err);
       setError('Failed to update order');
@@ -411,10 +480,32 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   ) => {
     try {
       if (!applyToFuture || !anchorOrder.parentOrderId) {
-        return updateOrder(anchorOrder.id, updates, customers);
+        const safeUpdates = updates.isRecurring === false
+          ? { ...updates, recurrencePattern: null, recurrenceEndDate: null, parentOrderId: null }
+          : updates;
+        return updateOrder(anchorOrder.id, safeUpdates, customers);
       }
 
       const updatedAt = new Date().toISOString();
+      if (updates.isRecurring === false) {
+        const targetOrders = orders.filter(o =>
+          o.parentOrderId === anchorOrder.parentOrderId &&
+          o.collectionDate >= (anchorOrder.collectionDate || '')
+        );
+        const targetIds = new Set(targetOrders.map(o => o.id));
+        const previousOrders = [...orders];
+        const remaining = orders.filter(o => !targetIds.has(o.id));
+        setOrders(remaining);
+
+        Promise.all(targetOrders.map(o => ordersApi.delete(o.id)))
+          .then(() => triggerSync(remaining, customers))
+          .catch(err => {
+            console.error('Failed to delete future recurring orders:', err);
+            setOrders(previousOrders);
+            setError('Failed to delete recurring orders. Please try again.');
+          });
+        return true;
+      }
       const parentId = anchorOrder.parentOrderId;
       const anchorDate = anchorOrder.collectionDate || '';
 
