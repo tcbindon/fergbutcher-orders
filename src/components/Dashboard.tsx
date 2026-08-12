@@ -6,9 +6,8 @@ import backupService from '../services/backupService';
 import { toast } from './Toast';
 import OrderDetail from './OrderDetail';
 import CustomerDetailModal from './CustomerDetailModal';
-import OrderForm from './OrderForm';
-import ChristmasOrderForm from './ChristmasOrderForm';
 import PrintResults from './PrintResults';
+import Modal from './Modal';
 import RecurringScopeModal from './RecurringScopeModal';
 import { collapsePendingRecurring, countPendingInSeries } from '../utils/recurringUtils';
 import { getStatusBadge, getStatusIcon } from '../utils/statusColors';
@@ -30,11 +29,11 @@ import { todayLocal, formatDateLocal, addDaysLocal } from '../utils/dateUtils';
 
 interface DashboardProps {
   onNavigate?: (view: ViewType) => void;
-  onNavigateToOrders?: (statusFilter?: string, collectionDate?: string) => void;
+  onNavigateToOrders?: (statusFilter?: string, collectionDate?: string, editOrderId?: string, duplicateOrderId?: string) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders }) => {
-  const { customers, addCustomer, orders, getOrderStats, updateOrder, updateOrderAndSeries, updateOrderAndFuture, deleteOrder, deleteRecurringSeries, getDuplicateOrderData, addOrder, getNotesForOrder } = useAppData();
+  const { customers, addCustomer, orders, getOrderStats, updateOrder, updateOrderAndFuture, deleteOrder, deleteRecurringSeries, getNotesForOrder } = useAppData();
   const orderStats = getOrderStats();
   const { isConnected: sheetsConnected } = useGoogleSheetsContext();
 
@@ -66,16 +65,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
   };
 
   const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
-  const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
   const [viewingCustomer, setViewingCustomer] = React.useState<Customer | null>(null);
   const [deletingOrder, setDeletingOrder] = React.useState<Order | null>(null);
-  const [duplicatingOrder, setDuplicatingOrder] = React.useState<any>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [printMode, setPrintMode] = React.useState<'today' | 'tomorrow' | null>(null);
-  const [editScopePrompt, setEditScopePrompt] = React.useState<{
-    orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>;
-    orderCount: number;
-  } | null>(null);
   const [statusScopePrompt, setStatusScopePrompt] = React.useState<{
     orderId: string;
     newStatus: Order['status'];
@@ -176,37 +168,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
 
   const thisWeeksOrders = getThisWeeksOrders();
 
-  const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!editingOrder) return;
-    if (editingOrder.isRecurring && editingOrder.parentOrderId) {
-      const seriesCount = orders.filter(
-        o => o.parentOrderId === editingOrder.parentOrderId &&
-             o.collectionDate >= (editingOrder.collectionDate || '')
-      ).length;
-      setEditScopePrompt({ orderData, orderCount: seriesCount });
-      return;
-    }
-    applyUpdateOrder(orderData, false);
-  };
-
-  const applyUpdateOrder = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, applyToFuture: boolean) => {
-    if (!editingOrder) return;
-    setIsSubmitting(true);
-    try {
-      const success = applyToFuture
-        ? updateOrderAndFuture(editingOrder, orderData, true, customers)
-        : updateOrderAndSeries(editingOrder, orderData, customers);
-      if (success) {
-        setEditingOrder(null);
-        if (viewingOrder?.id === editingOrder.id) {
-          setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
-        }
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleDeleteOrder = () => {
     if (!deletingOrder) return;
     const success = deleteOrder(deletingOrder.id, customers);
@@ -228,13 +189,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
   };
 
   const handleDuplicateOrder = (orderId: string) => {
-    const duplicateData = getDuplicateOrderData(orderId);
-    if (duplicateData) {
-      setDuplicatingOrder(duplicateData);
-      setViewingOrder(null);
-    } else {
-      toast.error('Failed to prepare duplicate order. Please try again.');
-    }
+    setViewingOrder(null);
+    onNavigateToOrders?.(undefined, undefined, undefined, orderId);
   };
 
   const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
@@ -516,38 +472,26 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
       </div>
 
       {/* Order Detail Modal */}
-      {viewingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
-              <button
-                onClick={() => setViewingOrder(null)}
-                className="text-fergbutcher-gold-500 hover:text-fergbutcher-black-900"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-6">
-              <OrderDetail
-                order={viewingOrder}
-                customer={customers.find(c => c.id === viewingOrder.customerId)}
-                onEdit={() => {
-                  setEditingOrder(viewingOrder);
-                  setViewingOrder(null);
-                }}
-                onDelete={() => {
-                  setDeletingOrder(viewingOrder);
-                  setViewingOrder(null);
-                }}
-                onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
-                onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
-                onViewCustomer={(customer) => setViewingCustomer(customer)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={!!viewingOrder} onClose={() => setViewingOrder(null)} title="Order Details">
+        {viewingOrder && (
+          <OrderDetail
+            order={viewingOrder}
+            customer={customers.find(c => c.id === viewingOrder.customerId)}
+            onEdit={() => {
+              const order = viewingOrder;
+              setViewingOrder(null);
+              onNavigateToOrders?.(undefined, undefined, order.id, undefined);
+            }}
+            onDelete={() => {
+              setDeletingOrder(viewingOrder);
+              setViewingOrder(null);
+            }}
+            onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
+            onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
+            onViewCustomer={(customer) => setViewingCustomer(customer)}
+          />
+        )}
+      </Modal>
 
       {/* Customer Detail Modal (from order preview) */}
       {viewingCustomer && (
@@ -561,158 +505,59 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
           }}
           onEditOrder={(order) => {
             setViewingCustomer(null);
-            setEditingOrder(order);
+            onNavigateToOrders?.(undefined, undefined, order.id, undefined);
           }}
           onStatusChange={(orderId, status) => handleStatusChange(orderId, status)}
         />
       )}
 
-      {/* Edit Order Modal */}
-      {editingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
-              <button
-                type="button"
-                onClick={() => setEditingOrder(null)}
-                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              {editingOrder.orderType === 'christmas' ? (
-                <ChristmasOrderForm
-                  order={editingOrder}
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={handleUpdateOrder}
-                  onCancel={() => setEditingOrder(null)}
-                  isLoading={isSubmitting}
-                />
-              ) : (
-                <OrderForm
-                  order={editingOrder}
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={handleUpdateOrder}
-                  onCancel={() => setEditingOrder(null)}
-                  isLoading={isSubmitting}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Delete Confirmation Modal */}
-      {deletingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Delete Order</h3>
-            </div>
-            <div className="p-6">
-              <div className="flex items-start space-x-3 mb-4">
-                <div className="bg-red-100 p-2 rounded-full">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-fergbutcher-black-900 font-medium">
-                    Are you sure you want to delete this order?
-                  </p>
-                  <p className="text-fergbutcher-green-400 text-sm mt-1">
-                    This action cannot be undone.
-                  </p>
-                  {deletingOrder.isRecurring && deletingOrder.parentOrderId && (
-                    <p className="text-fergbutcher-gold-700 text-sm mt-2 bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded p-2">
-                      This is part of a recurring series. You can delete only this order, or this order and all future occurrences.
-                    </p>
-                  )}
-                </div>
+      <Modal open={!!deletingOrder} onClose={() => setDeletingOrder(null)} title="Delete Order" maxWidth="max-w-md">
+        {deletingOrder && (
+          <>
+            <div className="flex items-start space-x-3 mb-4">
+              <div className="bg-red-100 p-2 rounded-full">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
               </div>
-              <div className="flex justify-end flex-wrap gap-3">
-                <button
-                  onClick={() => setDeletingOrder(null)}
-                  className="px-4 py-2 text-fergbutcher-gold-700 bg-fergbutcher-gold-100 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteOrder}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  {deletingOrder.isRecurring && deletingOrder.parentOrderId ? 'Delete This Order Only' : 'Delete Order'}
-                </button>
+              <div>
+                <p className="text-fergbutcher-black-900 font-medium">
+                  Are you sure you want to delete this order?
+                </p>
+                <p className="text-fergbutcher-green-400 text-sm mt-1">
+                  This action cannot be undone.
+                </p>
                 {deletingOrder.isRecurring && deletingOrder.parentOrderId && (
-                  <button
-                    onClick={handleDeleteRecurringSeries}
-                    className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors"
-                  >
-                    Delete This &amp; All Future
-                  </button>
+                  <p className="text-fergbutcher-gold-700 text-sm mt-2 bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded p-2">
+                    This is part of a recurring series. You can delete only this order, or this order and all future occurrences.
+                  </p>
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Duplicate Order Modal */}
-      {duplicatingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
-                <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
-              </div>
+            <div className="flex justify-end flex-wrap gap-3">
               <button
-                type="button"
-                onClick={() => setDuplicatingOrder(null)}
-                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
-                title="Close"
+                onClick={() => setDeletingOrder(null)}
+                className="px-4 py-2 text-fergbutcher-gold-700 bg-fergbutcher-gold-100 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors"
               >
-                <X className="h-5 w-5" />
+                Cancel
               </button>
-            </div>
-            <div className="p-6">
-              {duplicatingOrder.orderType === 'christmas' ? (
-                <ChristmasOrderForm
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={async (orderData) => {
-                    const newOrder = await addOrder(orderData);
-                    if (newOrder) {
-                      setDuplicatingOrder(null);
-                      toast.success(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
-                    }
-                  }}
-                  onCancel={() => setDuplicatingOrder(null)}
-                  isLoading={isSubmitting}
-                />
-              ) : (
-                <OrderForm
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={async (orderData) => {
-                    const newOrder = await addOrder(orderData);
-                    if (newOrder) {
-                      setDuplicatingOrder(null);
-                      toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`);
-                    }
-                  }}
-                  onCancel={() => setDuplicatingOrder(null)}
-                  isLoading={isSubmitting}
-                  initialData={duplicatingOrder}
-                />
+              <button
+                onClick={handleDeleteOrder}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                {deletingOrder.isRecurring && deletingOrder.parentOrderId ? 'Delete This Order Only' : 'Delete Order'}
+              </button>
+              {deletingOrder.isRecurring && deletingOrder.parentOrderId && (
+                <button
+                  onClick={handleDeleteRecurringSeries}
+                  className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors"
+                >
+                  Delete This &amp; All Future
+                </button>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       {printMode && (
         <PrintResults
@@ -721,22 +566,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
           filterLabel={printMode === 'tomorrow' ? "Tomorrow's orders" : "Today's orders"}
           getNotesForOrder={getNotesForOrder}
           onClose={() => setPrintMode(null)}
-        />
-      )}
-
-      {/* Edit Scope Prompt (recurring) */}
-      {editScopePrompt && (
-        <RecurringScopeModal
-          open={true}
-          orderCount={editScopePrompt.orderCount}
-          title="Save changes to which orders?"
-          message="This is a recurring order. Choose how far your edits should apply."
-          onChoose={(applyToFuture) => {
-            const data = editScopePrompt.orderData;
-            setEditScopePrompt(null);
-            applyUpdateOrder(data, applyToFuture);
-          }}
-          onCancel={() => setEditScopePrompt(null)}
         />
       )}
 
@@ -764,32 +593,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onNavigateToOrders })
         />
       )}
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6">
-          <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <button
-              onClick={() => window.location.hash = '#orders'}
-              className="w-full bg-fergbutcher-green-600 text-white px-4 py-2 rounded-lg hover:bg-fergbutcher-green-700 transition-colors"
-            >
-              Create New Order
-            </button>
-            <button
-              onClick={() => window.location.hash = '#customers'}
-              className="w-full bg-fergbutcher-gold-100 text-fergbutcher-gold-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-gold-200 transition-colors"
-            >
-              Add Customer
-            </button>
-            <button
-              onClick={() => window.location.hash = '#calendar'}
-              className="w-full bg-fergbutcher-yellow-100 text-fergbutcher-yellow-700 px-4 py-2 rounded-lg hover:bg-fergbutcher-yellow-200 transition-colors"
-            >
-              View Calendar
-            </button>
-          </div>
-        </div>
-
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300 p-6">
           <h3 className="text-lg font-semibold text-fergbutcher-black-900 mb-4">Today's Collections</h3>
           <div className="space-y-3">

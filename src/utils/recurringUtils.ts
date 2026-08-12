@@ -44,3 +44,27 @@ export function countPendingInSeries(orders: Order[], order: Order): number {
          (o.collectionDate || '') >= (order.collectionDate || '')
   ).length;
 }
+
+export interface RecurringEditDecision {
+  needsScopePrompt: boolean;
+  seriesCount: number;
+}
+
+export function getRecurringEditDecision(
+  editingOrder: Order,
+  orderData: { isRecurring?: boolean },
+  allOrders: Order[],
+): RecurringEditDecision {
+  const isRecurringSeriesEdit = !!(editingOrder.isRecurring && editingOrder.parentOrderId);
+  const isNewRecurringSeries = !editingOrder.isRecurring && !!orderData.isRecurring;
+  if (!isRecurringSeriesEdit && !isNewRecurringSeries) {
+    return { needsScopePrompt: false, seriesCount: 0 };
+  }
+  const seriesCount = isRecurringSeriesEdit
+    ? allOrders.filter(
+        o => o.parentOrderId === editingOrder.parentOrderId &&
+             (o.collectionDate || '') >= (editingOrder.collectionDate || '')
+      ).length
+    : 1;
+  return { needsScopePrompt: true, seriesCount };
+}

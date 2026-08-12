@@ -6,7 +6,7 @@ import {
   Mail,
   CheckCircle,
   XCircle,
-  Clock,
+  ChevronDown,
   Package,
   Loader2,
 } from 'lucide-react';
@@ -62,6 +62,7 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
   const [newComment, setNewComment] = useState('');
   const [staffName, setStaffName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSystemEvents, setShowSystemEvents] = useState(false);
   const [commentScopeOpen, setCommentScopeOpen] = useState(false);
 
   React.useEffect(() => {
@@ -83,10 +84,11 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
 
   const orderNotes = getNotesForOrder(order.id);
 
-  const entries: TimelineEntry[] = React.useMemo(() => {
-    const list: TimelineEntry[] = [];
+  const { commentEntries, systemEntries } = React.useMemo(() => {
+    const comments: TimelineEntry[] = [];
+    const system: TimelineEntry[] = [];
 
-    list.push({
+    system.push({
       id: `created-${order.id}`,
       kind: 'system',
       timestamp: order.createdAt,
@@ -95,7 +97,7 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
     });
 
     if (order.updatedAt && order.updatedAt !== order.createdAt) {
-      list.push({
+      system.push({
         id: `updated-${order.id}`,
         kind: 'system',
         timestamp: order.updatedAt,
@@ -105,7 +107,7 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
     }
 
     orderNotes.forEach((note) => {
-      list.push({
+      comments.push({
         id: note.id,
         kind: 'comment',
         timestamp: note.timestamp,
@@ -119,7 +121,7 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
     emailEntries.forEach((e) => {
       const label = TEMPLATE_LABELS[e.template_id] || e.template_id;
       const recipient = e.recipient || 'customer';
-      list.push({
+      comments.push({
         id: `email-${e.id}`,
         kind: 'email',
         timestamp: e.created_at,
@@ -129,9 +131,10 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
       });
     });
 
-    return list.sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
+    comments.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    system.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return { commentEntries: comments, systemEntries: system };
   }, [order, orderNotes, emailEntries, deleteStaffNote]);
 
   const saveComment = (applyToFuture: boolean) => {
@@ -170,8 +173,8 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-fergbutcher-black-900 flex items-center space-x-2">
-          <Clock className="h-5 w-5 text-fergbutcher-green-600" />
-          <span>Order Timeline ({entries.length})</span>
+          <MessageSquare className="h-5 w-5 text-fergbutcher-green-600" />
+          <span>Staff Comments ({commentEntries.length})</span>
         </h3>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
@@ -239,13 +242,13 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
       )}
 
       <div className="relative">
-        {entries.length > 0 ? (
+        {commentEntries.length > 0 ? (
           <ul className="space-y-0">
-            {entries.map((entry, idx) => (
+            {commentEntries.map((entry, idx) => (
               <li
                 key={entry.id}
                 className={`relative flex items-start gap-3 py-2 ${
-                  idx !== entries.length - 1
+                  idx !== commentEntries.length - 1
                     ? 'border-b border-fergbutcher-gold-100'
                     : ''
                 }`}
@@ -303,8 +306,8 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
           </ul>
         ) : (
           <div className="text-center py-6 text-fergbutcher-green-400">
-            <Clock className="h-8 w-8 mx-auto mb-2 text-fergbutcher-gold-300" />
-            <p className="text-sm">No timeline entries yet</p>
+            <MessageSquare className="h-8 w-8 mx-auto mb-2 text-fergbutcher-gold-300" />
+            <p className="text-sm">No comments yet</p>
           </div>
         )}
         {loadingEmails && (
@@ -314,6 +317,36 @@ const OrderTimeline: React.FC<OrderTimelineProps> = ({ order }) => {
           </div>
         )}
       </div>
+
+      {systemEntries.length > 0 && (
+        <div className="border-t border-fergbutcher-gold-100 pt-3">
+          <button
+            onClick={() => setShowSystemEvents(!showSystemEvents)}
+            className="flex items-center space-x-1 text-sm text-fergbutcher-green-400 hover:text-fergbutcher-green-600 transition-colors"
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${showSystemEvents ? 'rotate-180' : ''}`} />
+            <span>{showSystemEvents ? 'Hide' : 'Show'} system events ({systemEntries.length})</span>
+          </button>
+          {showSystemEvents && (
+            <ul className="space-y-0 mt-2">
+              {systemEntries.map((entry) => (
+                <li key={entry.id} className="relative flex items-start gap-3 py-2">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <Package className="h-4 w-4 text-fergbutcher-green-500" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-medium text-fergbutcher-black-900 text-sm">{entry.actor}</span>
+                    <span className="text-fergbutcher-gold-700 text-sm">{entry.message}</span>
+                    <span className="text-xs text-fergbutcher-green-400 ml-auto whitespace-nowrap">
+                      {formatTimestamp(entry.timestamp)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <RecurringScopeModal
         open={commentScopeOpen}

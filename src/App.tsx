@@ -22,6 +22,8 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [ordersStatusFilter, setOrdersStatusFilter] = useState<string | undefined>(undefined);
   const [ordersCollectionDate, setOrdersCollectionDate] = useState<string | undefined>(undefined);
+  const [ordersEditOrderId, setOrdersEditOrderId] = useState<string | undefined>(undefined);
+  const [ordersDuplicateOrderId, setOrdersDuplicateOrderId] = useState<string | undefined>(undefined);
   const {
     showUndoNotification,
     lastAction,
@@ -80,9 +82,11 @@ function App() {
     }
   };
 
-  const handleNavigateToOrders = (statusFilter?: string, collectionDate?: string) => {
+  const handleNavigateToOrders = (statusFilter?: string, collectionDate?: string, editOrderId?: string, duplicateOrderId?: string) => {
     setOrdersStatusFilter(statusFilter);
     setOrdersCollectionDate(collectionDate);
+    setOrdersEditOrderId(editOrderId);
+    setOrdersDuplicateOrderId(duplicateOrderId);
     setCurrentView('orders');
     window.location.hash = 'orders';
   };
@@ -100,7 +104,7 @@ function App() {
       case 'customers':
         return <Customers />;
       case 'orders':
-        return <Orders initialStatusFilter={ordersStatusFilter} initialCollectionDate={ordersCollectionDate} onClearInitialFilter={() => { setOrdersStatusFilter(undefined); setOrdersCollectionDate(undefined); }} />;
+        return <Orders initialStatusFilter={ordersStatusFilter} initialCollectionDate={ordersCollectionDate} initialEditOrderId={ordersEditOrderId} initialDuplicateOrderId={ordersDuplicateOrderId} onClearInitialFilter={() => { setOrdersStatusFilter(undefined); setOrdersCollectionDate(undefined); }} onClearInitialEdit={() => setOrdersEditOrderId(undefined)} onClearInitialDuplicate={() => setOrdersDuplicateOrderId(undefined)} />;
       case 'calendar':
         return <CalendarView />;
       case 'settings':

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Phone, Loader2, X, Printer } from 'lucide-react';
+import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Loader2, Printer } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 import { toast } from './Toast';
 import OrderForm from './OrderForm';
@@ -10,6 +10,7 @@ import CustomerDetailModal from './CustomerDetailModal';
 import CollectionDatePromptModal, { isDateRequiredStatus } from './CollectionDatePromptModal';
 import RecurringScopeModal from './RecurringScopeModal';
 import PrintResults from './PrintResults';
+import Modal from './Modal';
 import { collapsePendingRecurring, countPendingInSeries } from '../utils/recurringUtils';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { Order, Customer } from '../types';
@@ -18,12 +19,16 @@ import { todayLocal, addDaysLocal } from '../utils/dateUtils';
 interface OrdersProps {
   initialStatusFilter?: string;
   initialCollectionDate?: string;
+  initialEditOrderId?: string;
+  initialDuplicateOrderId?: string;
   onClearInitialFilter?: () => void;
+  onClearInitialEdit?: () => void;
+  onClearInitialDuplicate?: () => void;
 }
 
 const ACTIVE_STATUSES: Order['status'][] = ['pending', 'confirmed', 'prepared', 'collected'];
 
-const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionDate, onClearInitialFilter }) => {
+const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionDate, initialEditOrderId, initialDuplicateOrderId, onClearInitialFilter, onClearInitialEdit, onClearInitialDuplicate }) => {
   const {
     orders,
     ordersLoading: loading,
@@ -48,6 +53,28 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const { getNotesForOrder, loadStaffNotes } = useAppData();
 
   useEffect(() => { loadStaffNotes(); }, [loadStaffNotes]);
+
+  // Open edit modal when navigated from Dashboard
+  useEffect(() => {
+    if (initialEditOrderId && orders.length > 0) {
+      const order = orders.find(o => o.id === initialEditOrderId);
+      if (order) {
+        setEditingOrder(order);
+        onClearInitialEdit?.();
+      }
+    }
+  }, [initialEditOrderId, orders, onClearInitialEdit]);
+
+  // Open duplicate modal when navigated from Dashboard
+  useEffect(() => {
+    if (initialDuplicateOrderId && orders.length > 0) {
+      const order = orders.find(o => o.id === initialDuplicateOrderId);
+      if (order) {
+        handleDuplicateOrder(order.id);
+        onClearInitialDuplicate?.();
+      }
+    }
+  }, [initialDuplicateOrderId, orders, onClearInitialDuplicate]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<Set<Order['status']>>(
@@ -548,16 +575,6 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                                 <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
                                 <span>{order.collectionDate ? new Date(order.collectionDate).toLocaleDateString('en-NZ') : <span className="italic text-fergbutcher-gold-600">No date set</span>}</span>
                               </div>
-                              {customer?.phone && (
-                                <a
-                                  href={`tel:${customer.phone}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="flex items-center space-x-1 text-fergbutcher-green-600 hover:underline"
-                                >
-                                  <Phone className="h-3 w-3" />
-                                  <span>{customer.phone}</span>
-                                </a>
-                              )}
                               {getNotesForOrder(order.id).length > 0 && (
                                 <div className="relative">
                                   <button
@@ -697,27 +714,18 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       )}
 
       {/* View Order Details Modal */}
-      {viewingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
-              <button onClick={() => setViewingOrder(null)} className="text-fergbutcher-gold-500 hover:text-fergbutcher-black-900">✕</button>
-            </div>
-            <div className="p-6">
-              <OrderDetail
-                order={viewingOrder}
-                customer={customers.find(c => c.id === viewingOrder.customerId)}
-                onEdit={() => { setEditingOrder(viewingOrder); setViewingOrder(null); }}
-                onDelete={() => {}}
-                onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
-                onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
-                onViewCustomer={(customer) => setViewingCustomer(customer)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={!!viewingOrder} onClose={() => setViewingOrder(null)} title="Order Details">
+        {viewingOrder && (
+          <OrderDetail
+            order={viewingOrder}
+            customer={customers.find(c => c.id === viewingOrder.customerId)}
+            onEdit={() => { setEditingOrder(viewingOrder); setViewingOrder(null); }}
+            onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
+            onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
+            onViewCustomer={(customer) => setViewingCustomer(customer)}
+          />
+        )}
+      </Modal>
 
       {/* Customer Detail Modal (from order preview) */}
       {viewingCustomer && (
@@ -738,188 +746,108 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       )}
 
       {/* Create Order Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Create Standard Order</h3>
-              <button
-                type="button"
-                onClick={() => { setShowCreateModal(false); setPendingNewCustomerId(undefined); }}
-                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              {ordersError && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                  <p className="text-red-700 text-sm">{ordersError}</p>
-                </div>
-              )}
-              <OrderForm
-                customers={customers}
-                onNewCustomerClick={() => setShowAddCustomerModal(true)}
-                initialCustomerId={pendingNewCustomerId}
-                onSubmit={handleAddOrder}
-                onCancel={() => { setShowCreateModal(false); setPendingNewCustomerId(undefined); }}
-                isLoading={isSubmitting}
-              />
-            </div>
+      <Modal open={showCreateModal} onClose={() => { setShowCreateModal(false); setPendingNewCustomerId(undefined); }} title="Create Standard Order">
+        {ordersError && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
+            <p className="text-red-700 text-sm">{ordersError}</p>
           </div>
-        </div>
-      )}
+        )}
+        <OrderForm
+          customers={customers}
+          onNewCustomerClick={() => setShowAddCustomerModal(true)}
+          initialCustomerId={pendingNewCustomerId}
+          onSubmit={handleAddOrder}
+          onCancel={() => { setShowCreateModal(false); setPendingNewCustomerId(undefined); }}
+          isLoading={isSubmitting}
+        />
+      </Modal>
 
       {/* Create Christmas Order Modal */}
-      {showChristmasModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900 flex items-center space-x-2">
-                <Gift className="h-5 w-5 text-fergbutcher-green-600" />
-                <span>Create Christmas Order</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => { setShowChristmasModal(false); setPendingNewCustomerId(undefined); }}
-                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              {ordersError && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                  <p className="text-red-700 text-sm">{ordersError}</p>
-                </div>
-              )}
-              <ChristmasOrderForm
-                customers={customers}
-                onNewCustomerClick={() => setShowAddCustomerModal(true)}
-                initialCustomerId={pendingNewCustomerId}
-                onSubmit={handleAddChristmasOrder}
-                onCancel={() => { setShowChristmasModal(false); setPendingNewCustomerId(undefined); }}
-                isLoading={isSubmitting}
-              />
-            </div>
+      <Modal open={showChristmasModal} onClose={() => { setShowChristmasModal(false); setPendingNewCustomerId(undefined); }} title="Create Christmas Order">
+        {ordersError && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
+            <p className="text-red-700 text-sm">{ordersError}</p>
           </div>
-        </div>
-      )}
+        )}
+        <ChristmasOrderForm
+          customers={customers}
+          onNewCustomerClick={() => setShowAddCustomerModal(true)}
+          initialCustomerId={pendingNewCustomerId}
+          onSubmit={handleAddChristmasOrder}
+          onCancel={() => { setShowChristmasModal(false); setPendingNewCustomerId(undefined); }}
+          isLoading={isSubmitting}
+        />
+      </Modal>
 
       {/* Edit Order Modal */}
-      {editingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
-              <button
-                type="button"
-                onClick={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
-                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              {editingOrder.orderType === 'christmas' ? (
-                <ChristmasOrderForm
-                  order={editingOrder}
-                  customers={customers}
-                  onNewCustomerClick={() => setShowAddCustomerModal(true)}
-                  initialCustomerId={pendingNewCustomerId}
-                  onSubmit={handleUpdateOrder}
-                  onCancel={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
-                  isLoading={isSubmitting}
-                />
-              ) : (
-                <OrderForm
-                  order={editingOrder}
-                  customers={customers}
-                  onNewCustomerClick={() => setShowAddCustomerModal(true)}
-                  initialCustomerId={pendingNewCustomerId}
-                  onSubmit={handleUpdateOrder}
-                  onCancel={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
-                  isLoading={isSubmitting}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={!!editingOrder} onClose={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }} title="Edit Order">
+        {editingOrder && (
+          editingOrder.orderType === 'christmas' ? (
+            <ChristmasOrderForm
+              order={editingOrder}
+              customers={customers}
+              onNewCustomerClick={() => setShowAddCustomerModal(true)}
+              initialCustomerId={pendingNewCustomerId}
+              onSubmit={handleUpdateOrder}
+              onCancel={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
+              isLoading={isSubmitting}
+            />
+          ) : (
+            <OrderForm
+              order={editingOrder}
+              customers={customers}
+              onNewCustomerClick={() => setShowAddCustomerModal(true)}
+              initialCustomerId={pendingNewCustomerId}
+              onSubmit={handleUpdateOrder}
+              onCancel={() => { setEditingOrder(null); setPendingNewCustomerId(undefined); }}
+              isLoading={isSubmitting}
+            />
+          )
+        )}
+      </Modal>
 
       {/* Duplicate Order Modal */}
-      {duplicatingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
-                <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
-                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              {duplicatingOrder.orderType === 'christmas' ? (
-                <ChristmasOrderForm
-                  customers={customers}
-                  onNewCustomerClick={() => setShowAddCustomerModal(true)}
-                  initialCustomerId={pendingNewCustomerId}
-                  onSubmit={async (orderData) => {
-                    const newOrder = await addOrder(orderData);
-                    if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); toast.success(`Christmas order duplicated successfully! New order #${newOrder.id} created.`); }
-                  }}
-                  onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
-                  isLoading={isSubmitting}
-                />
-              ) : (
-                <OrderForm
-                  customers={customers}
-                  onNewCustomerClick={() => setShowAddCustomerModal(true)}
-                  initialCustomerId={pendingNewCustomerId}
-                  onSubmit={async (orderData) => {
-                    const newOrder = await addOrder(orderData);
-                    if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`); }
-                  }}
-                  onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
-                  isLoading={isSubmitting}
-                  initialData={duplicatingOrder}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={!!duplicatingOrder} onClose={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }} title="Duplicate Order" subtitle="Review and modify the order details before creating">
+        {duplicatingOrder && (
+          duplicatingOrder.orderType === 'christmas' ? (
+            <ChristmasOrderForm
+              customers={customers}
+              onNewCustomerClick={() => setShowAddCustomerModal(true)}
+              initialCustomerId={pendingNewCustomerId}
+              onSubmit={async (orderData) => {
+                const newOrder = await addOrder(orderData);
+                if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); toast.success(`Christmas order duplicated successfully! New order #${newOrder.id} created.`); }
+              }}
+              onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
+              isLoading={isSubmitting}
+            />
+          ) : (
+            <OrderForm
+              customers={customers}
+              onNewCustomerClick={() => setShowAddCustomerModal(true)}
+              initialCustomerId={pendingNewCustomerId}
+              onSubmit={async (orderData) => {
+                const newOrder = await addOrder(orderData);
+                if (newOrder) { setPendingNewCustomerId(undefined); setDuplicatingOrder(null); toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`); }
+              }}
+              onCancel={() => { setDuplicatingOrder(null); setPendingNewCustomerId(undefined); }}
+              isLoading={isSubmitting}
+              initialData={duplicatingOrder}
+            />
+          )
+        )}
+      </Modal>
 
       {/* Add Customer Modal */}
-      {showAddCustomerModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Add New Customer</h3>
-              <p className="text-sm text-fergbutcher-green-400 mt-1">The new customer will be automatically selected in your order.</p>
-            </div>
-            <div className="p-6">
-              <CustomerForm
-                onSubmit={handleAddCustomerFromOrder}
-                onCancel={() => setShowAddCustomerModal(false)}
-                isLoading={isSubmitting}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={showAddCustomerModal} onClose={() => setShowAddCustomerModal(false)} title="Add New Customer" subtitle="The new customer will be automatically selected in your order." maxWidth="max-w-md">
+        <CustomerForm
+          onSubmit={handleAddCustomerFromOrder}
+          onCancel={() => setShowAddCustomerModal(false)}
+          isLoading={isSubmitting}
+        />
+      </Modal>
 
       {/* Edit Scope Prompt (recurring) */}
       {editScopePrompt && (

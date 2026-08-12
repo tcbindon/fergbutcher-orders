@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Gift, RefreshCw, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Gift, RefreshCw } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 import { toast } from './Toast';
 import OrderForm from './OrderForm';
 import ChristmasOrderForm from './ChristmasOrderForm';
 import { CalendarViewMode, Order } from '../types';
 import DayOrdersModal from './DayOrdersModal';
+import Modal from './Modal';
 import RecurringScopeModal from './RecurringScopeModal';
 import { getStatusDot, STATUS_DOT } from '../utils/statusColors';
 import { todayLocal, parseDateLocal } from '../utils/dateUtils';
@@ -46,11 +47,15 @@ const CalendarView: React.FC = () => {
   }, [viewMode]);
   const handleUpdateOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingOrder) return;
-    if (editingOrder.isRecurring && editingOrder.parentOrderId) {
-      const seriesCount = orders.filter(
-        o => o.parentOrderId === editingOrder.parentOrderId &&
-             o.collectionDate >= (editingOrder.collectionDate || '')
-      ).length;
+    const isRecurringSeriesEdit = editingOrder.isRecurring && editingOrder.parentOrderId;
+    const isNewRecurringSeries = !editingOrder.isRecurring && orderData.isRecurring;
+    if (isRecurringSeriesEdit || isNewRecurringSeries) {
+      const seriesCount = isRecurringSeriesEdit
+        ? orders.filter(
+            o => o.parentOrderId === editingOrder.parentOrderId &&
+                 o.collectionDate >= (editingOrder.collectionDate || '')
+          ).length
+        : 1;
       setEditScopePrompt({ orderData, orderCount: seriesCount });
       return;
     }
@@ -61,9 +66,14 @@ const CalendarView: React.FC = () => {
     if (!editingOrder) return;
     setIsSubmitting(true);
     try {
-      const success = applyToFuture
-        ? updateOrderAndFuture(editingOrder, orderData, true, customers)
-        : updateOrderAndSeries(editingOrder, orderData, customers);
+      const isNewRecurringSeries = !editingOrder.isRecurring && orderData.isRecurring;
+      const success = isNewRecurringSeries
+        ? (applyToFuture
+          ? updateOrderAndSeries(editingOrder, orderData, customers)
+          : updateOrder(editingOrder.id, { ...orderData, parentOrderId: null }, customers))
+        : applyToFuture
+          ? updateOrderAndFuture(editingOrder, orderData, true, customers)
+          : updateOrderAndSeries(editingOrder, orderData, customers);
       if (success) {
         setEditingOrder(null);
       }
@@ -510,98 +520,65 @@ const CalendarView: React.FC = () => {
       )}
 
       {/* Edit Order Modal */}
-      {editingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Edit Order</h3>
-              <button
-                type="button"
-                onClick={() => setEditingOrder(null)}
-                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              {editingOrder.orderType === 'christmas' ? (
-                <ChristmasOrderForm
-                  order={editingOrder}
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={handleUpdateOrder}
-                  onCancel={() => setEditingOrder(null)}
-                  isLoading={isSubmitting}
-                />
-              ) : (
-                <OrderForm
-                  order={editingOrder}
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={handleUpdateOrder}
-                  onCancel={() => setEditingOrder(null)}
-                  isLoading={isSubmitting}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={!!editingOrder} onClose={() => setEditingOrder(null)} title="Edit Order">
+        {editingOrder && (
+          editingOrder.orderType === 'christmas' ? (
+            <ChristmasOrderForm
+              order={editingOrder}
+              customers={customers}
+              onAddCustomer={addCustomer}
+              onSubmit={handleUpdateOrder}
+              onCancel={() => setEditingOrder(null)}
+              isLoading={isSubmitting}
+            />
+          ) : (
+            <OrderForm
+              order={editingOrder}
+              customers={customers}
+              onAddCustomer={addCustomer}
+              onSubmit={handleUpdateOrder}
+              onCancel={() => setEditingOrder(null)}
+              isLoading={isSubmitting}
+            />
+          )
+        )}
+      </Modal>
 
       {/* Duplicate Order Modal */}
-      {duplicatingOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-fergbutcher-black-900">Duplicate Order</h3>
-                <p className="text-fergbutcher-green-400 text-sm">Review and modify the order details before creating</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDuplicatingOrder(null)}
-                className="p-2 text-fergbutcher-brown-400 hover:text-fergbutcher-brown-600 hover:bg-fergbutcher-brown-100 rounded-full transition-colors"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              {duplicatingOrder.orderType === 'christmas' ? (
-                <ChristmasOrderForm
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={async (orderData) => {
-                    const newOrder = await addOrder(orderData);
-                    if (newOrder) {
-                      setDuplicatingOrder(null);
-                      toast.success(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
-                    }
-                  }}
-                  onCancel={() => setDuplicatingOrder(null)}
-                  isLoading={isSubmitting}
-                />
-              ) : (
-                <OrderForm
-                  customers={customers}
-                  onAddCustomer={addCustomer}
-                  onSubmit={async (orderData) => {
-                    const newOrder = await addOrder(orderData);
-                    if (newOrder) {
-                      setDuplicatingOrder(null);
-                      toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`);
-                    }
-                  }}
-                  onCancel={() => setDuplicatingOrder(null)}
-                  isLoading={isSubmitting}
-                  initialData={duplicatingOrder}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={!!duplicatingOrder} onClose={() => setDuplicatingOrder(null)} title="Duplicate Order" subtitle="Review and modify the order details before creating">
+        {duplicatingOrder && (
+          duplicatingOrder.orderType === 'christmas' ? (
+            <ChristmasOrderForm
+              customers={customers}
+              onAddCustomer={addCustomer}
+              onSubmit={async (orderData) => {
+                const newOrder = await addOrder(orderData);
+                if (newOrder) {
+                  setDuplicatingOrder(null);
+                  toast.success(`Christmas order duplicated successfully! New order #${newOrder.id} created.`);
+                }
+              }}
+              onCancel={() => setDuplicatingOrder(null)}
+              isLoading={isSubmitting}
+            />
+          ) : (
+            <OrderForm
+              customers={customers}
+              onAddCustomer={addCustomer}
+              onSubmit={async (orderData) => {
+                const newOrder = await addOrder(orderData);
+                if (newOrder) {
+                  setDuplicatingOrder(null);
+                  toast.success(`Order duplicated successfully! New order #${newOrder.id} created.`);
+                }
+              }}
+              onCancel={() => setDuplicatingOrder(null)}
+              isLoading={isSubmitting}
+              initialData={duplicatingOrder}
+            />
+          )
+        )}
+      </Modal>
 
       {/* Edit Scope Prompt (recurring) */}
       {editScopePrompt && (

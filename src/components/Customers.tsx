@@ -152,7 +152,7 @@ const Customers: React.FC = () => {
                 All Customers ({filteredCustomers.length.toLocaleString('en-NZ')})
               </h2>
             </div>
-            <div className="divide-y divide-fergbutcher-gold-200 max-h-96 overflow-y-auto">
+            <div className="divide-y divide-fergbutcher-gold-200 overflow-y-auto">
               {filteredCustomers.length > 0 ? (
                 filteredCustomers.map((customer) => (
                   <div

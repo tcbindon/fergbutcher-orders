@@ -19,6 +19,7 @@ const Settings: React.FC = () => {
   const [pendingRestoreData, setPendingRestoreData] = useState<{ customers: typeof customers; orders: typeof orders } | null>(null);
   const [backupList, setBackupList] = useState<BackupMeta[]>([]);
   const [backupListLoading, setBackupListLoading] = useState(true);
+  const [lastBackup, setLastBackup] = useState<Date | null>(null);
 
   // Email automation state
   const [emailAutoSettings, setEmailAutoSettings] = useState<EmailSettingsType | null>(null);
@@ -68,6 +69,21 @@ const Settings: React.FC = () => {
     }
   }, [isConnected, startHourlySync, customers, orders]);
 
+  // Load backup list on mount
+  useEffect(() => {
+    refreshBackupList();
+  }, []);
+
+  const formatBackupTime = (date: Date): string => {
+    const diffMs = Date.now() - date.getTime();
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays > 0) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+    if (diffHours > 0) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+    const diffMins = Math.floor(diffMs / 60000);
+    return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+  };
+
   // Load email automation settings + recent log
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +104,15 @@ const Settings: React.FC = () => {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Track last backup time from backup list
+  useEffect(() => {
+    if (backupList.length > 0) {
+      setLastBackup(new Date(backupList[0].created_at));
+    } else {
+      setLastBackup(null);
+    }
+  }, [backupList]);
 
   const updateEmailSetting = async (updates: Partial<EmailSettingsType>) => {
     if (!emailAutoSettings) return;
@@ -982,39 +1007,59 @@ const Settings: React.FC = () => {
 
               <div className="space-y-4">
                 {/* Google Sheets Status */}
-                <div className="flex items-center justify-between p-4 bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg">
+                <div className={`flex items-center justify-between p-4 rounded-lg border ${isConnected ? 'bg-fergbutcher-green-50 border-fergbutcher-green-200' : 'bg-red-50 border-red-200'}`}>
                   <div className="flex items-center space-x-3">
-                    <CheckCircle className="h-5 w-5 text-fergbutcher-green-600" />
+                    {isConnected
+                      ? <CheckCircle className="h-5 w-5 text-fergbutcher-green-600" />
+                      : <AlertTriangle className="h-5 w-5 text-red-600" />}
                     <div>
                       <h4 className="font-medium text-fergbutcher-black-900">Google Sheets Integration</h4>
-                      <p className="text-sm text-fergbutcher-green-400">Connected and syncing</p>
+                      <p className="text-sm text-fergbutcher-green-400">
+                        {isConnected ? `Connected — last sync ${lastSync ? new Date(lastSync).toLocaleString('en-NZ') : 'recently'}` : 'Not connected'}
+                      </p>
                     </div>
                   </div>
-                  <span className="text-sm text-fergbutcher-green-600 font-medium">Active</span>
+                  <span className={`text-sm font-medium ${isConnected ? 'text-fergbutcher-green-600' : 'text-red-600'}`}>
+                    {isConnected ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
 
                 {/* Email Service Status */}
-                <div className="flex items-center justify-between p-4 bg-fergbutcher-green-50 border border-fergbutcher-green-200 rounded-lg">
+                <div className={`flex items-center justify-between p-4 rounded-lg border ${emailAutoSettings?.automationEnabled ? 'bg-fergbutcher-green-50 border-fergbutcher-green-200' : 'bg-fergbutcher-yellow-50 border-fergbutcher-yellow-200'}`}>
                   <div className="flex items-center space-x-3">
-                    <CheckCircle className="h-5 w-5 text-fergbutcher-green-600" />
+                    {emailSettingsLoading
+                      ? <Loader2 className="h-5 w-5 text-fergbutcher-gold-400 animate-spin" />
+                      : emailAutoSettings?.automationEnabled
+                        ? <CheckCircle className="h-5 w-5 text-fergbutcher-green-600" />
+                        : <AlertTriangle className="h-5 w-5 text-fergbutcher-yellow-600" />}
                     <div>
-                      <h4 className="font-medium text-fergbutcher-black-900">Email Service (Gmail SMTP)</h4>
-                      <p className="text-sm text-fergbutcher-green-400">Ready to send notifications</p>
+                      <h4 className="font-medium text-fergbutcher-black-900">Email Service (Resend)</h4>
+                      <p className="text-sm text-fergbutcher-green-400">
+                        {emailSettingsLoading ? 'Checking…' : emailAutoSettings?.automationEnabled ? 'Active — sending automated notifications' : 'Automation disabled — no emails will send'}
+                      </p>
                     </div>
                   </div>
-                  <span className="text-sm text-fergbutcher-green-600 font-medium">Active</span>
+                  <span className={`text-sm font-medium ${emailAutoSettings?.automationEnabled ? 'text-fergbutcher-green-600' : 'text-fergbutcher-yellow-600'}`}>
+                    {emailSettingsLoading ? '…' : emailAutoSettings?.automationEnabled ? 'Active' : 'Disabled'}
+                  </span>
                 </div>
 
                 {/* Backup System Status */}
-                <div className="flex items-center justify-between p-4 bg-fergbutcher-gold-50 border border-fergbutcher-gold-300 rounded-lg">
+                <div className={`flex items-center justify-between p-4 rounded-lg border ${lastBackup ? 'bg-fergbutcher-green-50 border-fergbutcher-green-200' : 'bg-fergbutcher-yellow-50 border-fergbutcher-yellow-200'}`}>
                   <div className="flex items-center space-x-3">
-                    <CheckCircle className="h-5 w-5 text-fergbutcher-gold-600" />
+                    {lastBackup
+                      ? <CheckCircle className="h-5 w-5 text-fergbutcher-green-600" />
+                      : <AlertTriangle className="h-5 w-5 text-fergbutcher-yellow-600" />}
                     <div>
                       <h4 className="font-medium text-fergbutcher-black-900">Backup System</h4>
-                      <p className="text-sm text-fergbutcher-green-400">Last backup: 2 hours ago</p>
+                      <p className="text-sm text-fergbutcher-green-400">
+                        Last backup: {lastBackup ? formatBackupTime(lastBackup) : 'Never'}
+                      </p>
                     </div>
                   </div>
-                  <span className="text-sm text-fergbutcher-gold-600 font-medium">Operational</span>
+                  <span className={`text-sm font-medium ${lastBackup ? 'text-fergbutcher-green-600' : 'text-fergbutcher-yellow-600'}`}>
+                    {lastBackup ? 'Operational' : 'No backups yet'}
+                  </span>
                 </div>
               </div>
 
