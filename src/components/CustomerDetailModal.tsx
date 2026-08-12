@@ -36,7 +36,7 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const renderHeader = (title: string, subtitle?: string, onBack?: () => void) => (
-    <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-xl">
+    <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center bg-white z-10 rounded-t-xl">
       <div className="flex items-center space-x-3">
         {onBack && (
           <button

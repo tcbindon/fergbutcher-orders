@@ -78,7 +78,7 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
   return (
     <div className="bg-white rounded-xl shadow-sm border border-fergbutcher-gold-300">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-fergbutcher-gold-300 sticky top-0 bg-white z-10 rounded-t-xl">
+      <div className="px-6 py-4 border-b border-fergbutcher-gold-300 bg-white rounded-t-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="bg-fergbutcher-green-100 p-3 rounded-full">
