@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Loader2, Printer } from 'lucide-react';
+import { Search, Plus, Filter, Pencil, Calendar, Package, User, AlertTriangle, ChevronDown, MessageSquare, Gift, RefreshCw, Loader2, X, Printer } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 import { toast } from './Toast';
 import OrderForm from './OrderForm';
@@ -720,6 +720,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
             order={viewingOrder}
             customer={customers.find(c => c.id === viewingOrder.customerId)}
             onEdit={() => { setEditingOrder(viewingOrder); setViewingOrder(null); }}
+            onDelete={() => { setViewingOrder(null); }}
             onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
             onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
             onViewCustomer={(customer) => setViewingCustomer(customer)}
