@@ -83,7 +83,9 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showChristmasModal, setShowChristmasModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [viewingOrderId, setViewingOrderId] = useState<string | null>(null);
+  // Derive from latest orders so the detail modal always shows current state
+  const viewingOrder = viewingOrderId ? orders.find(o => o.id === viewingOrderId) ?? null : null;
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<any>(null);
   const [showingComments, setShowingComments] = useState<string | null>(null);
@@ -197,9 +199,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
           : updateOrderAndSeries(editingOrder, orderData, customers);
       if (success) {
         setEditingOrder(null);
-        if (viewingOrder?.id === editingOrder.id) {
-          setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
-        }
+        // viewingOrder is derived from orders, updates automatically
       }
     } finally {
       setIsSubmitting(false);
@@ -210,7 +210,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     const duplicateData = getDuplicateOrderData(orderId);
     if (duplicateData) {
       setDuplicatingOrder(duplicateData);
-      setViewingOrder(null);
+      setViewingOrderId(null);
     } else {
       toast.error('Failed to prepare duplicate order. Please try again.');
     }
@@ -238,9 +238,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     const updates: Partial<Omit<Order, 'id' | 'createdAt'>> = { status: newStatus };
     if (collectionDate) updates.collectionDate = collectionDate;
     const success = updateOrder(orderId, updates, customers);
-    if (success && viewingOrder?.id === orderId) {
-      setViewingOrder(prev => prev ? { ...prev, ...updates, updatedAt: new Date().toISOString() } : null);
-    }
+    // viewingOrder is derived from orders, updates automatically
   };
 
   const handleBulkStatusApply = () => {
@@ -498,7 +496,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                     <div
                       key={order.id}
                       className={`p-4 hover:bg-fergbutcher-gold-50 transition-colors cursor-pointer ${selectedOrderIds.has(order.id) ? 'bg-fergbutcher-gold-50' : ''}`}
-                      onClick={() => setViewingOrder(order)}
+                      onClick={() => setViewingOrderId(order.id)}
                     >
                       <div className="flex items-start gap-3">
                         <input
@@ -645,7 +643,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setViewingOrder(order);
+                                    setViewingOrderId(order.id);
                                     setShowingComments(null);
                                   }}
                                   className="text-sm text-fergbutcher-green-600 hover:text-fergbutcher-green-700 font-medium"
@@ -714,13 +712,13 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       )}
 
       {/* View Order Details Modal */}
-      <Modal open={!!viewingOrder} onClose={() => setViewingOrder(null)} title="Order Details">
+      <Modal open={!!viewingOrder} onClose={() => setViewingOrderId(null)} title="Order Details">
         {viewingOrder && (
           <OrderDetail
             order={viewingOrder}
             customer={customers.find(c => c.id === viewingOrder.customerId)}
-            onEdit={() => { setEditingOrder(viewingOrder); setViewingOrder(null); }}
-            onDelete={() => { setViewingOrder(null); }}
+            onEdit={() => { setEditingOrder(viewingOrder); setViewingOrderId(null); }}
+            onDelete={() => { setViewingOrderId(null); }}
             onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
             onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
             onViewCustomer={(customer) => setViewingCustomer(customer)}
@@ -879,9 +877,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
             setStatusScopePrompt(null);
             if (order && applyToFuture) {
               updateOrderAndFuture(order, { status: newStatus }, true, customers);
-              if (viewingOrder?.id === orderId) {
-                setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
-              }
+              // viewingOrder is derived from orders, updates automatically
             } else {
               applyStatusChange(orderId, newStatus);
             }

@@ -31,10 +31,16 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   onEdit,
   onDuplicate
 }) => {
-  const [viewingOrder, setViewingOrder] = React.useState<Order | null>(null);
+  const [viewingOrderId, setViewingOrderId] = React.useState<string | null>(null);
   const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
   const [viewingCustomer, setViewingCustomer] = React.useState<Customer | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // Derive the full order object from the latest orders prop so the
+  // detail view always reflects current state after status changes etc.
+  const viewingOrder = viewingOrderId
+    ? orders.find(o => o.id === viewingOrderId) ?? null
+    : null;
   const [editScopePrompt, setEditScopePrompt] = React.useState<{
     orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>;
     orderCount: number;
@@ -79,7 +85,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
       if (success) {
         setEditingOrder(null);
         if (viewingOrder?.id === editingOrder.id) {
-          setViewingOrder({ ...editingOrder, ...orderData, updatedAt: new Date().toISOString() });
+          // viewingOrder is derived from orders prop, so it updates automatically
         }
       }
     } finally {
@@ -90,7 +96,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   const handleDuplicateOrder = (orderId: string) => {
     if (onDuplicate) {
       onDuplicate(orderId);
-      setViewingOrder(null);
+      setViewingOrderId(null);
     }
   };
 
@@ -111,7 +117,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
     if (!onUpdateOrder) return;
     const success = onUpdateOrder(orderId, { status: newStatus });
     if (success && viewingOrder?.id === orderId) {
-      setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+      // viewingOrder is derived from orders prop, so it updates automatically
     }
   };
 
@@ -123,7 +129,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
             <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => setViewingOrder(null)}
+                onClick={() => setViewingOrderId(null)}
                 className="text-fergbutcher-gold-400 hover:text-fergbutcher-gold-600"
               >
                 ← Back to Day View
@@ -144,7 +150,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
               onEdit={() => {
                 if (onEdit) {
                   onEdit(viewingOrder);
-                  setViewingOrder(null);
+                  setViewingOrderId(null);
                 }
               }}
               onDelete={() => {}}
@@ -228,7 +234,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
                   const customer = customers.find(c => c.id === order.customerId);
                   return (
                     <div key={order.id} className="bg-white border border-fergbutcher-gold-300 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
-                         onClick={() => setViewingOrder(order)}>
+                         onClick={() => setViewingOrderId(order.id)}>
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-4">
                           <div className="bg-fergbutcher-green-100 p-3 rounded-full">
@@ -268,7 +274,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setViewingOrder(order);
+                              setViewingOrderId(order.id);
                             }}
                             className="p-2 text-fergbutcher-gold-400 hover:text-fergbutcher-green-600 hover:bg-fergbutcher-green-100 rounded-lg transition-colors"
                             title="View Full Order Details"
@@ -405,7 +411,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
             if (order && applyToFuture && onUpdateOrderAndFuture) {
               onUpdateOrderAndFuture(order, { status: newStatus }, true, customers);
               if (viewingOrder?.id === orderId) {
-                setViewingOrder(prev => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null);
+                // viewingOrder is derived from orders prop, so it updates automatically
               }
             } else {
               applyStatusChange(orderId, newStatus);

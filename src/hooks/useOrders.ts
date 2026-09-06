@@ -63,6 +63,13 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   const [error, setError] = useState<string | null>(null);
   const { addUndoAction } = useUndo();
 
+  // Always-current snapshot of orders so mutation callbacks never close
+  // over a stale array. This is the root fix for the "change reverts"
+  // bug: every function below reads from ordersRef.current instead of
+  // the captured `orders` variable.
+  const ordersRef = useRef(orders);
+  ordersRef.current = orders;
+
   // ── Load all orders from DB on mount ─────────────────────
   useEffect(() => {
     if (skipInitialFetch) return;
@@ -104,6 +111,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   // ── addOrder ──────────────────────────────────────────────
   const addOrder = useCallback(async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, customers: Customer[] = []): Promise<Order | null> => {
     try {
+      const currentOrders = ordersRef.current;
+
       if (orderData.isRecurring && orderData.recurrencePattern && orderData.recurrenceEndDate) {
         // ── Recurring series ──────────────────────────────
         const parentOrderId = uuidv4();
@@ -116,7 +125,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         while (currentDate <= endDate && count < 52) {
           const newOrder: Order = {
             ...orderData,
-            id: getNextOrderId(orders, newOrders),
+            id: getNextOrderId(currentOrders, newOrders),
             collectionDate: formatDateLocal(currentDate),
             orderType: orderData.orderType || 'standard',
             isRecurring: true,
@@ -144,8 +153,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           return null;
         }
 
-        const allOrders = [...newOrders, ...orders];
-        triggerSync(allOrders, customers);
+        triggerSync(ordersRef.current, customers);
 
         addUndoAction({
           id: `add-recurring-orders-${parentOrderId}`,
@@ -172,7 +180,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         // ── Single order ──────────────────────────────────
         const newOrder: Order = {
           ...orderData,
-          id: getNextOrderId(orders),
+          id: getNextOrderId(currentOrders),
           orderType: orderData.orderType || 'standard',
           isRecurring: false,
           recurrencePattern: null,
@@ -194,8 +202,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           return null;
         }
 
-        const allOrders = [newOrder, ...orders];
-        triggerSync(allOrders, customers);
+        triggerSync(ordersRef.current, customers);
 
         addUndoAction({
           id: `add-order-${newOrder.id}`,
@@ -225,30 +232,31 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to add order');
       return null;
     }
-  }, [orders, addUndoAction, triggerSync]);
+  }, [addUndoAction, triggerSync]);
 
   // ── updateOrder ───────────────────────────────────────────
   const updateOrder = useCallback((id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>, customers: Customer[] = []) => {
     try {
       const updatedAt = new Date().toISOString();
-      const previousOrders = [...orders];
-      const updatedOrders = orders.map(o => o.id === id ? { ...o, ...updates, updatedAt } : o);
-      setOrders(updatedOrders);
+      const currentOrders = ordersRef.current;
+      const previousOrder = currentOrders.find(o => o.id === id);
+      if (!previousOrder) return false;
+
+      // Optimistic update — functional so we never overwrite concurrent changes
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates, updatedAt } : o));
 
       // Auto-send confirmation email on status change to 'confirmed'
-      if (updates.status === 'confirmed') {
-        const previousOrder = orders.find(o => o.id === id);
-        if (previousOrder && previousOrder.status !== 'confirmed') {
-          const customer = customers.find(c => c.id === previousOrder.customerId);
-          autoSendOrderEmail({ ...previousOrder, ...updates, updatedAt } as Order, customer, 'order-confirmed', 'Automation');
-        }
+      if (updates.status === 'confirmed' && previousOrder.status !== 'confirmed') {
+        const customer = customers.find(c => c.id === previousOrder.customerId);
+        autoSendOrderEmail({ ...previousOrder, ...updates, updatedAt } as Order, customer, 'order-confirmed', 'Automation');
       }
 
       ordersApi.update(id, { ...updates, updatedAt })
-        .then(() => triggerSync(updatedOrders, customers))
+        .then(() => triggerSync(ordersRef.current, customers))
         .catch(err => {
           console.error('Failed to update order in DB:', err);
-          setOrders(previousOrders);
+          // Revert only the affected order, preserving any concurrent changes
+          setOrders(prev => prev.map(o => o.id === id ? previousOrder : o));
           setError('Failed to update order. Please try again.');
         });
 
@@ -258,7 +266,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to update order');
       return false;
     }
-  }, [orders, triggerSync]);
+  }, [triggerSync]);
 
   // ── bulkUpdateStatus ──────────────────────────────────────
   // Updates status on multiple orders atomically (single setOrders call).
@@ -266,14 +274,22 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
     try {
       const updatedAt = new Date().toISOString();
       const idSet = new Set(ids);
-      const updatedOrders = orders.map(o =>
+      const currentOrders = ordersRef.current;
+      const previousOrders = currentOrders.filter(o => idSet.has(o.id));
+
+      setOrders(prev => prev.map(o =>
         idSet.has(o.id) ? { ...o, status, updatedAt } : o
-      );
-      setOrders(updatedOrders);
+      ));
       Promise.all(ids.map(id => ordersApi.update(id, { status, updatedAt })))
-        .then(() => triggerSync(updatedOrders, customers))
+        .then(() => triggerSync(ordersRef.current, customers))
         .catch(err => {
           console.error('Failed to bulk update orders:', err);
+          // Revert only the affected orders
+          const prevMap = new Map(previousOrders.map(o => [o.id, o]));
+          setOrders(prev => prev.map(o => {
+            const prevOrder = prevMap.get(o.id);
+            return prevOrder ? prevOrder : o;
+          }));
           setError('Failed to update orders. Please try again.');
         });
       return true;
@@ -282,7 +298,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to update orders');
       return false;
     }
-  }, [orders, triggerSync]);
+  }, [triggerSync]);
 
   // ── updateOrderAndSeries ──────────────────────────────────
   // Use this instead of updateOrder when editing a recurring order from
@@ -297,14 +313,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
     try {
       const id = originalOrder.id;
       const updatedAt = new Date().toISOString();
-
-      console.log('[updateOrderAndSeries] called for order', id, {
-        isRecurring: originalOrder.isRecurring,
-        parentOrderId: originalOrder.parentOrderId,
-        recurrencePattern: originalOrder.recurrencePattern,
-        oldEndDate: originalOrder.recurrenceEndDate,
-        newEndDate: updates.recurrenceEndDate,
-      });
+      const currentOrders = ordersRef.current;
 
       const isBeingConvertedToRecurring =
         !originalOrder.isRecurring &&
@@ -325,7 +334,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           generatedOrders.push({
             ...originalOrder,
             ...updates,
-            id: getNextOrderId(orders, generatedOrders),
+            id: getNextOrderId(currentOrders, generatedOrders),
             collectionDate: formatDateLocal(currentDate),
             isRecurring: true,
             recurrencePattern: updates.recurrencePattern,
@@ -347,9 +356,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           parentOrderId: parentId,
           updatedAt,
         };
-        const previousOrders = [...orders];
-        const nextOrders = [firstOrder, ...generatedOrders, ...orders.filter(o => o.id !== originalOrder.id)];
-        setOrders(nextOrders);
+
+        setOrders(prev => [firstOrder, ...generatedOrders, ...prev.filter(o => o.id !== originalOrder.id)]);
 
         Promise.all([
           ordersApi.update(originalOrder.id, {
@@ -362,10 +370,15 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           }),
           generatedOrders.length > 0 ? ordersApi.saveAll(generatedOrders) : Promise.resolve(),
         ])
-          .then(() => triggerSync(nextOrders, customers))
+          .then(() => triggerSync(ordersRef.current, customers))
           .catch(err => {
             console.error('Failed to create recurring series:', err);
-            setOrders(previousOrders);
+            // Revert: remove generated orders, restore original
+            const generatedIds = new Set(generatedOrders.map(o => o.id));
+            setOrders(prev => [
+              originalOrder,
+              ...prev.filter(o => o.id !== originalOrder.id && !generatedIds.has(o.id)),
+            ]);
             setError('Failed to create recurring orders. Please try again.');
           });
 
@@ -379,15 +392,13 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         updates.recurrenceEndDate &&
         updates.recurrenceEndDate !== originalOrder.recurrenceEndDate;
 
-      console.log('[updateOrderAndSeries] needsSeriesSync:', !!needsSeriesSync);
-
       if (needsSeriesSync) {
         const parentId      = originalOrder.parentOrderId!;
         const intervalDays  = originalOrder.recurrencePattern === 'weekly' ? 7 : 14;
         const newEndDate    = updates.recurrenceEndDate!;
         const newEndParsed  = parseDateLocal(newEndDate);
 
-        const seriesOrders = orders.filter(o => o.parentOrderId === parentId);
+        const seriesOrders = currentOrders.filter(o => o.parentOrderId === parentId);
         const toKeep       = seriesOrders.filter(o => o.collectionDate <= newEndDate);
         const toDelete     = seriesOrders.filter(o => o.collectionDate > newEndDate);
 
@@ -401,7 +412,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
             const dateStr = formatDateLocal(cur);
             generatedOrders.push({
               ...originalOrder,
-              id: getNextOrderId([...orders, ...generatedOrders]),
+              id: getNextOrderId([...currentOrders, ...generatedOrders]),
               collectionDate: dateStr,
               recurrenceEndDate: newEndDate,
               status: updates.status || originalOrder.status || 'pending',
@@ -414,23 +425,27 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         }
 
         const deleteIds = new Set(toDelete.map(o => o.id));
-        const previousOrders = [...orders];
 
         // Preserve parentOrderId — never let it get wiped by form updates
         const safeUpdates = { ...updates, parentOrderId: parentId };
 
-        const nextOrders = [
+        // Capture previous state of affected orders for rollback
+        const affectedIds = new Set([
+          ...deleteIds,
+          ...toKeep.map(o => o.id),
+        ]);
+        const previousAffected = currentOrders.filter(o => affectedIds.has(o.id));
+
+        setOrders(prev => [
           ...generatedOrders,
-          ...orders
+          ...prev
             .filter(o => !deleteIds.has(o.id))
             .map(o => {
               if (o.parentOrderId !== parentId) return o;
               const base = { ...o, recurrenceEndDate: newEndDate, updatedAt };
               return o.id === id ? { ...base, ...safeUpdates } : base;
             }),
-        ];
-
-        setOrders(nextOrders);
+        ]);
 
         const dbOps: Promise<any>[] = [];
         toDelete.forEach(o => dbOps.push(ordersApi.delete(o.id)));
@@ -443,18 +458,23 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         if (generatedOrders.length > 0) dbOps.push(ordersApi.saveAll(generatedOrders));
 
         Promise.all(dbOps)
-          .then(() => triggerSync(nextOrders, customers))
+          .then(() => triggerSync(ordersRef.current, customers))
           .catch(err => {
             console.error('Failed to sync recurring series:', err);
             setError('Failed to update recurring series. Please try again.');
-            setOrders(previousOrders);
+            // Revert: remove generated orders, restore previous state of affected orders
+            const generatedIds = new Set(generatedOrders.map(o => o.id));
+            const prevMap = new Map(previousAffected.map(o => [o.id, o]));
+            setOrders(prev => [
+              ...previousAffected,
+              ...prev.filter(o => !generatedIds.has(o.id) && !affectedIds.has(o.id)),
+            ]);
           });
 
         return true;
       }
 
       // No series change needed — plain single-order update
-      console.log('[updateOrderAndSeries] falling through to simple updateOrder');
       const safeUpdates = updates.isRecurring === false
         ? { ...updates, recurrencePattern: null, recurrenceEndDate: null, parentOrderId: null }
         : updates;
@@ -464,7 +484,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to update order');
       return false;
     }
-  }, [orders, updateOrder, triggerSync]);
+  }, [updateOrder, triggerSync]);
 
   // ── updateOrderAndFuture ──────────────────────────────────
   // Applies updates to a single order, or to that order plus all future
@@ -487,21 +507,24 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       }
 
       const updatedAt = new Date().toISOString();
+      const currentOrders = ordersRef.current;
+
       if (updates.isRecurring === false) {
-        const targetOrders = orders.filter(o =>
+        const targetOrders = currentOrders.filter(o =>
           o.parentOrderId === anchorOrder.parentOrderId &&
           o.collectionDate >= (anchorOrder.collectionDate || '')
         );
         const targetIds = new Set(targetOrders.map(o => o.id));
-        const previousOrders = [...orders];
-        const remaining = orders.filter(o => !targetIds.has(o.id));
-        setOrders(remaining);
+        const targetOrdersSnapshot = targetOrders;
+
+        setOrders(prev => prev.filter(o => !targetIds.has(o.id)));
 
         Promise.all(targetOrders.map(o => ordersApi.delete(o.id)))
-          .then(() => triggerSync(remaining, customers))
+          .then(() => triggerSync(ordersRef.current, customers))
           .catch(err => {
             console.error('Failed to delete future recurring orders:', err);
-            setOrders(previousOrders);
+            // Restore deleted orders
+            setOrders(prev => [...prev, ...targetOrdersSnapshot]);
             setError('Failed to delete recurring orders. Please try again.');
           });
         return true;
@@ -512,9 +535,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       // Fields that should NOT be copied across future orders
       const { collectionDate, collectionTime, ...sharedUpdates } = updates;
 
-      const previousOrders = [...orders];
       const targetIds = new Set(
-        orders
+        currentOrders
           .filter(o => o.parentOrderId === parentId && o.collectionDate >= anchorDate)
           .map(o => o.id)
       );
@@ -522,16 +544,18 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       // Always include the anchor even if date comparison missed it
       targetIds.add(anchorOrder.id);
 
-      const updatedOrders = orders.map(o =>
+      // Capture previous state of affected orders for rollback
+      const previousAffected = currentOrders.filter(o => targetIds.has(o.id));
+
+      setOrders(prev => prev.map(o =>
         targetIds.has(o.id) ? { ...o, ...sharedUpdates, updatedAt } : o
-      );
-      setOrders(updatedOrders);
+      ));
 
       // Auto-send confirmation emails for orders newly confirmed
       if (sharedUpdates.status === 'confirmed') {
         const customer = customers.find(c => c.id === anchorOrder.customerId);
         targetIds.forEach(id => {
-          const prev = orders.find(o => o.id === id);
+          const prev = currentOrders.find(o => o.id === id);
           if (prev && prev.status !== 'confirmed') {
             autoSendOrderEmail({ ...prev, ...sharedUpdates, updatedAt } as Order, customer, 'order-confirmed', 'Automation');
           }
@@ -540,10 +564,15 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       const ids = Array.from(targetIds);
       Promise.all(ids.map(id => ordersApi.update(id, { ...sharedUpdates, updatedAt })))
-        .then(() => triggerSync(updatedOrders, customers))
+        .then(() => triggerSync(ordersRef.current, customers))
         .catch(err => {
           console.error('Failed to update future recurring orders:', err);
-          setOrders(previousOrders);
+          // Revert only the affected orders
+          const prevMap = new Map(previousAffected.map(o => [o.id, o]));
+          setOrders(prev => prev.map(o => {
+            const prevOrder = prevMap.get(o.id);
+            return prevOrder ? prevOrder : o;
+          }));
           setError('Failed to update recurring orders. Please try again.');
         });
 
@@ -553,31 +582,37 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to update order');
       return false;
     }
-  }, [orders, updateOrder, triggerSync]);
+  }, [updateOrder, triggerSync]);
 
   // ── deleteOrder ───────────────────────────────────────────
   const deleteOrder = useCallback((id: string, customers: Customer[] = []) => {
     try {
-      const orderToDelete = orders.find(o => o.id === id);
+      const currentOrders = ordersRef.current;
+      const orderToDelete = currentOrders.find(o => o.id === id);
       if (!orderToDelete) return false;
 
-      const previousOrders = [...orders];
-      const remaining = orders.filter(o => o.id !== id);
-      setOrders(remaining);
+      setOrders(prev => prev.filter(o => o.id !== id));
 
       ordersApi.delete(id)
-        .then(() => triggerSync(remaining, customers))
+        .then(() => triggerSync(ordersRef.current, customers))
         .catch(err => {
           console.error('Failed to delete order from DB:', err);
           setError('Failed to delete order. Please try again.');
-          setOrders(previousOrders); // rollback
+          // Restore the deleted order
+          setOrders(prev => {
+            if (prev.some(o => o.id === id)) return prev;
+            return [...prev, orderToDelete];
+          });
         });
 
       addUndoAction({
         id: `delete-order-${id}`,
         description: `Deleted order #${id}`,
         undo: () => {
-          setOrders(previousOrders);
+          setOrders(prev => {
+            if (prev.some(o => o.id === id)) return prev;
+            return [...prev, orderToDelete];
+          });
           ordersApi.save(orderToDelete).catch(console.error);
           errorLogger.info(`Undid deleting order #${id}`);
         }
@@ -591,7 +626,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to delete order');
       return false;
     }
-  }, [orders, addUndoAction, triggerSync]);
+  }, [addUndoAction, triggerSync]);
 
   // ── deleteRecurringSeries ─────────────────────────────────
   // Deletes the given order and all other orders in the same
@@ -599,7 +634,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   // collectionDate (i.e. "this and all future occurrences").
   const deleteRecurringSeries = useCallback((id: string, customers: Customer[] = []) => {
     try {
-      const anchor = orders.find(o => o.id === id);
+      const currentOrders = ordersRef.current;
+      const anchor = currentOrders.find(o => o.id === id);
       if (!anchor) return { success: false, count: 0 };
       if (!anchor.parentOrderId) {
         // Not part of a series — fall back to single delete
@@ -607,7 +643,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         return { success: ok, count: ok ? 1 : 0 };
       }
 
-      const toDelete = orders.filter(
+      const toDelete = currentOrders.filter(
         o =>
           o.parentOrderId === anchor.parentOrderId &&
           o.collectionDate >= anchor.collectionDate
@@ -615,24 +651,25 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       if (toDelete.length === 0) return { success: false, count: 0 };
 
-      const previousOrders = [...orders];
       const deleteIds = new Set(toDelete.map(o => o.id));
-      const remaining = orders.filter(o => !deleteIds.has(o.id));
-      setOrders(remaining);
+      const toDeleteSnapshot = toDelete;
+
+      setOrders(prev => prev.filter(o => !deleteIds.has(o.id)));
 
       Promise.all(toDelete.map(o => ordersApi.delete(o.id)))
-        .then(() => triggerSync(remaining, customers))
+        .then(() => triggerSync(ordersRef.current, customers))
         .catch(err => {
           console.error('Failed to delete recurring series from DB:', err);
           setError('Failed to delete recurring orders. Please try again.');
-          setOrders(previousOrders);
+          // Restore deleted orders
+          setOrders(prev => [...prev, ...toDeleteSnapshot]);
         });
 
       addUndoAction({
         id: `delete-recurring-${anchor.parentOrderId}-${anchor.collectionDate}`,
         description: `Deleted ${toDelete.length} recurring order${toDelete.length !== 1 ? 's' : ''}`,
         undo: () => {
-          setOrders(previousOrders);
+          setOrders(prev => [...prev, ...toDeleteSnapshot]);
           toDelete.forEach(o => ordersApi.save(o).catch(console.error));
           errorLogger.info(`Undid deleting ${toDelete.length} recurring orders`);
         }
@@ -646,7 +683,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to delete recurring orders');
       return { success: false, count: 0 };
     }
-  }, [orders, addUndoAction, deleteOrder, triggerSync]);
+  }, [addUndoAction, deleteOrder, triggerSync]);
 
   // ── Read helpers (unchanged logic) ───────────────────────
   const getOrderById = (id: string) => orders.find(o => o.id === id);
