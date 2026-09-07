@@ -17,10 +17,16 @@ exports.handler = async (event) => {
   // in a single round trip so the app loads with one request instead of three.
   if (path === '/all') {
     try {
-      const qs = event.queryStringParameters
-        ? '?' + new URLSearchParams(event.queryStringParameters).toString()
-        : '';
-      const hdrs = { 'Content-Type': 'application/json', 'X-API-Key': API_SECRET };
+      const params = new URLSearchParams(event.queryStringParameters || {});
+      if (!params.has('from')) params.set('from', '1900-01-01');
+      if (!params.has('to')) params.set('to', '2100-12-31');
+      params.set('_cacheBust', Date.now().toString());
+      const qs = '?' + params.toString();
+      const hdrs = {
+        'Content-Type': 'application/json',
+        'X-API-Key': API_SECRET,
+        'Cache-Control': 'no-cache, no-store',
+      };
       const [custRes, ordRes, notesRes] = await Promise.all([
         fetch(`${API_BASE}/customers.php`, { headers: hdrs }),
         fetch(`${API_BASE}/orders.php${qs}`, { headers: hdrs }),
@@ -79,9 +85,9 @@ exports.handler = async (event) => {
     };
   }
 
-  const queryString = event.queryStringParameters
-    ? '?' + new URLSearchParams(event.queryStringParameters).toString()
-    : '';
+  const queryParams = new URLSearchParams(event.queryStringParameters || {});
+  if (event.httpMethod === 'GET') queryParams.set('_cacheBust', Date.now().toString());
+  const queryString = queryParams.toString() ? '?' + queryParams.toString() : '';
 
   const url = API_BASE + phpFile + queryString;
 

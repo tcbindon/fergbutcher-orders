@@ -20,15 +20,31 @@ const parseDateLocal = (s: string) => {
 const formatDateLocal = (dt: Date) =>
   `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 
+const defaultEmailTemplates: EmailTemplate[] = [
+  {
+    id: 'order-received',
+    name: 'Order Request Received',
+    subject: 'Order Request Received - Fergbutcher',
+    body: 'Dear {firstName},\\n\\nThank you for your order request! We have received your order and will review it shortly.\\n\\nOrder Details:\\n{orderItems}\\n\\nCollection Date: {collectionDate}\\nCollection Time: {collectionTime}\\n\\nWe will confirm your order within 24 hours.\\n\\nBest regards,\\nFergbutcher Team',
+  },
+  {
+    id: 'order-confirmed',
+    name: 'Order Confirmed',
+    subject: 'Order Confirmed - Ready for Collection',
+    body: 'Dear {firstName},\\n\\nGreat news! Your order has been confirmed and will be ready for collection.\\n\\nOrder Details:\\n{orderItems}\\n\\nCollection Date: {collectionDate}\\nCollection Time: {collectionTime}\\n\\nPlease arrive at your scheduled collection time. We look forward to seeing you!\\n\\nBest regards,\\nFergbutcher Team',
+  },
+];
+
 function getTemplateFromStorage(templateId: string): EmailTemplate | null {
   try {
     const saved = localStorage.getItem('fergbutcher_email_templates');
     if (saved) {
       const templates: EmailTemplate[] = JSON.parse(saved);
-      return templates.find(t => t.id === templateId) || null;
+      const savedTemplate = templates.find(t => t.id === templateId);
+      if (savedTemplate) return savedTemplate;
     }
-  } catch { /* ignore */ }
-  return null;
+  } catch { /* use the built-in template */ }
+  return defaultEmailTemplates.find(t => t.id === templateId) || null;
 }
 
 async function autoSendOrderEmail(
@@ -57,7 +73,9 @@ async function autoSendOrderEmail(
       console.warn('[autoSendOrderEmail] Skipping — templateOrderConfirmed disabled');
       return;
     }
+    console.log('[autoSendOrderEmail] Checking whether this email was already sent');
     const already = await emailLog.wasSent(order.id, templateId);
+    console.log('[autoSendOrderEmail] Duplicate-send check result:', already);
     if (already) {
       console.warn('[autoSendOrderEmail] Skipping — already sent for this order/template');
       return;
@@ -117,6 +135,18 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
     setError(null);
   }, []);
 
+  // Re-fetch all orders from the server (used after saves to keep the
+  // client list in sync with the true DB state).
+  const refreshOrders = useCallback(async () => {
+    try {
+      const data = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
+      setOrders(data);
+      console.log('[refreshOrders] Reloaded', data.length, 'orders from server');
+    } catch (err) {
+      console.error('[refreshOrders] Failed to reload orders:', err);
+    }
+  }, []);
+
   // ── Helpers ───────────────────────────────────────────────
   const getNextOrderId = (existingOrders: Order[], extra: Order[] = []): string => {
     const all = [...existingOrders, ...extra];
@@ -137,6 +167,18 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       if (orderData.isRecurring && orderData.recurrencePattern && orderData.recurrenceEndDate) {
         // ── Recurring series ──────────────────────────────
+        // Fetch the true max ID from the server to avoid collisions
+        let serverMaxId = 0;
+        try {
+          const allOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
+          serverMaxId = allOrders.reduce((m, o) => {
+            const n = parseInt(o.id);
+            return isNaN(n) ? m : Math.max(m, n);
+          }, 0);
+        } catch (err) {
+          console.error('[addOrder] Failed to fetch server max ID for recurring series:', err);
+        }
+
         const parentOrderId = uuidv4();
         const newOrders: Order[] = [];
         const intervalDays = orderData.recurrencePattern === 'weekly' ? 7 : 14;
@@ -144,10 +186,16 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         const endDate   = parseDateLocal(orderData.recurrenceEndDate);
         let count = 0;
 
+        // Base the next ID on the server's max, not the stale client list
+        let nextIdNum = Math.max(
+          currentOrders.reduce((m, o) => { const n = parseInt(o.id); return isNaN(n) ? m : Math.max(m, n); }, 0) + 1,
+          serverMaxId + 1
+        );
+
         while (currentDate <= endDate && count < 52) {
           const newOrder: Order = {
             ...orderData,
-            id: getNextOrderId(currentOrders, newOrders),
+            id: nextIdNum.toString(),
             collectionDate: formatDateLocal(currentDate),
             orderType: orderData.orderType || 'standard',
             isRecurring: true,
@@ -158,6 +206,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
             updatedAt: new Date().toISOString(),
           };
           newOrders.push(newOrder);
+          nextIdNum++;
           currentDate = new Date(currentDate);
           currentDate.setDate(currentDate.getDate() + intervalDays);
           count++;
@@ -175,6 +224,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           return null;
         }
 
+        // Reload from server so the client list matches the true DB state
+        refreshOrders();
         triggerSync(ordersRef.current, customers);
 
         addUndoAction({
@@ -200,9 +251,27 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       } else {
         // ── Single order ──────────────────────────────────
+        // Fetch the true max ID from the server to avoid collisions
+        // with orders not in the client's stale list.
+        let serverMaxId = 0;
+        try {
+          const allOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
+          serverMaxId = allOrders.reduce((m, o) => {
+            const n = parseInt(o.id);
+            return isNaN(n) ? m : Math.max(m, n);
+          }, 0);
+          console.log('[addOrder] Server max order ID:', serverMaxId, 'client list max:', currentOrders.reduce((m, o) => { const n = parseInt(o.id); return isNaN(n) ? m : Math.max(m, n); }, 0));
+        } catch (err) {
+          console.error('[addOrder] Failed to fetch server max ID, falling back to client list:', err);
+        }
+        const nextId = Math.max(
+          parseInt(getNextOrderId(currentOrders)),
+          serverMaxId + 1
+        ).toString();
+
         const newOrder: Order = {
           ...orderData,
-          id: getNextOrderId(currentOrders),
+          id: nextId,
           orderType: orderData.orderType || 'standard',
           isRecurring: false,
           recurrencePattern: null,
@@ -215,13 +284,23 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         // Optimistic update
         setOrders(prev => [newOrder, ...prev]);
 
+        let savedOrder: Order = newOrder;
         try {
           const saved = await ordersApi.save(newOrder);
           console.log('[addOrder] Save returned success. Saved order:', saved);
+          // Use the server-returned order (may have corrected ID)
+          if (saved && saved.id) {
+            savedOrder = saved;
+            // Update the optimistic entry with the server's ID if different
+            if (saved.id !== newOrder.id) {
+              console.log('[addOrder] Server assigned different ID:', saved.id, 'vs client:', newOrder.id);
+              setOrders(prev => prev.map(o => o.id === newOrder.id ? saved : o));
+            }
+          }
 
           // Verify the order was actually persisted by fetching it back
           try {
-            const verified = await ordersApi.getOne(newOrder.id);
+            const verified = await ordersApi.getOne(savedOrder.id);
             console.log('[addOrder] Post-save verification: order found in DB:', !!verified, 'ID:', verified?.id);
           } catch (verifyErr) {
             console.error('[addOrder] Post-save verification FAILED — order NOT found in DB after save:', verifyErr);
@@ -233,29 +312,31 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           return null;
         }
 
+        // Reload from server so the client list matches the true DB state
+        refreshOrders();
         triggerSync(ordersRef.current, customers);
 
         addUndoAction({
-          id: `add-order-${newOrder.id}`,
-          description: `Created order #${newOrder.id}`,
+          id: `add-order-${savedOrder.id}`,
+          description: `Created order #${savedOrder.id}`,
           undo: () => {
-            setOrders(prev => prev.filter(o => o.id !== newOrder.id));
-            ordersApi.delete(newOrder.id).catch(console.error);
-            errorLogger.info(`Undid creating order #${newOrder.id}`);
+            setOrders(prev => prev.filter(o => o.id !== savedOrder.id));
+            ordersApi.delete(savedOrder.id).catch(console.error);
+            errorLogger.info(`Undid creating order #${savedOrder.id}`);
           }
         });
 
-        errorLogger.info(`Order created: #${newOrder.id}`);
+        errorLogger.info(`Order created: #${savedOrder.id}`);
 
-        // Auto-send email on creation
-        const newCustomer = customers.find(c => c.id === newOrder.customerId);
-        if (newOrder.status === 'confirmed') {
-          autoSendOrderEmail(newOrder, newCustomer, 'order-confirmed', 'Automation');
-        } else if (newOrder.status === 'pending') {
-          autoSendOrderEmail(newOrder, newCustomer, 'order-received', 'Automation');
+        // Auto-send email on creation — use the server-confirmed order
+        const newCustomer = customers.find(c => c.id === savedOrder.customerId);
+        if (savedOrder.status === 'confirmed') {
+          autoSendOrderEmail(savedOrder, newCustomer, 'order-confirmed', 'Automation');
+        } else if (savedOrder.status === 'pending') {
+          autoSendOrderEmail(savedOrder, newCustomer, 'order-received', 'Automation');
         }
 
-        return newOrder;
+        return savedOrder;
       }
     } catch (err) {
       console.error('Error adding order:', err);
@@ -263,7 +344,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to add order');
       return null;
     }
-  }, [addUndoAction, triggerSync]);
+  }, [addUndoAction, triggerSync, refreshOrders]);
 
   // ── updateOrder ───────────────────────────────────────────
   const updateOrder = useCallback((id: string, updates: Partial<Omit<Order, 'id' | 'createdAt'>>, customers: Customer[] = []) => {

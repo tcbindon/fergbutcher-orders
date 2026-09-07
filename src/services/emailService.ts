@@ -42,19 +42,26 @@ const SETTINGS_ENDPOINT = '/.netlify/functions/email-settings';
 const SEND_EMAIL_ENDPOINT = '/.netlify/functions/send-email';
 
 async function apiGet<T>(query: string): Promise<{ data: T | null; error: string | null }> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch(`${SETTINGS_ENDPOINT}?${query}`);
+    const res = await fetch(`${SETTINGS_ENDPOINT}?${query}&_cacheBust=${Date.now()}`, {
+      signal: controller.signal,
+    });
     const json = await res.json();
     if (!res.ok) {
       const error = json?.error || `HTTP ${res.status}`;
       console.error('[emailService] GET failed:', query, error);
       return { data: null, error };
     }
+    console.log('[emailService] GET succeeded:', query);
     return { data: json as T, error: null };
   } catch (err) {
-    const error = (err as Error).message;
+    const error = (err as Error).name === 'AbortError' ? 'Request timed out' : (err as Error).message;
     console.error('[emailService] GET network error:', query, error);
     return { data: null, error };
+  } finally {
+    window.clearTimeout(timeout);
   }
 }
 
