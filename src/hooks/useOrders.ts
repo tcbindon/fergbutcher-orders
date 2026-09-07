@@ -37,17 +37,39 @@ async function autoSendOrderEmail(
   templateId: 'order-received' | 'order-confirmed',
   sentBy: string
 ) {
-  if (!customer || !customer.email) return;
+  console.log('[autoSendOrderEmail] Called for order:', order.id, 'template:', templateId);
+  if (!customer || !customer.email) {
+    console.warn('[autoSendOrderEmail] Skipping — no customer or no email. Customer:', customer?.id, 'email:', customer?.email);
+    return;
+  }
   try {
     const settings = await emailSettings.get();
-    if (!settings || !settings.automationEnabled) return;
-    if (templateId === 'order-received' && !settings.templateOrderReceived) return;
-    if (templateId === 'order-confirmed' && !settings.templateOrderConfirmed) return;
+    console.log('[autoSendOrderEmail] Settings loaded:', settings);
+    if (!settings || !settings.automationEnabled) {
+      console.warn('[autoSendOrderEmail] Skipping — automation not enabled');
+      return;
+    }
+    if (templateId === 'order-received' && !settings.templateOrderReceived) {
+      console.warn('[autoSendOrderEmail] Skipping — templateOrderReceived disabled');
+      return;
+    }
+    if (templateId === 'order-confirmed' && !settings.templateOrderConfirmed) {
+      console.warn('[autoSendOrderEmail] Skipping — templateOrderConfirmed disabled');
+      return;
+    }
     const already = await emailLog.wasSent(order.id, templateId);
-    if (already) return;
+    if (already) {
+      console.warn('[autoSendOrderEmail] Skipping — already sent for this order/template');
+      return;
+    }
     const template = getTemplateFromStorage(templateId);
-    if (!template) return;
+    if (!template) {
+      console.warn('[autoSendOrderEmail] Skipping — template not found in localStorage:', templateId);
+      return;
+    }
+    console.log('[autoSendOrderEmail] Sending email to:', customer.email, 'template:', templateId);
     const result = await sendTemplateEmail(template, order, customer, sentBy);
+    console.log('[autoSendOrderEmail] Send result:', result);
     if (!result.success) {
       console.warn(`Auto ${templateId} email failed:`, result.error);
     }
@@ -194,7 +216,16 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         setOrders(prev => [newOrder, ...prev]);
 
         try {
-          await ordersApi.save(newOrder);
+          const saved = await ordersApi.save(newOrder);
+          console.log('[addOrder] Save returned success. Saved order:', saved);
+
+          // Verify the order was actually persisted by fetching it back
+          try {
+            const verified = await ordersApi.getOne(newOrder.id);
+            console.log('[addOrder] Post-save verification: order found in DB:', !!verified, 'ID:', verified?.id);
+          } catch (verifyErr) {
+            console.error('[addOrder] Post-save verification FAILED — order NOT found in DB after save:', verifyErr);
+          }
         } catch (err) {
           console.error('Failed to save order to DB:', err);
           setError((err as Error).message || 'Failed to save order. Please try again.');

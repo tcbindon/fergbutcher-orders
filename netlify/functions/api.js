@@ -104,6 +104,10 @@ exports.handler = async (event) => {
     if (['POST', 'PUT', 'DELETE'].includes(event.httpMethod)) {
       console.log(`[${event.httpMethod} ${path}] PHP status:`, response.status, 'response:', data.substring(0, 500));
     }
+    // Log GET responses for orders (to diagnose disappearing orders)
+    if (event.httpMethod === 'GET' && path === '/orders') {
+      console.log(`[GET ${path}${queryString}] PHP status:`, response.status, 'body length:', data.length, 'body preview:', data.substring(0, 500));
+    }
 
     return {
       statusCode: response.status,
