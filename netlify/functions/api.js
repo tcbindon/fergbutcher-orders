@@ -26,9 +26,22 @@ exports.handler = async (event) => {
         fetch(`${API_BASE}/orders.php${qs}`, { headers: hdrs }),
         fetch(`${API_BASE}/staff-notes.php`, { headers: hdrs }),
       ]);
-      const [customers, orders, staffNotes] = await Promise.all([
-        custRes.json(), ordRes.json(), notesRes.json(),
-      ]);
+
+      // Log raw PHP responses for diagnostics
+      const ordRaw = await ordRes.text();
+      const custRaw = await custRes.text();
+      const notesRaw = await notesRes.text();
+      console.log('[/all] orders.php status:', ordRes.status, 'body length:', ordRaw.length, 'body preview:', ordRaw.substring(0, 500));
+      console.log('[/all] customers.php status:', custRes.status, 'body length:', custRaw.length);
+      console.log('[/all] staff-notes.php status:', notesRes.status, 'body length:', notesRaw.length);
+
+      let customers, orders, staffNotes;
+      try { customers = JSON.parse(custRaw); } catch (e) { console.error('[/all] customers.php JSON parse error:', e.message, 'raw:', custRaw.substring(0, 200)); customers = { data: [] }; }
+      try { orders = JSON.parse(ordRaw); } catch (e) { console.error('[/all] orders.php JSON parse error:', e.message, 'raw:', ordRaw.substring(0, 200)); orders = { data: [] }; }
+      try { staffNotes = JSON.parse(notesRaw); } catch (e) { console.error('[/all] staff-notes.php JSON parse error:', e.message, 'raw:', notesRaw.substring(0, 200)); staffNotes = { data: [] }; }
+
+      console.log('[/all] Parsed counts — customers:', (customers.data || []).length, 'orders:', (orders.data || []).length, 'staffNotes:', (staffNotes.data || []).length);
+
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', ...corsHeaders() },
@@ -86,6 +99,11 @@ exports.handler = async (event) => {
     });
 
     const data = await response.text();
+
+    // Log save/update responses for diagnostics
+    if (['POST', 'PUT', 'DELETE'].includes(event.httpMethod)) {
+      console.log(`[${event.httpMethod} ${path}] PHP status:`, response.status, 'response:', data.substring(0, 500));
+    }
 
     return {
       statusCode: response.status,

@@ -15,6 +15,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const res = await fetch(url, { ...options, headers });
   const json = await res.json();
+  console.log(`[API ${options.method || 'GET'}] ${path} → status:`, res.status, 'success:', json.success, 'data length:', Array.isArray(json.data) ? json.data.length : typeof json.data);
   if (!res.ok || !json.success) {
     throw new Error(json.error || `HTTP ${res.status}`);
   }

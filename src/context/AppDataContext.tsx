@@ -38,6 +38,10 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     combinedApi.getAll()
       .then(data => {
         if (cancelled) return;
+        console.log('[AppData] Combined fetch results — orders:', data.orders.length, 'customers:', data.customers.length, 'staffNotes:', data.staffNotes.length);
+        if (data.orders.length === 0) {
+          console.warn('[AppData] WARNING: Combined fetch returned 0 orders. The PHP backend may not be returning saved orders.');
+        }
         customers.hydrate(data.customers);
         orders.hydrate(data.orders);
         staffNotes.hydrate(data.staffNotes);
