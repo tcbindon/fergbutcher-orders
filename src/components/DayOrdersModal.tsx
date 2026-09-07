@@ -121,6 +121,46 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
     }
   };
 
+  // Shared scope-prompt modals — rendered in every view so they work
+  // even when the order detail or customer modal is open on top.
+  const scopePrompts = (
+    <>
+      {editScopePrompt && (
+        <RecurringScopeModal
+          open={true}
+          orderCount={editScopePrompt.orderCount}
+          title="Save changes to which orders?"
+          message="This is a recurring order. Choose how far your edits should apply."
+          onChoose={(applyToFuture) => {
+            const data = editScopePrompt.orderData;
+            setEditScopePrompt(null);
+            applyUpdateOrder(data, applyToFuture);
+          }}
+          onCancel={() => setEditScopePrompt(null)}
+        />
+      )}
+      {statusScopePrompt && (
+        <RecurringScopeModal
+          open={true}
+          orderCount={statusScopePrompt.orderCount}
+          title={`Mark as ${statusScopePrompt.newStatus} — which orders?`}
+          message="This is a recurring order. Choose how far the status change should apply."
+          onChoose={(applyToFuture) => {
+            const { orderId, newStatus } = statusScopePrompt;
+            const order = orders.find(o => o.id === orderId);
+            setStatusScopePrompt(null);
+            if (order && applyToFuture && onUpdateOrderAndFuture) {
+              onUpdateOrderAndFuture(order, { status: newStatus }, true, customers);
+            } else {
+              applyStatusChange(orderId, newStatus);
+            }
+          }}
+          onCancel={() => setStatusScopePrompt(null)}
+        />
+      )}
+    </>
+  );
+
   // When viewing a customer from the order preview, show the customer modal on top
   if (viewingCustomer) {
     return (
@@ -181,54 +221,59 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
           }}
           onStatusChange={(orderId, status) => handleStatusChange(orderId, status)}
         />
+        {scopePrompts}
       </>
     );
   }
 
   if (viewingOrder) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-          <div className="sticky top-0 px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center bg-white z-10 rounded-t-xl">
-            <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setViewingOrderId(null)}
-                className="text-fergbutcher-gold-400 hover:text-fergbutcher-gold-600"
-              >
-                ← Back to Day View
-              </button>
-              <button
-                onClick={onClose}
-                className="p-1 text-fergbutcher-gold-400 hover:text-fergbutcher-gold-600 rounded transition-colors"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      <>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="sticky top-0 px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center bg-white z-10 rounded-t-xl">
+              <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setViewingOrderId(null)}
+                  className="text-fergbutcher-gold-400 hover:text-fergbutcher-gold-600"
+                >
+                  ← Back to Day View
+                </button>
+                <button
+                  onClick={onClose}
+                  className="p-1 text-fergbutcher-gold-400 hover:text-fergbutcher-gold-600 rounded transition-colors"
+                  title="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <OrderDetail
+                order={viewingOrder}
+                customer={customers.find(c => c.id === viewingOrder.customerId)}
+                onEdit={() => {
+                  if (onEdit) {
+                    onEdit(viewingOrder);
+                    setViewingOrderId(null);
+                  }
+                }}
+                onDelete={() => {}}
+                onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
+                onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
+                onViewCustomer={(customer) => setViewingCustomer(customer)}
+              />
             </div>
           </div>
-          <div className="p-6 overflow-y-auto">
-            <OrderDetail
-              order={viewingOrder}
-              customer={customers.find(c => c.id === viewingOrder.customerId)}
-              onEdit={() => {
-                if (onEdit) {
-                  onEdit(viewingOrder);
-                  setViewingOrderId(null);
-                }
-              }}
-              onDelete={() => {}}
-              onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
-              onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
-              onViewCustomer={(customer) => setViewingCustomer(customer)}
-            />
-          </div>
         </div>
-      </div>
+        {scopePrompts}
+      </>
     );
   }
 
   return (
+    <>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
@@ -422,48 +467,10 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
             </div>
           </div>
         )}
-
-      {/* Edit Scope Prompt (recurring) */}
-      {editScopePrompt && (
-        <RecurringScopeModal
-          open={true}
-          orderCount={editScopePrompt.orderCount}
-          title="Save changes to which orders?"
-          message="This is a recurring order. Choose how far your edits should apply."
-          onChoose={(applyToFuture) => {
-            const data = editScopePrompt.orderData;
-            setEditScopePrompt(null);
-            applyUpdateOrder(data, applyToFuture);
-          }}
-          onCancel={() => setEditScopePrompt(null)}
-        />
-      )}
-
-      {/* Status Scope Prompt (recurring) */}
-      {statusScopePrompt && (
-        <RecurringScopeModal
-          open={true}
-          orderCount={statusScopePrompt.orderCount}
-          title={`Mark as ${statusScopePrompt.newStatus} — which orders?`}
-          message="This is a recurring order. Choose how far the status change should apply."
-          onChoose={(applyToFuture) => {
-            const { orderId, newStatus } = statusScopePrompt;
-            const order = orders.find(o => o.id === orderId);
-            setStatusScopePrompt(null);
-            if (order && applyToFuture && onUpdateOrderAndFuture) {
-              onUpdateOrderAndFuture(order, { status: newStatus }, true, customers);
-              if (viewingOrder?.id === orderId) {
-                // viewingOrder is derived from orders prop, so it updates automatically
-              }
-            } else {
-              applyStatusChange(orderId, newStatus);
-            }
-          }}
-          onCancel={() => setStatusScopePrompt(null)}
-        />
-      )}
+      </div>
     </div>
-    </div>
+    {scopePrompts}
+    </>
   );
 };
 
