@@ -121,11 +121,75 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
     }
   };
 
+  // When viewing a customer from the order preview, show the customer modal on top
+  if (viewingCustomer) {
+    return (
+      <>
+        {viewingOrder && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="sticky top-0 px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center bg-white z-10 rounded-t-xl">
+                <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setViewingOrderId(null)}
+                    className="text-fergbutcher-gold-400 hover:text-fergbutcher-gold-600"
+                  >
+                    ← Back to Day View
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="p-1 text-fergbutcher-gold-400 hover:text-fergbutcher-gold-600 rounded transition-colors"
+                    title="Close"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-6 overflow-y-auto">
+                <OrderDetail
+                  order={viewingOrder}
+                  customer={customers.find(c => c.id === viewingOrder.customerId)}
+                  onEdit={() => {
+                    if (onEdit) {
+                      onEdit(viewingOrder);
+                      setViewingOrderId(null);
+                    }
+                  }}
+                  onDelete={() => {}}
+                  onDuplicate={() => handleDuplicateOrder(viewingOrder.id)}
+                  onStatusChange={(status) => handleStatusChange(viewingOrder.id, status)}
+                  onViewCustomer={(customer) => setViewingCustomer(customer)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        <CustomerDetailModal
+          customer={viewingCustomer}
+          orders={orders}
+          onClose={() => setViewingCustomer(null)}
+          onDuplicateOrder={(orderId) => {
+            setViewingCustomer(null);
+            handleDuplicateOrder(orderId);
+          }}
+          onEditOrder={(order) => {
+            setViewingCustomer(null);
+            if (onEdit) {
+              onEdit(order);
+            }
+          }}
+          onStatusChange={(orderId, status) => handleStatusChange(orderId, status)}
+        />
+      </>
+    );
+  }
+
   if (viewingOrder) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto flex flex-col">
-          <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center bg-white z-10 rounded-t-xl">
+        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="sticky top-0 px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center bg-white z-10 rounded-t-xl">
             <h3 className="text-lg font-semibold text-fergbutcher-black-900">Order Details</h3>
             <div className="flex items-center space-x-2">
               <button
@@ -143,7 +207,7 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
               </button>
             </div>
           </div>
-          <div className="p-6">
+          <div className="p-6 overflow-y-auto">
             <OrderDetail
               order={viewingOrder}
               customer={customers.find(c => c.id === viewingOrder.customerId)}
@@ -164,33 +228,11 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
     );
   }
 
-  // When viewing a customer from the order preview, show the customer modal on top
-  if (viewingCustomer) {
-    return (
-      <CustomerDetailModal
-        customer={viewingCustomer}
-        orders={orders}
-        onClose={() => setViewingCustomer(null)}
-        onDuplicateOrder={(orderId) => {
-          setViewingCustomer(null);
-          handleDuplicateOrder(orderId);
-        }}
-        onEditOrder={(order) => {
-          setViewingCustomer(null);
-          if (onEdit) {
-            onEdit(order);
-          }
-        }}
-        onStatusChange={(orderId, status) => handleStatusChange(orderId, status)}
-      />
-    );
-  }
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-fergbutcher-gold-300 bg-fergbutcher-gold-50">
+        <div className="sticky top-0 px-6 py-4 border-b border-fergbutcher-gold-300 bg-fergbutcher-gold-50 z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className={`p-2 rounded-lg ${isToday ? 'bg-fergbutcher-green-600' : 'bg-fergbutcher-gold-200'}`}>

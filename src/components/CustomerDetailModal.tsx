@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Copy, MessageSquare, Package } from 'lucide-react';
+import { ArrowLeft, Copy, MessageSquare, Package, X } from 'lucide-react';
 import { Customer, Order } from '../types';
 import CustomerDetail from './CustomerDetail';
 import OrderDetail from './OrderDetail';
@@ -36,7 +36,7 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const renderHeader = (title: string, subtitle?: string, onBack?: () => void) => (
-    <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center bg-white z-10 rounded-t-xl">
+    <div className="sticky top-0 px-6 py-4 border-b border-fergbutcher-gold-300 flex justify-between items-center bg-white z-10 rounded-t-xl">
       <div className="flex items-center space-x-3">
         {onBack && (
           <button
@@ -54,20 +54,21 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
       </div>
       <button
         onClick={onClose}
-        className="text-fergbutcher-gold-500 hover:text-fergbutcher-black-900"
+        className="p-1 text-fergbutcher-gold-500 hover:text-fergbutcher-black-900 hover:bg-fergbutcher-gold-100 rounded-full transition-colors"
+        title="Close"
       >
-        ✕
+        <X className="h-5 w-5" />
       </button>
     </div>
   );
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {view === 'details' && (
           <>
             {renderHeader('Customer Details')}
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto">
               <CustomerDetail
                 customer={customer}
                 onEdit={() => onEditCustomer?.(customer)}
@@ -86,7 +87,7 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
               `${customerOrders.length} total order${customerOrders.length !== 1 ? 's' : ''}`,
               () => setView('details')
             )}
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto">
               {customerOrders.length > 0 ? (
                 <div className="space-y-4">
                   {customerOrders.map((order) => (
@@ -173,7 +174,7 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
               undefined,
               () => setView('history')
             )}
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto">
               <OrderDetail
                 order={selectedOrder}
                 customer={customer}

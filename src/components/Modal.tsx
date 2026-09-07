@@ -15,8 +15,8 @@ export default function Modal({ open, onClose, title, subtitle, children, maxWid
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className={`bg-white rounded-xl shadow-xl ${maxWidth} w-full mx-4 max-h-[90vh] overflow-y-auto`}>
-        <div className="px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between">
+      <div className={`bg-white rounded-xl shadow-xl ${maxWidth} w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col`}>
+        <div className="sticky top-0 px-6 py-4 border-b border-fergbutcher-gold-300 flex items-center justify-between bg-white z-10 rounded-t-xl">
           <div>
             <h3 className="text-lg font-semibold text-fergbutcher-black-900">{title}</h3>
             {subtitle && <p className="text-fergbutcher-green-400 text-sm">{subtitle}</p>}
@@ -30,7 +30,7 @@ export default function Modal({ open, onClose, title, subtitle, children, maxWid
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
