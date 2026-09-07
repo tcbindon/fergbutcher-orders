@@ -30,14 +30,18 @@ export const formatOrderItems = (items: OrderItem[]): string => {
   ).join('\n');
 };
 
-export const formatCollectionDate = (dateString: string | null): string => {
+export const formatCollectionDate = (dateString: string | null, order?: { isRecurring?: boolean; recurrencePattern?: string | null }): string => {
   if (!dateString) return 'No date set';
-  return new Date(dateString).toLocaleDateString('en-NZ', {
+  const formatted = new Date(dateString).toLocaleDateString('en-NZ', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
+  if (order?.isRecurring && order?.recurrencePattern) {
+    return `${formatted} (recurring ${order.recurrencePattern})`;
+  }
+  return formatted;
 };
 
 export const formatCollectionTime = (timeString?: string): string => {
@@ -50,7 +54,7 @@ export const generateEmailData = (order: Order, customer: Customer): EmailData =
     lastName: customer.lastName,
     email: customer.email,
     orderItems: formatOrderItems(order.items),
-    collectionDate: formatCollectionDate(order.collectionDate),
+    collectionDate: formatCollectionDate(order.collectionDate, order),
     collectionTime: formatCollectionTime(order.collectionTime),
     additionalNotes: order.additionalNotes,
     orderId: order.id

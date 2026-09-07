@@ -167,11 +167,11 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
         errorLogger.info(`Created ${newOrders.length} recurring orders`);
 
-        // Auto-send emails for each recurring occurrence
+        // Auto-send a single email for the recurring series (first occurrence only)
         const recurringCustomer = customers.find(c => c.id === orderData.customerId);
         const tplId = orderData.status === 'confirmed' ? 'order-confirmed' : orderData.status === 'pending' ? 'order-received' : null;
-        if (tplId) {
-          newOrders.forEach(o => autoSendOrderEmail(o, recurringCustomer, tplId, 'Automation'));
+        if (tplId && newOrders.length > 0) {
+          autoSendOrderEmail(newOrders[0], recurringCustomer, tplId, 'Automation');
         }
 
         return newOrders[0];
@@ -551,15 +551,13 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         targetIds.has(o.id) ? { ...o, ...sharedUpdates, updatedAt } : o
       ));
 
-      // Auto-send confirmation emails for orders newly confirmed
+      // Auto-send a single confirmation email for the series (anchor order only)
       if (sharedUpdates.status === 'confirmed') {
         const customer = customers.find(c => c.id === anchorOrder.customerId);
-        targetIds.forEach(id => {
-          const prev = currentOrders.find(o => o.id === id);
-          if (prev && prev.status !== 'confirmed') {
-            autoSendOrderEmail({ ...prev, ...sharedUpdates, updatedAt } as Order, customer, 'order-confirmed', 'Automation');
-          }
-        });
+        const prev = currentOrders.find(o => o.id === anchorOrder.id);
+        if (prev && prev.status !== 'confirmed') {
+          autoSendOrderEmail({ ...prev, ...sharedUpdates, updatedAt } as Order, customer, 'order-confirmed', 'Automation');
+        }
       }
 
       const ids = Array.from(targetIds);
