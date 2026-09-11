@@ -421,7 +421,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="1"
                         min="0"
                         value={item.quantity || ''}
                         onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}

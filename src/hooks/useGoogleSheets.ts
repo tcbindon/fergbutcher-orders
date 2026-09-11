@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Customer, Order, ChristmasProduct } from '../types';
+import { Customer, Order, ChristmasProduct, StaffNote } from '../types';
 
 const HOURLY_SYNC_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const LAST_SYNC_KEY = 'fergbutcher_last_sheets_sync';
@@ -9,7 +9,7 @@ export const useGoogleSheets = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<Date | null>(null);
-  const pendingSyncRef = useRef<{ customers: Customer[]; orders: Order[] } | null>(null);
+  const pendingSyncRef = useRef<{ customers: Customer[]; orders: Order[]; staffNotes?: StaffNote[] } | null>(null);
   const hourlyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Check connection status on mount and load last sync time
@@ -28,7 +28,7 @@ export const useGoogleSheets = () => {
     }
   }, []);
 
-  const syncAll = useCallback(async (customers: Customer[], orders: Order[]): Promise<boolean> => {
+  const syncAll = useCallback(async (customers: Customer[], orders: Order[], staffNotes?: StaffNote[]): Promise<boolean> => {
     if (!isConnected) {
       setError('Not connected to Google Sheets');
       return false;
@@ -41,7 +41,7 @@ export const useGoogleSheets = () => {
       const response = await fetch('/.netlify/functions/sync-google-sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customers, orders, type: 'all' }),
+        body: JSON.stringify({ customers, orders, staffNotes: staffNotes || [], type: 'all' }),
       });
 
       if (!response.ok) {
@@ -92,7 +92,7 @@ export const useGoogleSheets = () => {
     }
   }, [isConnected]);
 
-  const syncOrders = useCallback(async (orders: Order[], customers: Customer[]): Promise<boolean> => {
+  const syncOrders = useCallback(async (orders: Order[], customers: Customer[], staffNotes?: StaffNote[]): Promise<boolean> => {
     if (!isConnected) {
       setError('Not connected to Google Sheets');
       return false;
@@ -103,7 +103,7 @@ export const useGoogleSheets = () => {
       const response = await fetch('/.netlify/functions/sync-google-sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customers, orders, type: 'orders' }),
+        body: JSON.stringify({ customers, orders, staffNotes: staffNotes || [], type: 'orders' }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -150,7 +150,7 @@ export const useGoogleSheets = () => {
     }
   }, [isConnected]);
 
-  const syncChristmasOrders = useCallback(async (orders: Order[], customers: Customer[]): Promise<boolean> => {
+  const syncChristmasOrders = useCallback(async (orders: Order[], customers: Customer[], staffNotes?: StaffNote[]): Promise<boolean> => {
     if (!isConnected) {
       setError('Not connected to Google Sheets');
       return false;
@@ -161,7 +161,7 @@ export const useGoogleSheets = () => {
       const response = await fetch('/.netlify/functions/sync-google-sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customers, orders, type: 'christmas-orders' }),
+        body: JSON.stringify({ customers, orders, staffNotes: staffNotes || [], type: 'christmas-orders' }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -222,11 +222,11 @@ export const useGoogleSheets = () => {
    * current customers/orders so the timer always syncs fresh data.
    * Returns a cleanup function.
    */
-  const startHourlySync = useCallback((getData: () => { customers: Customer[]; orders: Order[] }) => {
+  const startHourlySync = useCallback((getData: () => { customers: Customer[]; orders: Order[]; staffNotes?: StaffNote[] }) => {
     if (hourlyTimerRef.current) clearInterval(hourlyTimerRef.current);
     hourlyTimerRef.current = setInterval(() => {
-      const { customers, orders } = getData();
-      syncAll(customers, orders).catch(err => console.error('Hourly sync failed:', err));
+      const { customers, orders, staffNotes } = getData();
+      syncAll(customers, orders, staffNotes).catch(err => console.error('Hourly sync failed:', err));
     }, HOURLY_SYNC_INTERVAL_MS);
     return () => {
       if (hourlyTimerRef.current) {

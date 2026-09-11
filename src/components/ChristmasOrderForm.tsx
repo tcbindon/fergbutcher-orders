@@ -130,6 +130,11 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
 
     if (!formData.customerId) {
       newErrors.customerId = 'Please select a customer';
+    } else {
+      const selectedCustomer = customers.find(c => c.id === formData.customerId);
+      if (selectedCustomer && !selectedCustomer.phone?.trim() && !selectedCustomer.email?.trim()) {
+        newErrors.customerId = 'This customer needs at least a phone number or email address. Please update the customer first.';
+      }
     }
 
     if (dateRequired && !formData.collectionDate) {
@@ -474,7 +479,7 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
                       <input
                         type="number"
                         min="0"
-                        step="0.1"
+                        step="1"
                         value={christmasQuantities[product.id] || ''}
                         onChange={(e) => handleChristmasQuantityChange(product.id, parseFloat(e.target.value) || 0)}
                         className="w-20 px-2 py-1 border border-fergbutcher-brown-300 rounded text-sm focus:ring-2 focus:ring-fergbutcher-green-500 focus:border-transparent"
@@ -521,7 +526,7 @@ const ChristmasOrderForm: React.FC<ChristmasOrderFormProps> = ({
                       </label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="1"
                         min="0"
                         value={item.quantity || ''}
                         onChange={(e) => handleAdditionalItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}

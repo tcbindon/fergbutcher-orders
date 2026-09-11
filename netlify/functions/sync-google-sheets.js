@@ -44,7 +44,7 @@ exports.handler = async (event, context) => {
     }
 
     // Parse the incoming data
-    const { customers, orders, type } = JSON.parse(event.body);
+    const { customers, orders, staffNotes, type } = JSON.parse(event.body);
 
     // Enhanced private key parsing with multiple fallback methods
     let privateKey = process.env.VITE_GOOGLE_SHEETS_SERVICE_KEY;
@@ -151,16 +151,16 @@ exports.handler = async (event, context) => {
 
     if (type === 'orders' || type === 'all') {
       const standardOrders = (orders || []).filter(order => order.orderType !== 'christmas');
-      await syncOrders(doc, standardOrders, customers || []);
+      await syncOrders(doc, standardOrders, customers || [], staffNotes || []);
       if (type === 'all') {
         const christmasOrders = (orders || []).filter(order => order.orderType === 'christmas');
-        await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts);
+        await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts, staffNotes || []);
       }
     }
 
     if (type === 'christmas-orders') {
       const christmasOrders = (orders || []).filter(order => order.orderType === 'christmas');
-      await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts);
+      await syncChristmasOrders(doc, christmasOrders, customers || [], christmasProducts, staffNotes || []);
     }
 
     if (type === 'daily' || type === 'all') {
@@ -196,10 +196,10 @@ exports.handler = async (event, context) => {
 async function ensureSheetsExist(doc) {
   const requiredSheets = [
     { title: 'Customers', headers: ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Created Date'] },
-    { title: 'Orders', headers: ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Created Date', 'Updated Date'] },
+    { title: 'Orders', headers: ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Staff Comments', 'Created Date', 'Updated Date'] },
     { title: 'Daily Collections', headers: ['Date', 'Customer Name', 'Phone', 'Items', 'Collection Time', 'Status', 'Notes'] },
     { title: 'Christmas Products', headers: ['Product Name', 'Unit', 'Description'] },
-    { title: 'Christmas Orders', headers: ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Notes', 'Created Date', 'Updated Date', 'Other Items'] }
+    { title: 'Christmas Orders', headers: ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Notes', 'Staff Comments', 'Created Date', 'Updated Date', 'Other Items'] }
   ];
 
   for (const sheetConfig of requiredSheets) {
@@ -260,11 +260,11 @@ async function getChristmasProducts(doc) {
 }
 
 // Sync Christmas orders to Google Sheets (upsert – preserves user formatting)
-async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
+async function syncChristmasOrders(doc, orders, customers, christmasProducts, staffNotes) {
   const sheet = doc.sheetsByTitle['Christmas Orders'];
 
   // Build the canonical header list
-  const standardHeaders = ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Notes', 'Created Date', 'Updated Date'];
+  const standardHeaders = ['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Notes', 'Staff Comments', 'Created Date', 'Updated Date'];
   const productHeaders = christmasProducts.map(product => `${product.name} (${product.unit})`);
   const requiredHeaders = [...standardHeaders, ...productHeaders, 'Other Items'];
   await sheet.setHeaderRow(requiredHeaders);
@@ -279,6 +279,12 @@ async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
     const customer = customers.find(c => c.id === order.customerId);
     const customerName = customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown';
 
+    const orderStaffComments = (staffNotes || [])
+      .filter(n => n.orderId === order.id)
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      .map(n => `${n.staffName}: ${n.content}`)
+      .join(' | ');
+
     const rowData = {
       'Order ID': order.id,
       'Customer ID': order.customerId,
@@ -287,6 +293,7 @@ async function syncChristmasOrders(doc, orders, customers, christmasProducts) {
       'Collection Time': order.collectionTime || '',
       'Status': order.status,
       'Notes': order.additionalNotes || '',
+      'Staff Comments': orderStaffComments,
       'Created Date': new Date(order.createdAt).toLocaleDateString('en-NZ'),
       'Updated Date': new Date(order.updatedAt).toLocaleDateString('en-NZ')
     };
@@ -374,11 +381,11 @@ async function syncCustomers(doc, customers) {
 }
 
 // Sync orders to Google Sheets (clear + batch rewrite – avoids per-row API calls)
-async function syncOrders(doc, orders, customers) {
+async function syncOrders(doc, orders, customers, staffNotes) {
   const sheet = doc.sheetsByTitle['Orders'];
 
   // Ensure headers are correct
-  await sheet.setHeaderRow(['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Created Date', 'Updated Date']);
+  await sheet.setHeaderRow(['Order ID', 'Customer ID', 'Customer Name', 'Collection Date', 'Collection Time', 'Status', 'Items', 'Notes', 'Staff Comments', 'Created Date', 'Updated Date']);
 
   // Build all rows upfront
   const orderRows = orders.map(order => {
@@ -387,6 +394,12 @@ async function syncOrders(doc, orders, customers) {
     const itemsText = (order.items || []).map(item =>
       `${item.description} (${item.quantity} ${item.unit})`
     ).join('; ');
+
+    const orderNotes = (staffNotes || [])
+      .filter(n => n.orderId === order.id)
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      .map(n => `${n.staffName}: ${n.content}`)
+      .join(' | ');
 
     return {
       'Order ID': order.id,
@@ -397,6 +410,7 @@ async function syncOrders(doc, orders, customers) {
       'Status': order.status,
       'Items': itemsText,
       'Notes': order.additionalNotes || '',
+      'Staff Comments': orderNotes,
       'Created Date': new Date(order.createdAt).toLocaleDateString('en-NZ'),
       'Updated Date': new Date(order.updatedAt).toLocaleDateString('en-NZ')
     };

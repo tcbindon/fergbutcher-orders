@@ -31,6 +31,17 @@ const PrintResults: React.FC<PrintResultsProps> = ({ orders, customers, filterLa
     return acc;
   }, {} as Record<string, Order[]>);
 
+  // Sort orders within each date by customer name (alphabetical)
+  for (const date of Object.keys(groupedOrders)) {
+    groupedOrders[date].sort((a, b) => {
+      const custA = customers.find(c => c.id === a.customerId);
+      const custB = customers.find(c => c.id === b.customerId);
+      const nameA = custA ? `${custA.firstName} ${custA.lastName}`.toLowerCase() : 'zzz';
+      const nameB = custB ? `${custB.firstName} ${custB.lastName}`.toLowerCase() : 'zzz';
+      return nameA.localeCompare(nameB);
+    });
+  }
+
   const sortedDates = Object.keys(groupedOrders).sort((a, b) => {
     if (a === 'No date') return -1;
     if (b === 'No date') return 1;

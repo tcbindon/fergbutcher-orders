@@ -64,10 +64,10 @@ const Settings: React.FC = () => {
   // Start hourly Google Sheets sync timer
   useEffect(() => {
     if (isConnected && startHourlySync) {
-      const cleanup = startHourlySync(() => ({ customers, orders }));
+      const cleanup = startHourlySync(() => ({ customers, orders, staffNotes }));
       return cleanup;
     }
-  }, [isConnected, startHourlySync, customers, orders]);
+  }, [isConnected, startHourlySync, customers, orders, staffNotes]);
 
   // Load backup list on mount
   useEffect(() => {
@@ -148,7 +148,7 @@ const Settings: React.FC = () => {
   };
 
   const handleSyncAll = async () => {
-    await syncAll(customers, orders);
+    await syncAll(customers, orders, staffNotes);
   };
 
   const handleCreateBackup = async () => {
@@ -252,7 +252,7 @@ const Settings: React.FC = () => {
   const handleConfirmSync = async () => {
     setShowSyncConfirm(false);
     setPendingRestoreData(null);
-    const ok = await syncAll(customers, orders);
+    const ok = await syncAll(customers, orders, staffNotes);
     if (ok) {
       toast.success('Google Sheets synced successfully!');
     } else {
