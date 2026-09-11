@@ -53,8 +53,16 @@ const encodeDateForApi = <T extends { collectionDate?: string | null }>(
   return { ...rest, collectionDate: collectionDate || SENTINEL_DATE };
 };
 
+const VALID_STATUSES = new Set(['pending', 'confirmed', 'prepared', 'collected', 'cancelled']);
+
+const normalizeStatus = (order: Order): Order => {
+  const s = order.status;
+  if (s && VALID_STATUSES.has(s)) return order;
+  return { ...order, status: 'pending' };
+};
+
 const decodeOrderDate = (order: Order): Order => ({
-  ...order,
+  ...normalizeStatus(order),
   collectionDate: order.collectionDate === SENTINEL_DATE ? null : order.collectionDate,
 });
 
