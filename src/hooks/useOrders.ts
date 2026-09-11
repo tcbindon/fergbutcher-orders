@@ -136,12 +136,45 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   }, []);
 
   // Re-fetch all orders from the server (used after saves to keep the
-  // client list in sync with the true DB state).
+  // client list in sync with the true DB state). Merges with local state
+  // instead of blindly overwriting — for each order, whichever copy
+  // (local vs server) has the newer updatedAt wins. This prevents a
+  // delayed background refresh from clobbering an optimistic status
+  // change that was made between the refresh request and its response.
   const refreshOrders = useCallback(async () => {
     try {
       const data = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
-      setOrders(data);
-      console.log('[refreshOrders] Reloaded', data.length, 'orders from server');
+      setOrders(prev => {
+        const serverMap = new Map(data.map(o => [o.id, o]));
+        const result: Order[] = [];
+        const seen = new Set<string>();
+
+        for (const localOrder of prev) {
+          seen.add(localOrder.id);
+          const serverOrder = serverMap.get(localOrder.id);
+          if (!serverOrder) {
+            // Order exists locally but not on server — keep local (may be a
+            // very recent optimistic add whose save hasn't landed yet).
+            result.push(localOrder);
+            continue;
+          }
+          // Both exist — keep whichever was updated more recently.
+          const localTs  = localOrder.updatedAt  ? new Date(localOrder.updatedAt).getTime()  : 0;
+          const serverTs = serverOrder.updatedAt ? new Date(serverOrder.updatedAt).getTime() : 0;
+          result.push(serverTs > localTs ? serverOrder : localOrder);
+        }
+
+        // Add any server orders not present locally (e.g. created by
+        // another session or a background process).
+        for (const serverOrder of data) {
+          if (!seen.has(serverOrder.id)) {
+            result.push(serverOrder);
+          }
+        }
+
+        console.log('[refreshOrders] Merged', data.length, 'server orders with', prev.length, 'local orders →', result.length);
+        return result;
+      });
     } catch (err) {
       console.error('[refreshOrders] Failed to reload orders:', err);
     }
@@ -363,10 +396,24 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         autoSendOrderEmail({ ...previousOrder, ...updates, updatedAt } as Order, customer, 'order-confirmed', 'Automation');
       }
 
+      console.log(`[updateOrder] #${id} status: ${previousOrder.status} → ${updates.status ?? '(unchanged)'}, updatedAt: ${updatedAt}`);
       ordersApi.update(id, { ...updates, updatedAt })
-        .then(() => triggerSync(ordersRef.current, customers))
+        .then(() => {
+          console.log(`[updateOrder] #${id} server confirmed update`);
+          triggerSync(ordersRef.current, customers);
+          // Confirm the true DB state for this order so the client
+          // matches the server after the status change settles.
+          ordersApi.getOne(id)
+            .then(fresh => {
+              if (fresh) {
+                setOrders(prev => prev.map(o => o.id === id ? { ...o, ...fresh } : o));
+                console.log(`[updateOrder] #${id} post-update verification: status=${fresh.status}`);
+              }
+            })
+            .catch(err => console.warn(`[updateOrder] #${id} post-update verification failed:`, err));
+        })
         .catch(err => {
-          console.error('Failed to update order in DB:', err);
+          console.error(`Failed to update order #${id} in DB:`, err);
           // Revert only the affected order, preserving any concurrent changes
           setOrders(prev => prev.map(o => o.id === id ? previousOrder : o));
           setError('Failed to update order. Please try again.');
