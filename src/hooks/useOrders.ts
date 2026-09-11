@@ -401,16 +401,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         .then(() => {
           console.log(`[updateOrder] #${id} server confirmed update`);
           triggerSync(ordersRef.current, customers);
-          // Confirm the true DB state for this order so the client
-          // matches the server after the status change settles.
-          ordersApi.getOne(id)
-            .then(fresh => {
-              if (fresh) {
-                setOrders(prev => prev.map(o => o.id === id ? { ...o, ...fresh } : o));
-                console.log(`[updateOrder] #${id} post-update verification: status=${fresh.status}`);
-              }
-            })
-            .catch(err => console.warn(`[updateOrder] #${id} post-update verification failed:`, err));
         })
         .catch(err => {
           console.error(`Failed to update order #${id} in DB:`, err);
