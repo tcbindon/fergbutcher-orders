@@ -132,24 +132,30 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     const previousCustomers = [...customersRef.current];
     setCustomers(prev => sortByFirstName([...prev, newCustomer]));
 
+    let savedCustomer: Customer = newCustomer;
     try {
-      await customersApi.save(newCustomer);
-      pendingWriteQueue.remove('customer', newCustomer.id);
-
-
+      const serverCustomer = await customersApi.save(newCustomer);
+      if (serverCustomer && serverCustomer.id && serverCustomer.id !== newCustomer.id) {
+        console.log('[addCustomer] Server assigned different ID:', serverCustomer.id, 'vs client:', newCustomer.id);
+        savedCustomer = serverCustomer;
+        setCustomers(prev => sortByFirstName(
+          prev.map(c => c.id === newCustomer.id ? serverCustomer : c)
+        ));
+      }
+      pendingWriteQueue.remove('customer', savedCustomer.id);
 
       addUndoAction({
-        id: `add-customer-${newCustomer.id}`,
-        description: `Added customer ${newCustomer.firstName} ${newCustomer.lastName}`,
+        id: `add-customer-${savedCustomer.id}`,
+        description: `Added customer ${savedCustomer.firstName} ${savedCustomer.lastName}`,
         undo: () => {
           setCustomers(previousCustomers);
-          customersApi.delete(newCustomer.id).catch(console.error);
-          errorLogger.info(`Undid adding customer: ${newCustomer.firstName} ${newCustomer.lastName}`);
+          customersApi.delete(savedCustomer.id).catch(console.error);
+          errorLogger.info(`Undid adding customer: ${savedCustomer.firstName} ${savedCustomer.lastName}`);
         }
       });
 
-      errorLogger.info(`Customer added: ${newCustomer.firstName} ${newCustomer.lastName}`);
-      return newCustomer;
+      errorLogger.info(`Customer added: ${savedCustomer.firstName} ${savedCustomer.lastName}`);
+      return savedCustomer;
     } catch (err) {
       console.error('Failed to save customer to DB:', err);
       pendingWriteQueue.upsert({ kind: 'customer', id: newCustomer.id, payload: newCustomer, queuedAt: new Date().toISOString() });
