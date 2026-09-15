@@ -48,6 +48,13 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     const pendingCustomers = pendingWriteQueue.list('customer')
       .map(item => item.payload)
       .filter(customer => !serverIds.has(customer.id));
+    // Diagnostic: log any customer IDs that are in pendingWriteQueue but NOT on the server
+    const pendingIds = pendingWriteQueue.list('customer').map(item => item.id);
+    const missingFromServer = pendingIds.filter(id => !serverIds.has(id));
+    if (missingFromServer.length > 0) {
+      console.warn('[hydrate customers] Pending customer IDs NOT found on server:', missingFromServer);
+    }
+    console.log('[hydrate customers] Server returned', data.length, 'customers. IDs:', data.map(c => c.id).join(','));
     setCustomers(sortByFirstName([...data, ...pendingCustomers]));
     setLoading(false);
     setError(null);
@@ -136,31 +143,34 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
 
     let savedCustomer: Customer = newCustomer;
     try {
+      console.log('[addCustomer] Saving customer with client ID:', newCustomer.id, 'name:', newCustomer.firstName, newCustomer.lastName);
       const serverCustomer = await customersApi.save(newCustomer);
+      console.log('[addCustomer] Server save response:', JSON.stringify(serverCustomer));
       if (serverCustomer && serverCustomer.id) {
         const serverId = String(serverCustomer.id);
         if (serverId !== newCustomer.id) {
-          console.log('[addCustomer] Server returned different ID:', serverId, 'vs client:', newCustomer.id);
+          console.warn('[addCustomer] !!! Server returned DIFFERENT ID:', serverId, 'vs client:', newCustomer.id, '— updating local customer');
           savedCustomer = { ...newCustomer, ...serverCustomer, id: serverId };
           setCustomers(prev => sortByFirstName(
             prev.map(c => c.id === newCustomer.id ? savedCustomer : c)
           ));
         }
+      } else {
+        console.warn('[addCustomer] !!! Server save response has no ID — keeping client ID:', newCustomer.id);
       }
 
       // Verify the customer was actually persisted by fetching it back
       try {
         const verified = await customersApi.getOne(savedCustomer.id);
+        console.log('[addCustomer] Post-save verification: fetched back:', JSON.stringify(verified));
         if (!verified || !verified.id) {
           throw new Error('Customer not found in DB after save');
         }
-        console.log('[addCustomer] Post-save verification: customer found in DB:', !!verified, 'ID:', verified?.id);
+        console.log('[addCustomer] Verification OK — customer ID', verified.id, 'exists in DB');
       } catch (verifyErr) {
-        console.error('[addCustomer] Post-save verification FAILED — customer NOT found in DB after save:', verifyErr);
-        // The save didn't actually persist — queue for retry and warn the user
+        console.error('[addCustomer] !!! Post-save verification FAILED — customer NOT found in DB after save:', verifyErr);
         pendingWriteQueue.upsert({ kind: 'customer', id: savedCustomer.id, payload: savedCustomer, queuedAt: new Date().toISOString() });
         setError('Customer could not be verified on the server. It will be retried automatically, but may not appear after a page refresh.');
-        // Still return the customer so the order can proceed
         return savedCustomer;
       }
 

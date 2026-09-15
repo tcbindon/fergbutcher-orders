@@ -493,6 +493,9 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
               {filteredOrders.length > 0 ? (
                 filteredOrders.map((order) => {
                   const customer = customers.find(c => c.id === order.customerId);
+                  if (!customer && order.customerId) {
+                    console.warn('[Orders] Unknown Customer — order ID:', order.id, 'customerId:', order.customerId, '(type:', typeof order.customerId, ') — available customer IDs:', customers.map(c => c.id).join(','));
+                  }
                   return (
                     <div
                       key={order.id}

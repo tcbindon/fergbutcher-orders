@@ -34,7 +34,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     window.clearTimeout(timeout);
   }
   const json = await res.json();
-  console.log(`[API ${options.method || 'GET'}] ${path} → status:`, res.status, 'success:', json.success, 'data length:', Array.isArray(json.data) ? json.data.length : typeof json.data);
+  if (path === '/customers' && options.method === 'POST') {
+    console.log('[API POST /customers] RAW response:', JSON.stringify(json).substring(0, 500));
+  } else {
+    console.log(`[API ${options.method || 'GET'}] ${path} → status:`, res.status, 'success:', json.success, 'data length:', Array.isArray(json.data) ? json.data.length : typeof json.data);
+  }
   if (!res.ok || !json.success) {
     throw new Error(json.error || `HTTP ${res.status}`);
   }
