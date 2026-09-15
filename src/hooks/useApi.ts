@@ -34,11 +34,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     window.clearTimeout(timeout);
   }
   const json = await res.json();
-  if (path === '/customers' && options.method === 'POST') {
-    console.log('[API POST /customers] RAW response:', JSON.stringify(json).substring(0, 500));
-  } else {
-    console.log(`[API ${options.method || 'GET'}] ${path} → status:`, res.status, 'success:', json.success, 'data length:', Array.isArray(json.data) ? json.data.length : typeof json.data);
-  }
+  console.log(`[API ${options.method || 'GET'}] ${path} → status:`, res.status, 'success:', json.success, 'data length:', Array.isArray(json.data) ? json.data.length : typeof json.data);
   if (!res.ok || !json.success) {
     throw new Error(json.error || `HTTP ${res.status}`);
   }
@@ -51,9 +47,30 @@ import type { Customer, Order, StaffNote } from '../types';
 export const combinedApi = {
   getAll: async (): Promise<{ customers: Customer[]; orders: Order[]; staffNotes: StaffNote[] }> => {
     const data = await request<{ customers: Customer[]; orders: Order[]; staffNotes: StaffNote[] }>('/all');
+    const customers = normalizeCustomerIds(data.customers || []);
+    const orders = normalizeOrderIds(data.orders || []);
+    const knownCustomerIds = new Set(customers.map(customer => customer.id));
+    const referencedCustomerIds = [...new Set(
+      orders.map(order => order.customerId).filter(customerId => !knownCustomerIds.has(customerId))
+    )];
+
+    if (referencedCustomerIds.length > 0) {
+      const referencedCustomers = await Promise.all(
+        referencedCustomerIds.map(async customerId => {
+          try {
+            return await customersApi.getOne(customerId);
+          } catch (error) {
+            console.warn('[combinedApi] Could not load customer referenced by an order:', customerId, error);
+            return null;
+          }
+        })
+      );
+      customers.push(...referencedCustomers.filter((customer): customer is Customer => customer !== null));
+    }
+
     return {
-      customers: normalizeCustomerIds(data.customers || []),
-      orders: normalizeOrderIds(data.orders || []),
+      customers,
+      orders,
       staffNotes: data.staffNotes || [],
     };
   },
