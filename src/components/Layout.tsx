@@ -7,9 +7,12 @@ import {
   Settings,
   ClipboardList,
   Menu,
-  X
+  X,
+  WifiOff,
+  RefreshCw
 } from 'lucide-react';
 import { ViewType } from '../types';
+import { useAppData } from '../context/AppDataContext';
 
 interface LayoutProps {
   currentView: ViewType;
@@ -20,6 +23,9 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { lastRefresh, refreshError, refreshData } = useAppData();
 
   const navigationItems = [
     { id: 'dashboard' as ViewType, label: 'Dashboard', shortLabel: 'Home', icon: Home },
@@ -36,6 +42,16 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
   };
 
   useEffect(() => {
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSidebarOpen(false);
     };
@@ -47,6 +63,17 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
     document.body.style.overflow = sidebarOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
+
+  const handleRefresh = async () => {
+    if (isRefreshing || !isOnline) return;
+    setIsRefreshing(true);
+    await refreshData();
+    setIsRefreshing(false);
+  };
+
+  const statusMessage = !isOnline
+    ? 'You are offline. New orders will stay on this device until the connection returns.'
+    : refreshError;
 
   return (
     <div className="min-h-screen bg-fergbutcher-gold-50 flex flex-col">
@@ -79,6 +106,26 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
           </div>
         </div>
       </header>
+
+      {statusMessage && (
+        <div className={`flex items-center justify-between gap-3 px-4 py-2 text-sm ${!isOnline ? 'bg-red-50 text-red-800 border-b border-red-200' : 'bg-fergbutcher-gold-50 text-fergbutcher-black-900 border-b border-fergbutcher-gold-300'}`}>
+          <div className="flex items-center gap-2">
+            {!isOnline && <WifiOff className="h-4 w-4 flex-shrink-0" />}
+            <span>{statusMessage}</span>
+          </div>
+          {isOnline && (
+            <button type="button" onClick={handleRefresh} disabled={isRefreshing} className="inline-flex items-center gap-1 font-medium hover:underline disabled:opacity-50">
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          )}
+        </div>
+      )}
+      {lastRefresh && !statusMessage && (
+        <div className="flex justify-end border-b border-fergbutcher-gold-200 bg-white px-4 py-1 text-xs text-fergbutcher-green-400">
+          Last updated {new Date(lastRefresh).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' })}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar backdrop — mobile only */}

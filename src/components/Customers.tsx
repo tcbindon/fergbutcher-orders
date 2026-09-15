@@ -51,7 +51,7 @@ const Customers: React.FC = () => {
   const handleAddCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt'>) => {
     setIsSubmitting(true);
     try {
-      const newCustomer = addCustomer(customerData);
+      const newCustomer = await addCustomer(customerData);
       if (newCustomer) {
         setShowAddModal(false);
       }

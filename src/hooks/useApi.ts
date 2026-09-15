@@ -10,10 +10,29 @@ const headers = {
   'Content-Type': 'application/json',
 };
 
+const REQUEST_TIMEOUT_MS = 15000;
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  const res = await fetch(url, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers: { ...headers, 'Cache-Control': 'no-cache' },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('The server took too long to respond. Check the connection and try again.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   const json = await res.json();
   console.log(`[API ${options.method || 'GET'}] ${path} → status:`, res.status, 'success:', json.success, 'data length:', Array.isArray(json.data) ? json.data.length : typeof json.data);
   if (!res.ok || !json.success) {

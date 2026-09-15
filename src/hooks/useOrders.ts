@@ -11,6 +11,7 @@ import { Order, Customer, EmailTemplate } from '../types';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { ordersApi } from './useApi';
+import { pendingWriteQueue } from '../services/pendingWriteQueue';
 import { emailSettings, emailLog, sendTemplateEmail } from '../services/emailService';
 
 const parseDateLocal = (s: string) => {
@@ -130,7 +131,11 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
   // Hydrate from a combined fetch (avoids a separate round trip)
   const hydrate = useCallback((data: Order[]) => {
-    setOrders(data);
+    const serverIds = new Set(data.map(order => order.id));
+    const pendingOrders = pendingWriteQueue.list('order')
+      .map(item => item.payload)
+      .filter(order => !serverIds.has(order.id));
+    setOrders([...data, ...pendingOrders]);
     setLoading(false);
     setError(null);
   }, []);
@@ -179,6 +184,56 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       console.error('[refreshOrders] Failed to reload orders:', err);
     }
   }, []);
+
+  const retryPendingOrders = useCallback(async () => {
+    for (const item of pendingWriteQueue.list('order')) {
+      try {
+        let existing: Order | null = null;
+        try {
+          existing = await ordersApi.getOne(item.id);
+        } catch {
+          existing = null;
+        }
+
+        if (existing && existing.createdAt === item.payload.createdAt) {
+          pendingWriteQueue.remove('order', item.id);
+          continue;
+        }
+
+        if (existing) {
+          const serverOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
+          const maxId = serverOrders.reduce((max, order) => {
+            const id = parseInt(order.id);
+            return isNaN(id) ? max : Math.max(max, id);
+          }, 0);
+          const replacement = { ...item.payload, id: String(maxId + 1) };
+          await ordersApi.save(replacement);
+          pendingWriteQueue.remove('order', item.id);
+          ordersRef.current = ordersRef.current.map(order => order.id === item.id ? replacement : order);
+          setOrders(current => current.map(order => order.id === item.id ? replacement : order));
+          continue;
+        }
+
+        await ordersApi.save(item.payload);
+        pendingWriteQueue.remove('order', item.id);
+      } catch (err) {
+        console.warn('Pending order save will be retried later:', err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const retry = () => {
+      if (navigator.onLine) void retryPendingOrders();
+    };
+    retry();
+    window.addEventListener('online', retry);
+    const retryTimer = window.setInterval(retry, 30000);
+    return () => {
+      window.removeEventListener('online', retry);
+      window.clearInterval(retryTimer);
+    };
+  }, [retryPendingOrders]);
 
   // ── Helpers ───────────────────────────────────────────────
   const getNextOrderId = (existingOrders: Order[], extra: Order[] = []): string => {
@@ -252,9 +307,9 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           await ordersApi.saveAll(newOrders);
         } catch (err) {
           console.error('Failed to save recurring orders to DB:', err);
-          setError((err as Error).message || 'Failed to save orders. Please try again.');
-          setOrders(prev => prev.filter(o => !newOrders.some(n => n.id === o.id)));
-          return null;
+          newOrders.forEach(order => pendingWriteQueue.upsert({ kind: 'order', id: order.id, payload: order, queuedAt: new Date().toISOString() }));
+          setError('Orders are shown here but have not reached the server yet. We will keep retrying.');
+          return newOrders[0];
         }
 
         // Reload from server so the client list matches the true DB state
@@ -340,9 +395,9 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           }
         } catch (err) {
           console.error('Failed to save order to DB:', err);
-          setError((err as Error).message || 'Failed to save order. Please try again.');
-          setOrders(prev => prev.filter(o => o.id !== newOrder.id));
-          return null;
+          pendingWriteQueue.upsert({ kind: 'order', id: newOrder.id, payload: newOrder, queuedAt: new Date().toISOString() });
+          setError('Order is shown here but has not reached the server yet. We will keep retrying.');
+          return newOrder;
         }
 
         // Reload from server so the client list matches the true DB state

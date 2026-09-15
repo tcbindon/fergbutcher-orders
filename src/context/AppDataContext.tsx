@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useEffect, useCallback, useState, useRef } from 'react';
 import { useOrders } from '../hooks/useOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useStaffNotes } from '../hooks/useStaffNotes';
@@ -21,6 +21,9 @@ interface AppDataContextValue
   staffNotesError: string | null;
   loading: boolean;
   error: string | null;
+  lastRefresh: string | null;
+  refreshError: string | null;
+  refreshData: () => Promise<boolean>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -31,31 +34,38 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const orders = useOrders({ skipInitialFetch: true });
   const customers = useCustomers({ skipInitialFetch: true });
   const staffNotes = useStaffNotes();
+  const [lastRefresh, setLastRefresh] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const hasLoadedOnce = useRef(false);
 
-  // Single combined round trip on mount: customers + orders + staff notes.
-  useEffect(() => {
-    let cancelled = false;
-    combinedApi.getAll()
-      .then(data => {
-        if (cancelled) return;
-        console.log('[AppData] Combined fetch results — orders:', data.orders.length, 'customers:', data.customers.length, 'staffNotes:', data.staffNotes.length);
-        if (data.orders.length === 0) {
-          console.warn('[AppData] WARNING: Combined fetch returned 0 orders. The PHP backend may not be returning saved orders.');
-        }
-        customers.hydrate(data.customers);
-        orders.hydrate(data.orders);
-        staffNotes.hydrate(data.staffNotes);
-      })
-      .catch(err => {
-        if (cancelled) return;
-        console.error('Combined data fetch failed:', err);
-        // Fallback: let each hook load independently so the app still works.
+  const refreshData = useCallback(async (): Promise<boolean> => {
+    try {
+      const data = await combinedApi.getAll();
+      console.log('[AppData] Refresh results — orders:', data.orders.length, 'customers:', data.customers.length, 'staffNotes:', data.staffNotes.length);
+      customers.hydrate(data.customers);
+      orders.hydrate(data.orders);
+      staffNotes.hydrate(data.staffNotes);
+      hasLoadedOnce.current = true;
+      setLastRefresh(new Date().toISOString());
+      setRefreshError(null);
+      return true;
+    } catch (err) {
+      console.error('Combined data refresh failed:', err);
+      if (!hasLoadedOnce.current) {
         customers.hydrate([]);
         orders.hydrate([]);
         staffNotes.hydrate([]);
-      });
-    return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      }
+      setRefreshError('Could not refresh from the server. The current data is being kept.');
+      return false;
+    }
+  }, [customers.hydrate, orders.hydrate, staffNotes.hydrate]);
+
+  useEffect(() => {
+    void refreshData();
+    const refreshTimer = window.setInterval(() => { void refreshData(); }, 120000);
+    return () => window.clearInterval(refreshTimer);
+  }, [refreshData]);
 
   const value: AppDataContextValue = useMemo(() => ({
     // Orders
@@ -106,7 +116,10 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Combined convenience fields
     loading: orders.loading || customers.loading || staffNotes.loading,
     error: orders.error || customers.error || staffNotes.error,
-  }), [orders, customers, staffNotes, orders.loading, customers.loading, staffNotes.loading, orders.error, customers.error, staffNotes.error]);
+    lastRefresh,
+    refreshError,
+    refreshData,
+  }), [orders, customers, staffNotes, orders.loading, customers.loading, staffNotes.loading, orders.error, customers.error, staffNotes.error, lastRefresh, refreshError, refreshData]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 };

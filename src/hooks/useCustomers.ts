@@ -4,12 +4,13 @@
 // Identical public API — components need zero changes.
 // Data now lives in MySQL via the SiteGround PHP API.
 // ============================================================
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Customer } from '../types';
 
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { customersApi } from './useApi';
+import { pendingWriteQueue } from '../services/pendingWriteQueue';
 
 const sortByFirstName = (arr: Customer[]) =>
   [...arr].sort((a, b) => a.firstName.localeCompare(b.firstName));
@@ -20,6 +21,8 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
   const [loading, setLoading] = useState(!skipInitialFetch);
   const [error, setError] = useState<string | null>(null);
   const { addUndoAction } = useUndo();
+  const customersRef = useRef(customers);
+  customersRef.current = customers;
 
   // ── Load all customers from DB on mount ──────────────────
   useEffect(() => {
@@ -41,28 +44,97 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
 
   // Hydrate from a combined fetch (avoids a separate round trip)
   const hydrate = useCallback((data: Customer[]) => {
-    setCustomers(sortByFirstName(data));
+    const serverIds = new Set(data.map(customer => customer.id));
+    const pendingCustomers = pendingWriteQueue.list('customer')
+      .map(item => item.payload)
+      .filter(customer => !serverIds.has(customer.id));
+    setCustomers(sortByFirstName([...data, ...pendingCustomers]));
     setLoading(false);
     setError(null);
   }, []);
 
+  const retryPendingCustomers = useCallback(async () => {
+    for (const item of pendingWriteQueue.list('customer')) {
+      try {
+        let existing: Customer | null = null;
+        try {
+          existing = await customersApi.getOne(item.id);
+        } catch {
+          existing = null;
+        }
+
+        if (existing && existing.createdAt === item.payload.createdAt) {
+          pendingWriteQueue.remove('customer', item.id);
+          continue;
+        }
+
+        if (existing) {
+          const serverCustomers = await customersApi.getAll();
+          const maxId = serverCustomers.reduce((max, customer) => {
+            const id = parseInt(customer.id);
+            return isNaN(id) ? max : Math.max(max, id);
+          }, 0);
+          const replacement = { ...item.payload, id: String(maxId + 1) };
+          await customersApi.save(replacement);
+          pendingWriteQueue.remove('customer', item.id);
+          pendingWriteQueue.upsert({ kind: 'customer', id: replacement.id, payload: replacement, queuedAt: item.queuedAt });
+          pendingWriteQueue.remove('customer', replacement.id);
+          customersRef.current = customersRef.current.map(customer => customer.id === item.id ? replacement : customer);
+          setCustomers(current => sortByFirstName(current.map(customer => customer.id === item.id ? replacement : customer)));
+          continue;
+        }
+
+        await customersApi.save(item.payload);
+        pendingWriteQueue.remove('customer', item.id);
+      } catch (err) {
+        console.warn('Pending customer save will be retried later:', err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const retry = () => {
+      if (navigator.onLine) void retryPendingCustomers();
+    };
+    retry();
+    window.addEventListener('online', retry);
+    const retryTimer = window.setInterval(retry, 30000);
+    return () => {
+      window.removeEventListener('online', retry);
+      window.clearInterval(retryTimer);
+    };
+  }, [retryPendingCustomers]);
+
   // ── addCustomer ───────────────────────────────────────────
   const addCustomer = useCallback(async (customerData: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> => {
-    const maxNum = customers.reduce((m, c) => {
+    let serverMaxId = 0;
+    try {
+      const serverCustomers = await customersApi.getAll();
+      serverMaxId = serverCustomers.reduce((m, c) => {
+        const n = parseInt(c.id);
+        return isNaN(n) ? m : Math.max(m, n);
+      }, 0);
+    } catch (err) {
+      console.warn('Could not fetch the latest customer number:', err);
+    }
+
+    const localMaxId = customersRef.current.reduce((m, c) => {
       const n = parseInt(c.id);
       return isNaN(n) ? m : Math.max(m, n);
     }, 0);
+    const maxNum = Math.max(serverMaxId, localMaxId);
     const newCustomer: Customer = {
       ...customerData,
       id: (maxNum + 1).toString(),
       createdAt: new Date().toISOString(),
     };
 
-    const previousCustomers = [...customers];
+    const previousCustomers = [...customersRef.current];
     setCustomers(prev => sortByFirstName([...prev, newCustomer]));
 
     try {
       await customersApi.save(newCustomer);
+      pendingWriteQueue.remove('customer', newCustomer.id);
 
 
 
@@ -80,12 +152,12 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
       return newCustomer;
     } catch (err) {
       console.error('Failed to save customer to DB:', err);
+      pendingWriteQueue.upsert({ kind: 'customer', id: newCustomer.id, payload: newCustomer, queuedAt: new Date().toISOString() });
       errorLogger.error('Failed to add customer', err);
-      setError('Failed to save customer. Please try again.');
-      setCustomers(previousCustomers);
-      return null;
+      setError('Customer is shown here but has not reached the server yet. We will keep retrying.');
+      return newCustomer;
     }
-  }, [customers, addUndoAction]);
+  }, [addUndoAction]);
 
   // ── updateCustomer ────────────────────────────────────────
   const updateCustomer = useCallback((id: string, updates: Partial<Omit<Customer, 'id' | 'createdAt'>>) => {
