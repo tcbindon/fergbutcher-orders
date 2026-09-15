@@ -97,12 +97,26 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
               />
               <p className="hidden sm:block text-sm text-fergbutcher-green-400 font-medium">Pre-Order Management</p>
             </div>
-            <button
-              onClick={onLogout}
-              className="text-sm bg-fergbutcher-green-600 text-white px-3 py-2 lg:px-4 rounded-lg hover:bg-fergbutcher-green-700 transition-colors font-medium"
-            >
-              Logout
-            </button>
+            <div className="flex items-center space-x-3">
+              {lastRefresh && (
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || !isOnline}
+                  title={isRefreshing ? 'Refreshing…' : 'Click to refresh now'}
+                  className="hidden sm:flex items-center gap-1.5 text-xs text-fergbutcher-green-400 hover:text-fergbutcher-green-600 disabled:opacity-50 transition-colors"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>{isRefreshing ? 'Updating…' : `Updated ${new Date(lastRefresh).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' })}`}</span>
+                </button>
+              )}
+              <button
+                onClick={onLogout}
+                className="text-sm bg-fergbutcher-green-600 text-white px-3 py-2 lg:px-4 rounded-lg hover:bg-fergbutcher-green-700 transition-colors font-medium"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -121,12 +135,6 @@ const Layout: React.FC<LayoutProps> = ({ currentView, onViewChange, onLogout, ch
           )}
         </div>
       )}
-      {lastRefresh && !statusMessage && (
-        <div className="flex justify-end border-b border-fergbutcher-gold-200 bg-white px-4 py-1 text-xs text-fergbutcher-green-400">
-          Last updated {new Date(lastRefresh).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' })}
-        </div>
-      )}
-
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar backdrop — mobile only */}
         {sidebarOpen && (
