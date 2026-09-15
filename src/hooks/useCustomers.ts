@@ -135,30 +135,11 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     let savedCustomer: Customer = newCustomer;
     try {
       const serverCustomer = await customersApi.save(newCustomer);
-
-      // The PHP backend may assign its own auto-increment ID that differs
-      // from our client-generated one. If the server returns the saved
-      // customer, use that. Otherwise, re-fetch all customers and find the
-      // one that matches by name+phone to discover the real server ID.
-      if (serverCustomer && serverCustomer.id) {
+      if (serverCustomer && serverCustomer.id && serverCustomer.id !== newCustomer.id) {
+        console.log('[addCustomer] Server assigned different ID:', serverCustomer.id, 'vs client:', newCustomer.id);
         savedCustomer = serverCustomer;
-      } else {
-        const allServerCustomers = await customersApi.getAll();
-        const match = allServerCustomers.find(c =>
-          c.firstName === newCustomer.firstName &&
-          c.lastName === newCustomer.lastName &&
-          c.phone === newCustomer.phone
-        );
-        if (match && match.id !== newCustomer.id) {
-          console.log('[addCustomer] Server assigned different ID:', match.id, 'vs client:', newCustomer.id);
-          savedCustomer = match;
-        }
-      }
-
-      // Replace the optimistic entry with the server-confirmed customer
-      if (savedCustomer.id !== newCustomer.id) {
         setCustomers(prev => sortByFirstName(
-          prev.map(c => c.id === newCustomer.id ? savedCustomer : c)
+          prev.map(c => c.id === newCustomer.id ? serverCustomer : c)
         ));
       }
       pendingWriteQueue.remove('customer', savedCustomer.id);
@@ -173,7 +154,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
         }
       });
 
-      errorLogger.info(`Customer added: ${savedCustomer.firstName} ${savedCustomer.lastName} (server ID: ${savedCustomer.id})`);
+      errorLogger.info(`Customer added: ${savedCustomer.firstName} ${savedCustomer.lastName}`);
       return savedCustomer;
     } catch (err) {
       console.error('Failed to save customer to DB:', err);
