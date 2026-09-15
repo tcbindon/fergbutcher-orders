@@ -111,11 +111,52 @@ const decodeOrderDates = (orders: Order[]): Order[] => orders.map(decodeOrderDat
 // ── CUSTOMERS ────────────────────────────────────────────────
 const normalizeCustomerId = (c: Customer): Customer => ({ ...c, id: String(c.id) });
 const normalizeCustomerIds = (cs: Customer[]): Customer[] => cs.map(normalizeCustomerId);
+const RECENT_CUSTOMER_IDS_KEY = 'fergbutcher_recent_customer_ids';
+
+const getRecentCustomerIds = (): string[] => {
+  try {
+    const stored = localStorage.getItem(RECENT_CUSTOMER_IDS_KEY);
+    const ids: unknown = stored ? JSON.parse(stored) : [];
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+const rememberCustomerId = (id: string): void => {
+  const ids = new Set(getRecentCustomerIds());
+  ids.add(id);
+  localStorage.setItem(RECENT_CUSTOMER_IDS_KEY, JSON.stringify([...ids]));
+};
+
+const forgetCustomerId = (id: string): void => {
+  localStorage.setItem(
+    RECENT_CUSTOMER_IDS_KEY,
+    JSON.stringify(getRecentCustomerIds().filter(savedId => savedId !== id))
+  );
+};
 
 export const customersApi = {
   getAll: async (): Promise<Customer[]> => {
-    const data = await request<Customer[]>('/customers');
-    return normalizeCustomerIds(data);
+    const customers = normalizeCustomerIds(await request<Customer[]>('/customers'));
+    const knownIds = new Set(customers.map(customer => customer.id));
+    const recentIds = getRecentCustomerIds().filter(id => !knownIds.has(id));
+
+    if (recentIds.length > 0) {
+      const recentCustomers = await Promise.all(
+        recentIds.map(async id => {
+          try {
+            return await customersApi.getOne(id);
+          } catch {
+            forgetCustomerId(id);
+            return null;
+          }
+        })
+      );
+      customers.push(...recentCustomers.filter((customer): customer is Customer => customer !== null));
+    }
+
+    return customers;
   },
 
   getOne: async (id: string): Promise<Customer> => {
@@ -124,8 +165,9 @@ export const customersApi = {
   },
 
   save: async (customer: Customer): Promise<Customer> => {
-    const data = await request<Customer>('/customers', { method: 'POST', body: JSON.stringify(customer) });
-    return normalizeCustomerId(data);
+    const data = normalizeCustomerId(await request<Customer>('/customers', { method: 'POST', body: JSON.stringify(customer) }));
+    rememberCustomerId(data.id);
+    return data;
   },
 
   update: async (id: string, updates: Partial<Customer>): Promise<Customer> => {
@@ -133,8 +175,11 @@ export const customersApi = {
     return normalizeCustomerId(data);
   },
 
-  delete: (id: string): Promise<{ id: string }> =>
-    request(`/customers?id=${id}`, { method: 'DELETE' }),
+  delete: async (id: string): Promise<{ id: string }> => {
+    const result = await request<{ id: string }>(`/customers?id=${id}`, { method: 'DELETE' });
+    forgetCustomerId(id);
+    return result;
+  },
 
   saveAll: async (customers: Customer[]): Promise<Customer[]> => {
     const results: Customer[] = [];
