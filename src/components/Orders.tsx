@@ -43,6 +43,7 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
     searchOrders,
     customers,
     customersLoading,
+    customersError,
     addCustomer,
   } = useAppData();
 
@@ -352,11 +353,11 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
         </div>
       </div>
 
-      {ordersError && (
+      {(ordersError || customersError) && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center space-x-2">
             <AlertTriangle className="h-5 w-5 text-red-600" />
-            <p className="text-red-700">{ordersError}</p>
+            <p className="text-red-700">{ordersError || customersError}</p>
           </div>
         </div>
       )}

@@ -147,6 +147,23 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
           ));
         }
       }
+
+      // Verify the customer was actually persisted by fetching it back
+      try {
+        const verified = await customersApi.getOne(savedCustomer.id);
+        if (!verified || !verified.id) {
+          throw new Error('Customer not found in DB after save');
+        }
+        console.log('[addCustomer] Post-save verification: customer found in DB:', !!verified, 'ID:', verified?.id);
+      } catch (verifyErr) {
+        console.error('[addCustomer] Post-save verification FAILED — customer NOT found in DB after save:', verifyErr);
+        // The save didn't actually persist — queue for retry and warn the user
+        pendingWriteQueue.upsert({ kind: 'customer', id: savedCustomer.id, payload: savedCustomer, queuedAt: new Date().toISOString() });
+        setError('Customer could not be verified on the server. It will be retried automatically, but may not appear after a page refresh.');
+        // Still return the customer so the order can proceed
+        return savedCustomer;
+      }
+
       pendingWriteQueue.remove('customer', savedCustomer.id);
 
       addUndoAction({
@@ -165,7 +182,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
       console.error('Failed to save customer to DB:', err);
       pendingWriteQueue.upsert({ kind: 'customer', id: newCustomer.id, payload: newCustomer, queuedAt: new Date().toISOString() });
       errorLogger.error('Failed to add customer', err);
-      setError('Customer is shown here but has not reached the server yet. We will keep retrying.');
+      setError('Customer could not be saved to the server. It will be retried automatically, but may not appear after a page refresh.');
       return newCustomer;
     }
   }, [addUndoAction]);
