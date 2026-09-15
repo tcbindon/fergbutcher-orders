@@ -107,11 +107,11 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
 
   // ── addCustomer ───────────────────────────────────────────
   const addCustomer = useCallback(async (customerData: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> => {
-    let beforeServerIds = new Set<string>();
+    // Fetch the true max ID from the server (same pattern as addOrder)
+    // to avoid collisions when the local list is stale.
     let serverMaxId = 0;
     try {
       const serverCustomers = await customersApi.getAll();
-      beforeServerIds = new Set(serverCustomers.map(c => c.id));
       serverMaxId = serverCustomers.reduce((m, c) => {
         const n = parseInt(c.id);
         return isNaN(n) ? m : Math.max(m, n);
@@ -137,30 +137,15 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     let savedCustomer: Customer = newCustomer;
     try {
       const serverCustomer = await customersApi.save(newCustomer);
-
-      // If the server returned a different ID, use it.
-      if (serverCustomer && serverCustomer.id && serverCustomer.id !== newCustomer.id) {
-        console.log('[addCustomer] Server returned different ID:', serverCustomer.id, 'vs client:', newCustomer.id);
-        savedCustomer = serverCustomer;
-      } else {
-        // The server may use auto-increment and not return the real ID.
-        // Re-fetch all customers and find the one that wasn't there before.
-        try {
-          const afterCustomers = await customersApi.getAll();
-          const newServerCustomer = afterCustomers.find(c => !beforeServerIds.has(c.id));
-          if (newServerCustomer && newServerCustomer.id !== newCustomer.id) {
-            console.log('[addCustomer] Server auto-increment assigned ID:', newServerCustomer.id, 'vs client:', newCustomer.id);
-            savedCustomer = { ...newCustomer, ...newServerCustomer };
-          }
-        } catch (refetchErr) {
-          console.warn('[addCustomer] Could not verify server-assigned ID:', refetchErr);
+      if (serverCustomer && serverCustomer.id) {
+        const serverId = String(serverCustomer.id);
+        if (serverId !== newCustomer.id) {
+          console.log('[addCustomer] Server returned different ID:', serverId, 'vs client:', newCustomer.id);
+          savedCustomer = { ...newCustomer, ...serverCustomer, id: serverId };
+          setCustomers(prev => sortByFirstName(
+            prev.map(c => c.id === newCustomer.id ? savedCustomer : c)
+          ));
         }
-      }
-
-      if (savedCustomer.id !== newCustomer.id) {
-        setCustomers(prev => sortByFirstName(
-          prev.map(c => c.id === newCustomer.id ? savedCustomer : c)
-        ));
       }
       pendingWriteQueue.remove('customer', savedCustomer.id);
 
@@ -174,7 +159,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
         }
       });
 
-      errorLogger.info(`Customer added: ${savedCustomer.firstName} ${savedCustomer.lastName} (ID: ${savedCustomer.id})`);
+      errorLogger.info(`Customer added: ${savedCustomer.firstName} ${savedCustomer.lastName}`);
       return savedCustomer;
     } catch (err) {
       console.error('Failed to save customer to DB:', err);

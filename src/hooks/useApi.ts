@@ -48,8 +48,8 @@ export const combinedApi = {
   getAll: async (): Promise<{ customers: Customer[]; orders: Order[]; staffNotes: StaffNote[] }> => {
     const data = await request<{ customers: Customer[]; orders: Order[]; staffNotes: StaffNote[] }>('/all');
     return {
-      customers: data.customers || [],
-      orders: decodeOrderDates(data.orders || []),
+      customers: normalizeCustomerIds(data.customers || []),
+      orders: normalizeOrderIds(data.orders || []),
       staffNotes: data.staffNotes || [],
     };
   },
@@ -88,18 +88,29 @@ const decodeOrderDate = (order: Order): Order => ({
 const decodeOrderDates = (orders: Order[]): Order[] => orders.map(decodeOrderDate);
 
 // ── CUSTOMERS ────────────────────────────────────────────────
+const normalizeCustomerId = (c: Customer): Customer => ({ ...c, id: String(c.id) });
+const normalizeCustomerIds = (cs: Customer[]): Customer[] => cs.map(normalizeCustomerId);
+
 export const customersApi = {
-  getAll: (): Promise<Customer[]> =>
-    request('/customers'),
+  getAll: async (): Promise<Customer[]> => {
+    const data = await request<Customer[]>('/customers');
+    return normalizeCustomerIds(data);
+  },
 
-  getOne: (id: string): Promise<Customer> =>
-    request(`/customers?id=${id}`),
+  getOne: async (id: string): Promise<Customer> => {
+    const data = await request<Customer>(`/customers?id=${id}`);
+    return normalizeCustomerId(data);
+  },
 
-  save: (customer: Customer): Promise<Customer> =>
-    request('/customers', { method: 'POST', body: JSON.stringify(customer) }),
+  save: async (customer: Customer): Promise<Customer> => {
+    const data = await request<Customer>('/customers', { method: 'POST', body: JSON.stringify(customer) });
+    return normalizeCustomerId(data);
+  },
 
-  update: (id: string, updates: Partial<Customer>): Promise<Customer> =>
-    request(`/customers?id=${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+  update: async (id: string, updates: Partial<Customer>): Promise<Customer> => {
+    const data = await request<Customer>(`/customers?id=${id}`, { method: 'PUT', body: JSON.stringify(updates) });
+    return normalizeCustomerId(data);
+  },
 
   delete: (id: string): Promise<{ id: string }> =>
     request(`/customers?id=${id}`, { method: 'DELETE' }),
@@ -112,28 +123,31 @@ export const customersApi = {
 };
 
 // ── ORDERS ───────────────────────────────────────────────────
+const normalizeOrderId = (o: Order): Order => ({ ...decodeOrderDate(o), id: String(o.id), customerId: String(o.customerId) });
+const normalizeOrderIds = (os: Order[]): Order[] => os.map(normalizeOrderId);
+
 export const ordersApi = {
   getAll: async (filters: { status?: string; type?: string; from?: string; to?: string } = {}): Promise<Order[]> => {
     const params = new URLSearchParams(
       Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null)) as Record<string, string>
     ).toString();
     const data = await request<Order[]>('/orders' + (params ? '?' + params : ''));
-    return decodeOrderDates(data);
+    return normalizeOrderIds(data);
   },
 
   getOne: async (id: string): Promise<Order> => {
     const data = await request<Order>(`/orders?id=${id}`);
-    return decodeOrderDate(data);
+    return normalizeOrderId(data);
   },
 
   save: async (order: Order): Promise<Order> => {
     const data = await request<Order>('/orders', { method: 'POST', body: JSON.stringify(encodeDateForApi(order)) });
-    return decodeOrderDate(data);
+    return normalizeOrderId(data);
   },
 
   update: async (id: string, updates: Partial<Order>): Promise<Order> => {
     const data = await request<Order>(`/orders?id=${id}`, { method: 'PUT', body: JSON.stringify(encodeDateForApi(updates as Order)) });
-    return decodeOrderDate(data);
+    return normalizeOrderId(data);
   },
 
   delete: (id: string): Promise<{ id: string }> =>
