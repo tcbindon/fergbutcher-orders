@@ -24,6 +24,11 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
   const customersRef = useRef(customers);
   customersRef.current = customers;
 
+  // IDs of customers pending deletion on the server. The auto-refresh
+  // (hydrate) must not bring these back before the server confirms the
+  // delete by no longer returning them.
+  const deletedIdsRef = useRef<Set<string>>(new Set());
+
   // ── Load all customers from DB on mount ──────────────────
   useEffect(() => {
     if (skipInitialFetch) return;
@@ -48,7 +53,9 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     const pendingCustomers = pendingWriteQueue.list('customer')
       .map(item => item.payload)
       .filter(customer => !serverIds.has(customer.id));
-    setCustomers(sortByFirstName([...data, ...pendingCustomers]));
+    // Filter out customers whose deletion is still in flight on the server
+    const filtered = data.filter(customer => !deletedIdsRef.current.has(customer.id));
+    setCustomers(sortByFirstName([...filtered, ...pendingCustomers]));
     setLoading(false);
     setError(null);
   }, []);
@@ -213,14 +220,19 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
       const toDelete = customers.find(c => c.id === id);
       if (!toDelete) return false;
 
+      deletedIdsRef.current.add(id);
+
       const previousCustomers = [...customers];
       const remaining = sortByFirstName(customers.filter(c => c.id !== id));
       setCustomers(remaining);
 
       customersApi.delete(id)
-        .then(() => {})
+        .then(() => {
+          deletedIdsRef.current.delete(id);
+        })
         .catch(err => {
           console.error('Failed to delete customer from DB:', err);
+          deletedIdsRef.current.delete(id);
           setError('Failed to delete customer. Please try again.');
           setCustomers(previousCustomers); // rollback
         });
@@ -229,6 +241,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
         id: `delete-customer-${id}`,
         description: `Deleted customer ${toDelete.firstName} ${toDelete.lastName}`,
         undo: () => {
+          deletedIdsRef.current.delete(id);
           setCustomers(previousCustomers);
           customersApi.save(toDelete).catch(console.error);
           errorLogger.info(`Undid deleting customer: ${toDelete.firstName} ${toDelete.lastName}`);
