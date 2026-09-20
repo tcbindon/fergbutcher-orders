@@ -107,6 +107,12 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
       const serverCustomer = await customersApi.save(newCustomer);
       const savedCustomer = serverCustomer && serverCustomer.id ? serverCustomer : newCustomer;
 
+      if (savedCustomer.id !== newCustomer.id) {
+        setCustomers(prev => sortByFirstName(
+          prev.map(c => (c.id === newCustomer.id ? savedCustomer : c))
+        ));
+      }
+
       pendingWriteQueue.remove('customer', savedCustomer.id);
 
       addUndoAction({
@@ -131,8 +137,8 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
 
   const updateCustomer = useCallback((id: string, updates: Partial<Omit<Customer, 'id' | 'createdAt'>>) => {
     try {
-      const previousCustomers = [...customers];
-      const updated = customers.map(c => c.id === id ? { ...c, ...updates } : c);
+      const previousCustomers = [...customersRef.current];
+      const updated = customersRef.current.map(c => c.id === id ? { ...c, ...updates } : c);
       setCustomers(sortByFirstName(updated));
 
       customersApi.update(id, updates)
@@ -149,18 +155,18 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to update customer');
       return false;
     }
-  }, [customers]);
+  }, []);
 
   const deleteCustomer = useCallback((id: string) => {
     try {
-      const toDelete = customers.find(c => c.id === id);
+      const toDelete = customersRef.current.find(c => c.id === id);
       if (!toDelete) return false;
 
       deletedIdsRef.current.add(id);
       pendingWriteQueue.remove('customer', id);
 
-      const previousCustomers = [...customers];
-      const remaining = sortByFirstName(customers.filter(c => c.id !== id));
+      const previousCustomers = [...customersRef.current];
+      const remaining = sortByFirstName(customersRef.current.filter(c => c.id !== id));
       setCustomers(remaining);
 
       customersApi.delete(id)
@@ -192,15 +198,15 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
       setError('Failed to delete customer');
       return false;
     }
-  }, [customers, addUndoAction]);
+  }, [addUndoAction]);
 
-  const getCustomerById = (id: string) => customers.find(c => c.id === id);
+  const getCustomerById = (id: string) => customersRef.current.find(c => c.id === id);
 
   const searchCustomers = (searchTerm: string) => {
-    if (!searchTerm.trim()) return customers;
+    if (!searchTerm.trim()) return customersRef.current;
     const term = searchTerm.toLowerCase();
     return sortByFirstName(
-      customers.filter(c =>
+      customersRef.current.filter(c =>
         `${c.firstName} ${c.lastName}`.toLowerCase().includes(term) ||
         (c.email && c.email.toLowerCase().includes(term)) ||
         c.company?.toLowerCase().includes(term) ||
