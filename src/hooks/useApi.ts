@@ -91,6 +91,15 @@ const decodeOrderDates = (orders: Order[]): Order[] => orders.map(decodeOrderDat
 const normalizeCustomerId = (c: Customer): Customer => ({ ...c, id: String(c.id) });
 const normalizeCustomerIds = (cs: Customer[]): Customer[] => cs.map(normalizeCustomerId);
 
+const isTemporaryId = (id: string): boolean =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+const omitTemporaryId = <T extends { id: string }>(record: T): Omit<T, 'id'> | T => {
+  if (!isTemporaryId(record.id)) return record;
+  const { id: _id, ...withoutId } = record;
+  return withoutId;
+};
+
 export const customersApi = {
   getAll: async (): Promise<Customer[]> => {
     const data = await request<Customer[]>('/customers');
@@ -103,7 +112,7 @@ export const customersApi = {
   },
 
   save: async (customer: Customer): Promise<Customer> => {
-    const data = await request<Customer>('/customers', { method: 'POST', body: JSON.stringify(customer) });
+    const data = await request<Customer>('/customers', { method: 'POST', body: JSON.stringify(omitTemporaryId(customer)) });
     return normalizeCustomerId(data);
   },
 
@@ -112,8 +121,16 @@ export const customersApi = {
     return normalizeCustomerId(data);
   },
 
-  delete: (id: string): Promise<{ id: string }> =>
-    request(`/customers?id=${id}`, { method: 'DELETE' }),
+  delete: async (id: string): Promise<{ id: string }> => {
+    const result = await request<{ id: string }>(`/customers?id=${id}`, { method: 'DELETE' });
+    try {
+      await customersApi.getOne(id);
+      throw new Error('The server reported success, but the customer still exists.');
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('still exists')) throw error;
+    }
+    return result;
+  },
 
   saveAll: async (customers: Customer[]): Promise<Customer[]> => {
     const results: Customer[] = [];
@@ -141,7 +158,7 @@ export const ordersApi = {
   },
 
   save: async (order: Order): Promise<Order> => {
-    const data = await request<Order>('/orders', { method: 'POST', body: JSON.stringify(encodeDateForApi(order)) });
+    const data = await request<Order>('/orders', { method: 'POST', body: JSON.stringify(encodeDateForApi(omitTemporaryId(order) as Order)) });
     return normalizeOrderId(data);
   },
 

@@ -27,10 +27,11 @@ exports.handler = async (event) => {
         'X-API-Key': API_SECRET,
         'Cache-Control': 'no-cache, no-store',
       };
+      const cacheBust = Date.now().toString();
       const [custRes, ordRes, notesRes] = await Promise.all([
-        fetch(`${API_BASE}/customers.php`, { headers: hdrs }),
-        fetch(`${API_BASE}/orders.php${qs}`, { headers: hdrs }),
-        fetch(`${API_BASE}/staff-notes.php`, { headers: hdrs }),
+        fetch(`${API_BASE}/customers.php?_cacheBust=${cacheBust}`, { headers: hdrs, cache: 'no-store' }),
+        fetch(`${API_BASE}/orders.php${qs}`, { headers: hdrs, cache: 'no-store' }),
+        fetch(`${API_BASE}/staff-notes.php?_cacheBust=${cacheBust}`, { headers: hdrs, cache: 'no-store' }),
       ]);
 
       const ordRaw = await ordRes.text();
@@ -95,6 +96,7 @@ exports.handler = async (event) => {
   try {
     const response = await fetch(url, {
       method:  event.httpMethod,
+      cache: event.httpMethod === 'GET' ? 'no-store' : undefined,
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key':    API_SECRET,
