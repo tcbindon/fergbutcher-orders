@@ -51,3 +51,6 @@
 [build.processing.html]
   pretty_urls = true
   canonical_urls = false
+
+[[plugins]]
+  package = "./netlify/plugins/emails-commonjs"
