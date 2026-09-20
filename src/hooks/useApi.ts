@@ -47,30 +47,9 @@ import type { Customer, Order, StaffNote } from '../types';
 export const combinedApi = {
   getAll: async (): Promise<{ customers: Customer[]; orders: Order[]; staffNotes: StaffNote[] }> => {
     const data = await request<{ customers: Customer[]; orders: Order[]; staffNotes: StaffNote[] }>('/all');
-    const customers = normalizeCustomerIds(data.customers || []);
-    const orders = normalizeOrderIds(data.orders || []);
-    const knownCustomerIds = new Set(customers.map(customer => customer.id));
-    const referencedCustomerIds = [...new Set(
-      orders.map(order => order.customerId).filter(customerId => !knownCustomerIds.has(customerId))
-    )];
-
-    if (referencedCustomerIds.length > 0) {
-      const referencedCustomers = await Promise.all(
-        referencedCustomerIds.map(async customerId => {
-          try {
-            return await customersApi.getOne(customerId);
-          } catch (error) {
-            console.warn('[combinedApi] Could not load customer referenced by an order:', customerId, error);
-            return null;
-          }
-        })
-      );
-      customers.push(...referencedCustomers.filter((customer): customer is Customer => customer !== null));
-    }
-
     return {
-      customers,
-      orders,
+      customers: normalizeCustomerIds(data.customers || []),
+      orders: normalizeOrderIds(data.orders || []),
       staffNotes: data.staffNotes || [],
     };
   },
