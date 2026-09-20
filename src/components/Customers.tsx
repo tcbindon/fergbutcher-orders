@@ -77,6 +77,13 @@ const Customers: React.FC = () => {
   const handleDeleteCustomer = () => {
     if (!deletingCustomer) return;
 
+    const orderCount = getOrdersByCustomerId(deletingCustomer.id).length;
+    if (orderCount > 0) {
+      toast.error(`This customer has ${orderCount} order${orderCount !== 1 ? 's' : ''}. Please delete or cancel their orders first before removing the customer.`);
+      setDeletingCustomer(null);
+      return;
+    }
+
     const success = deleteCustomer(deletingCustomer.id);
     if (success) {
       setDeletingCustomer(null);
@@ -437,9 +444,15 @@ const Customers: React.FC = () => {
                   <p className="text-fergbutcher-black-900 font-medium">
                     Are you sure you want to delete {deletingCustomer.firstName} {deletingCustomer.lastName}?
                   </p>
-                  <p className="text-fergbutcher-green-400 text-sm mt-1">
-                    This action cannot be undone. All associated data will be permanently removed.
-                  </p>
+                  {getCustomerOrderCount(deletingCustomer.id) > 0 ? (
+                    <p className="text-red-600 text-sm mt-1 font-medium">
+                      This customer has {getCustomerOrderCount(deletingCustomer.id)} order{getCustomerOrderCount(deletingCustomer.id) !== 1 ? 's' : ''}. You must delete or cancel their orders first.
+                    </p>
+                  ) : (
+                    <p className="text-fergbutcher-green-400 text-sm mt-1">
+                      This action cannot be undone. All associated data will be permanently removed.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex justify-end space-x-3">
@@ -451,7 +464,8 @@ const Customers: React.FC = () => {
                 </button>
                 <button
                   onClick={handleDeleteCustomer}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  disabled={getCustomerOrderCount(deletingCustomer.id) > 0}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-600"
                 >
                   Delete Customer
                 </button>

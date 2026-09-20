@@ -1,9 +1,3 @@
-// src/hooks/useCustomers.ts
-// ============================================================
-// DROP-IN REPLACEMENT for the original useCustomers.ts
-// Identical public API — components need zero changes.
-// Data now lives in MySQL via the SiteGround PHP API.
-// ============================================================
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Customer } from '../types';
 
@@ -24,12 +18,8 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
   const customersRef = useRef(customers);
   customersRef.current = customers;
 
-  // IDs of customers pending deletion on the server. The auto-refresh
-  // (hydrate) must not bring these back before the server confirms the
-  // delete by no longer returning them.
   const deletedIdsRef = useRef<Set<string>>(new Set());
 
-  // ── Load all customers from DB on mount ──────────────────
   useEffect(() => {
     if (skipInitialFetch) return;
     let cancelled = false;
@@ -47,13 +37,11 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     return () => { cancelled = true; };
   }, [skipInitialFetch]);
 
-  // Hydrate from a combined fetch (avoids a separate round trip)
   const hydrate = useCallback((data: Customer[]) => {
     const serverIds = new Set(data.map(customer => customer.id));
     const pendingCustomers = pendingWriteQueue.list('customer')
       .map(item => item.payload)
       .filter(customer => !serverIds.has(customer.id));
-    // Filter out customers whose deletion is still in flight on the server
     const filtered = data.filter(customer => !deletedIdsRef.current.has(customer.id));
     setCustomers(sortByFirstName([...filtered, ...pendingCustomers]));
     setLoading(false);
@@ -76,16 +64,9 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
         }
 
         if (existing) {
-          const serverCustomers = await customersApi.getAll();
-          const maxId = serverCustomers.reduce((max, customer) => {
-            const id = parseInt(customer.id);
-            return isNaN(id) ? max : Math.max(max, id);
-          }, 0);
-          const replacement = { ...item.payload, id: String(maxId + 1) };
+          const replacement = { ...item.payload, id: crypto.randomUUID() };
           await customersApi.save(replacement);
           pendingWriteQueue.remove('customer', item.id);
-          pendingWriteQueue.upsert({ kind: 'customer', id: replacement.id, payload: replacement, queuedAt: item.queuedAt });
-          pendingWriteQueue.remove('customer', replacement.id);
           customersRef.current = customersRef.current.map(customer => customer.id === item.id ? replacement : customer);
           setCustomers(current => sortByFirstName(current.map(customer => customer.id === item.id ? replacement : customer)));
           continue;
@@ -112,61 +93,19 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     };
   }, [retryPendingCustomers]);
 
-  // ── addCustomer ───────────────────────────────────────────
   const addCustomer = useCallback(async (customerData: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> => {
-    // Fetch the true max ID from the server (same pattern as addOrder)
-    // to avoid collisions when the local list is stale.
-    let serverMaxId = 0;
-    try {
-      const serverCustomers = await customersApi.getAll();
-      serverMaxId = serverCustomers.reduce((m, c) => {
-        const n = parseInt(c.id);
-        return isNaN(n) ? m : Math.max(m, n);
-      }, 0);
-    } catch (err) {
-      console.warn('Could not fetch the latest customer number:', err);
-    }
-
-    const localMaxId = customersRef.current.reduce((m, c) => {
-      const n = parseInt(c.id);
-      return isNaN(n) ? m : Math.max(m, n);
-    }, 0);
-    const maxNum = Math.max(serverMaxId, localMaxId);
     const newCustomer: Customer = {
       ...customerData,
-      id: (maxNum + 1).toString(),
+      id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
 
     const previousCustomers = [...customersRef.current];
     setCustomers(prev => sortByFirstName([...prev, newCustomer]));
 
-    let savedCustomer: Customer = newCustomer;
     try {
       const serverCustomer = await customersApi.save(newCustomer);
-      if (serverCustomer && serverCustomer.id) {
-        const serverId = String(serverCustomer.id);
-        if (serverId !== newCustomer.id) {
-
-          savedCustomer = { ...newCustomer, ...serverCustomer, id: serverId };
-          setCustomers(prev => sortByFirstName(
-            prev.map(c => c.id === newCustomer.id ? savedCustomer : c)
-          ));
-        }
-      }
-
-      // Verify the customer was actually persisted by fetching it back
-      try {
-        const verified = await customersApi.getOne(savedCustomer.id);
-        if (!verified || !verified.id) {
-          throw new Error('Customer not found in DB after save');
-        }
-      } catch (verifyErr) {
-        console.error('[addCustomer] Post-save verification failed:', verifyErr);
-        pendingWriteQueue.upsert({ kind: 'customer', id: savedCustomer.id, payload: savedCustomer, queuedAt: new Date().toISOString() });
-        setError('Customer could not be verified on the server. It will be retried automatically, but may not appear after a page refresh.');
-        return savedCustomer;
-      }
+      const savedCustomer = serverCustomer && serverCustomer.id ? serverCustomer : newCustomer;
 
       pendingWriteQueue.remove('customer', savedCustomer.id);
 
@@ -176,7 +115,6 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
         undo: () => {
           setCustomers(previousCustomers);
           customersApi.delete(savedCustomer.id).catch(console.error);
-          errorLogger.info(`Undid adding customer: ${savedCustomer.firstName} ${savedCustomer.lastName}`);
         }
       });
 
@@ -186,12 +124,11 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
       console.error('Failed to save customer to DB:', err);
       pendingWriteQueue.upsert({ kind: 'customer', id: newCustomer.id, payload: newCustomer, queuedAt: new Date().toISOString() });
       errorLogger.error('Failed to add customer', err);
-      setError('Customer could not be saved to the server. It will be retried automatically, but may not appear after a page refresh.');
+      setError('Customer could not be saved to the server. It will be retried automatically.');
       return newCustomer;
     }
   }, [addUndoAction]);
 
-  // ── updateCustomer ────────────────────────────────────────
   const updateCustomer = useCallback((id: string, updates: Partial<Omit<Customer, 'id' | 'createdAt'>>) => {
     try {
       const previousCustomers = [...customers];
@@ -214,7 +151,6 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     }
   }, [customers]);
 
-  // ── deleteCustomer ────────────────────────────────────────
   const deleteCustomer = useCallback((id: string) => {
     try {
       const toDelete = customers.find(c => c.id === id);
@@ -235,7 +171,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
           console.error('Failed to delete customer from DB:', err);
           deletedIdsRef.current.delete(id);
           setError('Failed to delete customer. Please try again.');
-          setCustomers(previousCustomers); // rollback
+          setCustomers(previousCustomers);
         });
 
       addUndoAction({
@@ -245,7 +181,6 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
           deletedIdsRef.current.delete(id);
           setCustomers(previousCustomers);
           customersApi.save(toDelete).catch(console.error);
-          errorLogger.info(`Undid deleting customer: ${toDelete.firstName} ${toDelete.lastName}`);
         }
       });
 
@@ -259,7 +194,6 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     }
   }, [customers, addUndoAction]);
 
-  // ── Read helpers ──────────────────────────────────────────
   const getCustomerById = (id: string) => customers.find(c => c.id === id);
 
   const searchCustomers = (searchTerm: string) => {
@@ -275,7 +209,6 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     );
   };
 
-  // setAllCustomers — used by Settings restore from backup
   const setAllCustomers = async (newCustomers: Customer[]) => {
     try {
       await customersApi.saveAll(newCustomers);

@@ -207,12 +207,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         }
 
         if (existing) {
-          const serverOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
-          const maxId = serverOrders.reduce((max, order) => {
-            const id = parseInt(order.id);
-            return isNaN(id) ? max : Math.max(max, id);
-          }, 0);
-          const replacement = { ...item.payload, id: String(maxId + 1) };
+          const replacement = { ...item.payload, id: crypto.randomUUID() };
           await ordersApi.save(replacement);
           pendingWriteQueue.remove('order', item.id);
           ordersRef.current = ordersRef.current.map(order => order.id === item.id ? replacement : order);
@@ -242,14 +237,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   }, [retryPendingOrders]);
 
   // ── Helpers ───────────────────────────────────────────────
-  const getNextOrderId = (existingOrders: Order[], extra: Order[] = []): string => {
-    const all = [...existingOrders, ...extra];
-    const max = all.reduce((m, o) => {
-      const n = parseInt(o.id);
-      return isNaN(n) ? m : Math.max(m, n);
-    }, 0);
-    return (max + 1).toString();
-  };
+  const getNextOrderId = (_existingOrders: Order[], _extra: Order[] = []): string =>
+    crypto.randomUUID();
 
   // Per-change Google Sheets sync is disabled — sync runs hourly or manually.
   const triggerSync = useCallback((_allOrders: Order[], _customers: Customer[]) => {}, []);
@@ -261,18 +250,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       if (orderData.isRecurring && orderData.recurrencePattern && orderData.recurrenceEndDate) {
         // ── Recurring series ──────────────────────────────
-        // Fetch the true max ID from the server to avoid collisions
-        let serverMaxId = 0;
-        try {
-          const allOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
-          serverMaxId = allOrders.reduce((m, o) => {
-            const n = parseInt(o.id);
-            return isNaN(n) ? m : Math.max(m, n);
-          }, 0);
-        } catch (err) {
-          console.error('[addOrder] Failed to fetch server max ID for recurring series:', err);
-        }
-
         const parentOrderId = uuidv4();
         const newOrders: Order[] = [];
         const intervalDays = orderData.recurrencePattern === 'weekly' ? 7 : 14;
@@ -280,16 +257,10 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         const endDate   = parseDateLocal(orderData.recurrenceEndDate);
         let count = 0;
 
-        // Base the next ID on the server's max, not the stale client list
-        let nextIdNum = Math.max(
-          currentOrders.reduce((m, o) => { const n = parseInt(o.id); return isNaN(n) ? m : Math.max(m, n); }, 0) + 1,
-          serverMaxId + 1
-        );
-
         while (currentDate <= endDate && count < 52) {
           const newOrder: Order = {
             ...orderData,
-            id: nextIdNum.toString(),
+            id: crypto.randomUUID(),
             collectionDate: formatDateLocal(currentDate),
             orderType: orderData.orderType || 'standard',
             isRecurring: true,
@@ -300,7 +271,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
             updatedAt: new Date().toISOString(),
           };
           newOrders.push(newOrder);
-          nextIdNum++;
           currentDate = new Date(currentDate);
           currentDate.setDate(currentDate.getDate() + intervalDays);
           count++;
@@ -345,27 +315,9 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       } else {
         // ── Single order ──────────────────────────────────
-        // Fetch the true max ID from the server to avoid collisions
-        // with orders not in the client's stale list.
-        let serverMaxId = 0;
-        try {
-          const allOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
-          serverMaxId = allOrders.reduce((m, o) => {
-            const n = parseInt(o.id);
-            return isNaN(n) ? m : Math.max(m, n);
-          }, 0);
-          console.log('[addOrder] Server max order ID:', serverMaxId, 'client list max:', currentOrders.reduce((m, o) => { const n = parseInt(o.id); return isNaN(n) ? m : Math.max(m, n); }, 0));
-        } catch (err) {
-          console.error('[addOrder] Failed to fetch server max ID, falling back to client list:', err);
-        }
-        const nextId = Math.max(
-          parseInt(getNextOrderId(currentOrders)),
-          serverMaxId + 1
-        ).toString();
-
         const newOrder: Order = {
           ...orderData,
-          id: nextId,
+          id: crypto.randomUUID(),
           orderType: orderData.orderType || 'standard',
           isRecurring: false,
           recurrencePattern: null,
@@ -381,23 +333,11 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         let savedOrder: Order = newOrder;
         try {
           const saved = await ordersApi.save(newOrder);
-          console.log('[addOrder] Save returned success. Saved order:', saved);
-          // Use the server-returned order (may have corrected ID)
           if (saved && saved.id) {
             savedOrder = saved;
-            // Update the optimistic entry with the server's ID if different
             if (saved.id !== newOrder.id) {
-              console.log('[addOrder] Server assigned different ID:', saved.id, 'vs client:', newOrder.id);
               setOrders(prev => prev.map(o => o.id === newOrder.id ? saved : o));
             }
-          }
-
-          // Verify the order was actually persisted by fetching it back
-          try {
-            const verified = await ordersApi.getOne(savedOrder.id);
-            console.log('[addOrder] Post-save verification: order found in DB:', !!verified, 'ID:', verified?.id);
-          } catch (verifyErr) {
-            console.error('[addOrder] Post-save verification FAILED — order NOT found in DB after save:', verifyErr);
           }
         } catch (err) {
           console.error('Failed to save order to DB:', err);
@@ -406,7 +346,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           return newOrder;
         }
 
-        // Reload from server so the client list matches the true DB state
         refreshOrders();
         triggerSync(ordersRef.current, customers);
 
@@ -422,7 +361,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
         errorLogger.info(`Order created: #${savedOrder.id}`);
 
-        // Auto-send email on creation — use the server-confirmed order
         const newCustomer = customers.find(c => c.id === savedOrder.customerId);
         if (savedOrder.status === 'confirmed') {
           autoSendOrderEmail(savedOrder, newCustomer, 'order-confirmed', 'Automation');
