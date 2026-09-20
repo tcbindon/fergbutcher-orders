@@ -221,6 +221,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
       if (!toDelete) return false;
 
       deletedIdsRef.current.add(id);
+      pendingWriteQueue.remove('customer', id);
 
       const previousCustomers = [...customers];
       const remaining = sortByFirstName(customers.filter(c => c.id !== id));

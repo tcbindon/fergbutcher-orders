@@ -111,6 +111,11 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   const ordersRef = useRef(orders);
   ordersRef.current = orders;
 
+  // IDs of orders pending deletion on the server. The auto-refresh
+  // (hydrate) must not bring these back before the server confirms the
+  // delete by no longer returning them.
+  const deletedIdsRef = useRef<Set<string>>(new Set());
+
   // ── Load all orders from DB on mount ─────────────────────
   useEffect(() => {
     if (skipInitialFetch) return;
@@ -135,7 +140,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
     const pendingOrders = pendingWriteQueue.list('order')
       .map(item => item.payload)
       .filter(order => !serverIds.has(order.id));
-    setOrders([...data, ...pendingOrders]);
+    const filtered = data.filter(order => !deletedIdsRef.current.has(order.id));
+    setOrders([...filtered, ...pendingOrders]);
     setLoading(false);
     setError(null);
   }, []);
@@ -630,6 +636,9 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
         const deleteIds = new Set(toDelete.map(o => o.id));
 
+        deleteIds.forEach(id => deletedIdsRef.current.add(id));
+        deleteIds.forEach(id => pendingWriteQueue.remove('order', id));
+
         // Preserve parentOrderId — never let it get wiped by form updates
         const safeUpdates = { ...updates, parentOrderId: parentId };
 
@@ -662,9 +671,13 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         if (generatedOrders.length > 0) dbOps.push(ordersApi.saveAll(generatedOrders));
 
         Promise.all(dbOps)
-          .then(() => triggerSync(ordersRef.current, customers))
+          .then(() => {
+            deleteIds.forEach(id => deletedIdsRef.current.delete(id));
+            triggerSync(ordersRef.current, customers);
+          })
           .catch(err => {
             console.error('Failed to sync recurring series:', err);
+            deleteIds.forEach(id => deletedIdsRef.current.delete(id));
             setError('Failed to update recurring series. Please try again.');
             // Revert: remove generated orders, restore previous state of affected orders
             const generatedIds = new Set(generatedOrders.map(o => o.id));
@@ -721,12 +734,19 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         const targetIds = new Set(targetOrders.map(o => o.id));
         const targetOrdersSnapshot = targetOrders;
 
+        targetIds.forEach(id => deletedIdsRef.current.add(id));
+        targetIds.forEach(id => pendingWriteQueue.remove('order', id));
+
         setOrders(prev => prev.filter(o => !targetIds.has(o.id)));
 
         Promise.all(targetOrders.map(o => ordersApi.delete(o.id)))
-          .then(() => triggerSync(ordersRef.current, customers))
+          .then(() => {
+            targetIds.forEach(id => deletedIdsRef.current.delete(id));
+            triggerSync(ordersRef.current, customers);
+          })
           .catch(err => {
             console.error('Failed to delete future recurring orders:', err);
+            targetIds.forEach(id => deletedIdsRef.current.delete(id));
             // Restore deleted orders
             setOrders(prev => [...prev, ...targetOrdersSnapshot]);
             setError('Failed to delete recurring orders. Please try again.');
@@ -793,12 +813,19 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       const orderToDelete = currentOrders.find(o => o.id === id);
       if (!orderToDelete) return false;
 
+      deletedIdsRef.current.add(id);
+      pendingWriteQueue.remove('order', id);
+
       setOrders(prev => prev.filter(o => o.id !== id));
 
       ordersApi.delete(id)
-        .then(() => triggerSync(ordersRef.current, customers))
+        .then(() => {
+          deletedIdsRef.current.delete(id);
+          triggerSync(ordersRef.current, customers);
+        })
         .catch(err => {
           console.error('Failed to delete order from DB:', err);
+          deletedIdsRef.current.delete(id);
           setError('Failed to delete order. Please try again.');
           // Restore the deleted order
           setOrders(prev => {
@@ -811,6 +838,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         id: `delete-order-${id}`,
         description: `Deleted order #${id}`,
         undo: () => {
+          deletedIdsRef.current.delete(id);
           setOrders(prev => {
             if (prev.some(o => o.id === id)) return prev;
             return [...prev, orderToDelete];
@@ -856,12 +884,19 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       const deleteIds = new Set(toDelete.map(o => o.id));
       const toDeleteSnapshot = toDelete;
 
+      deleteIds.forEach(id => deletedIdsRef.current.add(id));
+      deleteIds.forEach(id => pendingWriteQueue.remove('order', id));
+
       setOrders(prev => prev.filter(o => !deleteIds.has(o.id)));
 
       Promise.all(toDelete.map(o => ordersApi.delete(o.id)))
-        .then(() => triggerSync(ordersRef.current, customers))
+        .then(() => {
+          deleteIds.forEach(id => deletedIdsRef.current.delete(id));
+          triggerSync(ordersRef.current, customers);
+        })
         .catch(err => {
           console.error('Failed to delete recurring series from DB:', err);
+          deleteIds.forEach(id => deletedIdsRef.current.delete(id));
           setError('Failed to delete recurring orders. Please try again.');
           // Restore deleted orders
           setOrders(prev => [...prev, ...toDeleteSnapshot]);
@@ -871,6 +906,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         id: `delete-recurring-${anchor.parentOrderId}-${anchor.collectionDate}`,
         description: `Deleted ${toDelete.length} recurring order${toDelete.length !== 1 ? 's' : ''}`,
         undo: () => {
+          deleteIds.forEach(id => deletedIdsRef.current.delete(id));
           setOrders(prev => [...prev, ...toDeleteSnapshot]);
           toDelete.forEach(o => ordersApi.save(o).catch(console.error));
           errorLogger.info(`Undid deleting ${toDelete.length} recurring orders`);

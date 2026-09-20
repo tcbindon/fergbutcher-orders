@@ -16,6 +16,11 @@ export const useStaffNotes = () => {
   const [error, setError] = useState<string | null>(null);
   const loadedRef = useRef(false);
 
+  // IDs of notes pending deletion on the server. The auto-refresh
+  // (hydrate) must not bring these back before the server confirms the
+  // delete by no longer returning them.
+  const deletedIdsRef = useRef<Set<string>>(new Set());
+
   // ── Lazy load: only called by components that actually show notes ──
   const loadStaffNotes = useCallback(async () => {
     if (loadedRef.current) return; // already loaded, don't re-fetch
@@ -67,15 +72,21 @@ export const useStaffNotes = () => {
   const deleteStaffNote = useCallback((noteId: string) => {
     try {
       const noteToDelete = staffNotes.find(n => n.id === noteId);
+      deletedIdsRef.current.add(noteId);
       setStaffNotes(prev => prev.filter(n => n.id !== noteId));
 
-      staffNotesApi.delete(noteId).catch(err => {
-        console.error('Failed to delete staff note from DB:', err);
-        setError('Failed to delete note. Please try again.');
-        if (noteToDelete) {
-          setStaffNotes(prev => [noteToDelete, ...prev]); // rollback
-        }
-      });
+      staffNotesApi.delete(noteId)
+        .then(() => {
+          deletedIdsRef.current.delete(noteId);
+        })
+        .catch(err => {
+          console.error('Failed to delete staff note from DB:', err);
+          deletedIdsRef.current.delete(noteId);
+          setError('Failed to delete note. Please try again.');
+          if (noteToDelete) {
+            setStaffNotes(prev => [noteToDelete, ...prev]); // rollback
+          }
+        });
 
       return true;
     } catch (err) {
@@ -110,7 +121,8 @@ export const useStaffNotes = () => {
 
   // Hydrate from a combined fetch (avoids a separate round trip)
   const hydrate = useCallback((data: StaffNote[]) => {
-    setStaffNotes(data);
+    const filtered = data.filter(note => !deletedIdsRef.current.has(note.id));
+    setStaffNotes(filtered);
     loadedRef.current = true;
     setLoading(false);
     setError(null);
