@@ -34,10 +34,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     window.clearTimeout(timeout);
   }
   const json = await res.json();
-  console.log(`[API ${options.method || 'GET'}] ${path} → status:`, res.status, 'success:', json.success, 'data length:', Array.isArray(json.data) ? json.data.length : typeof json.data);
+  console.log(`[API ${options.method || 'GET'}] ${path} → status:`, res.status, 'success:', json.success, 'data length:', Array.isArray(json.data) ? json.data.length : typeof json.data, 'response:', json);
   if (!res.ok || !json.success) {
-    const detail = json.error || json.message || (typeof json.data === 'string' ? json.data : '');
-    throw new Error(detail || `HTTP ${res.status}`);
+    const detail = json.error || json.message || json.reason || (typeof json.data === 'string' ? json.data : '');
+    throw new Error(detail || `The server rejected this request (HTTP ${res.status}).`);
   }
   return json.data as T;
 }
@@ -165,7 +165,7 @@ export const ordersApi = {
 
   update: async (id: string, order: Order): Promise<Order> => {
     const { customer: _customer, ...payload } = encodeDateForApi({ ...order, id });
-    const data = await request<Order>(`/orders?id=${encodeURIComponent(id)}`, {
+    const data = await request<Order>('/orders', {
       method: 'POST',
       body: JSON.stringify(payload),
     });

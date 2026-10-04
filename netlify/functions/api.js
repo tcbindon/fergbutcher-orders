@@ -105,6 +105,29 @@ exports.handler = async (event) => {
     });
 
     const data = await response.text();
+    if (!response.ok) {
+      console.error(`[orders API] ${event.httpMethod} ${path} → ${response.status}:`, data);
+    }
+
+    let responseBody = data;
+    if (!response.ok) {
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed && typeof parsed === 'object' && !parsed.error && !parsed.message) {
+          responseBody = JSON.stringify({
+            ...parsed,
+            error: `Upstream API rejected the request with HTTP ${response.status}.`,
+            upstreamResponse: parsed,
+          });
+        }
+      } catch {
+        responseBody = JSON.stringify({
+          success: false,
+          error: `Upstream API rejected the request with HTTP ${response.status}.`,
+          upstreamResponse: data,
+        });
+      }
+    }
 
     return {
       statusCode: response.status,
@@ -113,7 +136,7 @@ exports.handler = async (event) => {
         'Cache-Control': 'no-cache',
         ...corsHeaders(),
       },
-      body: data,
+      body: responseBody,
     };
 
   } catch (err) {
