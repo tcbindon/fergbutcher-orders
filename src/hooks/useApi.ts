@@ -164,7 +164,9 @@ export const ordersApi = {
   },
 
   update: async (id: string, updates: Partial<Order>): Promise<Order> => {
-    const payload = encodeDateForApi({ ...updates, id } as Order);
+    const current = await ordersApi.getOne(id);
+    const { customer: _customer, ...order } = current;
+    const payload = encodeDateForApi({ ...order, ...updates, id } as Order);
     const data = await request<Order>(`/orders?id=${encodeURIComponent(id)}`, {
       method: 'POST',
       body: JSON.stringify(payload),
