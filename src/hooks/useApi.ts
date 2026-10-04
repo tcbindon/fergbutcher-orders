@@ -166,7 +166,7 @@ export const ordersApi = {
   update: async (id: string, updates: Partial<Order>): Promise<Order> => {
     const payload = encodeDateForApi({ ...updates, id } as Order);
     const data = await request<Order>(`/orders?id=${encodeURIComponent(id)}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(payload),
     });
     return normalizeOrderId(data);
