@@ -430,7 +430,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       }
 
       console.log(`[updateOrder] #${id} status: ${previousOrder.status} → ${updates.status ?? '(unchanged)'}, updatedAt: ${updatedAt}`);
-      ordersApi.update(id, { ...updates, updatedAt })
+      ordersApi.update(id, { ...previousOrder, ...updates, updatedAt } as Order)
         .then((serverOrder) => {
           console.log(`[updateOrder] #${id} server confirmed update`);
           setOrders(prev => prev.map(o => o.id === id ? { ...serverOrder, updatedAt: serverOrder.updatedAt || updatedAt } : o));
@@ -463,7 +463,12 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       setOrders(prev => prev.map(o =>
         idSet.has(o.id) ? { ...o, status, updatedAt } : o
       ));
-      Promise.all(ids.map(id => ordersApi.update(id, { status, updatedAt })))
+      Promise.all(ids.map(id => {
+        const order = currentOrders.find(o => o.id === id);
+        return order
+          ? ordersApi.update(id, { ...order, status, updatedAt })
+          : Promise.reject(new Error(`Order ${id} was not found`));
+      }))
         .then((serverOrders) => {
           const serverMap = new Map(serverOrders.map(o => [o.id, o]));
           setOrders(prev => prev.map(o => {
@@ -551,6 +556,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
         Promise.all([
           ordersApi.update(originalOrder.id, {
+            ...originalOrder,
             ...updates,
             isRecurring: true,
             recurrencePattern: updates.recurrencePattern,
@@ -644,8 +650,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         toDelete.forEach(o => dbOps.push(ordersApi.delete(o.id)));
         toKeep.forEach(o => {
           const patch = o.id === id
-            ? { ...safeUpdates, recurrenceEndDate: newEndDate, updatedAt }
-            : { recurrenceEndDate: newEndDate, updatedAt };
+            ? { ...o, ...safeUpdates, recurrenceEndDate: newEndDate, updatedAt }
+            : { ...o, recurrenceEndDate: newEndDate, updatedAt };
           dbOps.push(ordersApi.update(o.id, patch));
         });
         if (generatedOrders.length > 0) dbOps.push(ordersApi.saveAll(generatedOrders));
@@ -765,7 +771,12 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       }
 
       const ids = Array.from(targetIds);
-      Promise.all(ids.map(id => ordersApi.update(id, { ...sharedUpdates, updatedAt })))
+      Promise.all(ids.map(id => {
+        const order = currentOrders.find(o => o.id === id);
+        return order
+          ? ordersApi.update(id, { ...order, ...sharedUpdates, updatedAt })
+          : Promise.reject(new Error(`Order ${id} was not found`));
+      }))
         .then((serverOrders) => {
           const serverMap = new Map(serverOrders.map(o => [o.id, o]));
           setOrders(prev => prev.map(o => {
