@@ -134,14 +134,48 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
     return () => { cancelled = true; };
   }, [skipInitialFetch]);
 
-  // Hydrate from a combined fetch (avoids a separate round trip)
+  // Hydrate from a combined fetch (avoids a separate round trip).
+  // Merges with local state by updatedAt so a delayed background
+  // refresh can't clobber an optimistic status change that hasn't
+  // been confirmed by the server yet.
   const hydrate = useCallback((data: Order[]) => {
-    const serverIds = new Set(data.map(order => order.id));
+    const serverMap = new Map(data.map(o => [o.id, o]));
     const pendingOrders = pendingWriteQueue.list('order')
       .map(item => item.payload)
-      .filter(order => !serverIds.has(order.id));
+      .filter(order => !serverMap.has(order.id));
     const filtered = data.filter(order => !deletedIdsRef.current.has(order.id));
-    setOrders([...filtered, ...pendingOrders]);
+    const serverFiltered = new Map(filtered.map(o => [o.id, o]));
+
+    setOrders(prev => {
+      const result: Order[] = [];
+      const seen = new Set<string>();
+
+      for (const localOrder of prev) {
+        seen.add(localOrder.id);
+        const serverOrder = serverFiltered.get(localOrder.id);
+        if (!serverOrder) {
+          result.push(localOrder);
+          continue;
+        }
+        const localTs  = localOrder.updatedAt  ? new Date(localOrder.updatedAt).getTime()  : 0;
+        const serverTs = serverOrder.updatedAt ? new Date(serverOrder.updatedAt).getTime() : 0;
+        result.push(serverTs > localTs ? serverOrder : localOrder);
+      }
+
+      for (const serverOrder of filtered) {
+        if (!seen.has(serverOrder.id)) {
+          result.push(serverOrder);
+        }
+      }
+
+      for (const pendingOrder of pendingOrders) {
+        if (!seen.has(pendingOrder.id)) {
+          result.push(pendingOrder);
+        }
+      }
+
+      return result;
+    });
     setLoading(false);
     setError(null);
   }, []);
@@ -397,8 +431,9 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       console.log(`[updateOrder] #${id} status: ${previousOrder.status} → ${updates.status ?? '(unchanged)'}, updatedAt: ${updatedAt}`);
       ordersApi.update(id, { ...updates, updatedAt })
-        .then(() => {
+        .then((serverOrder) => {
           console.log(`[updateOrder] #${id} server confirmed update`);
+          setOrders(prev => prev.map(o => o.id === id ? { ...serverOrder, updatedAt: serverOrder.updatedAt || updatedAt } : o));
           triggerSync(ordersRef.current, customers);
         })
         .catch(err => {
@@ -429,7 +464,14 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         idSet.has(o.id) ? { ...o, status, updatedAt } : o
       ));
       Promise.all(ids.map(id => ordersApi.update(id, { status, updatedAt })))
-        .then(() => triggerSync(ordersRef.current, customers))
+        .then((serverOrders) => {
+          const serverMap = new Map(serverOrders.map(o => [o.id, o]));
+          setOrders(prev => prev.map(o => {
+            const serverOrder = serverMap.get(o.id);
+            return serverOrder ? { ...serverOrder, updatedAt: serverOrder.updatedAt || updatedAt } : o;
+          }));
+          triggerSync(ordersRef.current, customers);
+        })
         .catch(err => {
           console.error('Failed to bulk update orders:', err);
           // Revert only the affected orders
@@ -724,7 +766,14 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       const ids = Array.from(targetIds);
       Promise.all(ids.map(id => ordersApi.update(id, { ...sharedUpdates, updatedAt })))
-        .then(() => triggerSync(ordersRef.current, customers))
+        .then((serverOrders) => {
+          const serverMap = new Map(serverOrders.map(o => [o.id, o]));
+          setOrders(prev => prev.map(o => {
+            const serverOrder = serverMap.get(o.id);
+            return serverOrder ? { ...serverOrder, updatedAt: serverOrder.updatedAt || updatedAt } : o;
+          }));
+          triggerSync(ordersRef.current, customers);
+        })
         .catch(err => {
           console.error('Failed to update future recurring orders:', err);
           // Revert only the affected orders
