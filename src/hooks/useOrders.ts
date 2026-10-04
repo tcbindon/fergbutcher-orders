@@ -11,7 +11,6 @@ import { Order, Customer, EmailTemplate } from '../types';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { ordersApi } from './useApi';
-import { pendingWriteQueue } from '../services/pendingWriteQueue';
 import { emailSettings, emailLog, sendTemplateEmail } from '../services/emailService';
 
 const parseDateLocal = (s: string) => {
@@ -134,120 +133,22 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
     return () => { cancelled = true; };
   }, [skipInitialFetch]);
 
-  // Hydrate from a combined fetch (avoids a separate round trip).
-  // Merges with local state by updatedAt so a delayed background
-  // refresh can't clobber an optimistic status change that hasn't
-  // been confirmed by the server yet.
+  // Hydrate from the server so every browser sees the same order list.
   const hydrate = useCallback((data: Order[]) => {
-    const serverMap = new Map(data.map(o => [o.id, o]));
-    const pendingOrders = pendingWriteQueue.list('order')
-      .map(item => item.payload)
-      .filter(order => !serverMap.has(order.id));
-    const filtered = data.filter(order => !deletedIdsRef.current.has(order.id));
-    const serverFiltered = new Map(filtered.map(o => [o.id, o]));
-
-    setOrders(prev => {
-      const result: Order[] = [];
-      const seen = new Set<string>();
-
-      for (const localOrder of prev) {
-        seen.add(localOrder.id);
-        const serverOrder = serverFiltered.get(localOrder.id);
-        if (!serverOrder) {
-          result.push(localOrder);
-          continue;
-        }
-        const localTs  = localOrder.updatedAt  ? new Date(localOrder.updatedAt).getTime()  : 0;
-        const serverTs = serverOrder.updatedAt ? new Date(serverOrder.updatedAt).getTime() : 0;
-        result.push(serverTs > localTs ? serverOrder : localOrder);
-      }
-
-      for (const serverOrder of filtered) {
-        if (!seen.has(serverOrder.id)) {
-          result.push(serverOrder);
-        }
-      }
-
-      for (const pendingOrder of pendingOrders) {
-        if (!seen.has(pendingOrder.id)) {
-          result.push(pendingOrder);
-        }
-      }
-
-      return result;
-    });
+    setOrders(data.filter(order => !deletedIdsRef.current.has(order.id)));
     setLoading(false);
     setError(null);
   }, []);
 
-  // Re-fetch all orders from the server (used after saves to keep the
-  // client list in sync with the true DB state). Merges with local state
-  // instead of blindly overwriting — for each order, whichever copy
-  // (local vs server) has the newer updatedAt wins. This prevents a
-  // delayed background refresh from clobbering an optimistic status
-  // change that was made between the refresh request and its response.
+  // Re-fetch all orders from the server after a successful save.
   const refreshOrders = useCallback(async () => {
     try {
       const data = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
-      setOrders(prev => {
-        const serverMap = new Map(data.map(o => [o.id, o]));
-        const result: Order[] = [];
-        const seen = new Set<string>();
-
-        for (const localOrder of prev) {
-          seen.add(localOrder.id);
-          const serverOrder = serverMap.get(localOrder.id);
-          if (!serverOrder) {
-            // Order exists locally but not on server — keep local (may be a
-            // very recent optimistic add whose save hasn't landed yet).
-            result.push(localOrder);
-            continue;
-          }
-          // Both exist — keep whichever was updated more recently.
-          const localTs  = localOrder.updatedAt  ? new Date(localOrder.updatedAt).getTime()  : 0;
-          const serverTs = serverOrder.updatedAt ? new Date(serverOrder.updatedAt).getTime() : 0;
-          result.push(serverTs > localTs ? serverOrder : localOrder);
-        }
-
-        // Add any server orders not present locally (e.g. created by
-        // another session or a background process).
-        for (const serverOrder of data) {
-          if (!seen.has(serverOrder.id)) {
-            result.push(serverOrder);
-          }
-        }
-
-        console.log('[refreshOrders] Merged', data.length, 'server orders with', prev.length, 'local orders →', result.length);
-        return result;
-      });
+      setOrders(data.filter(order => !deletedIdsRef.current.has(order.id)));
     } catch (err) {
       console.error('[refreshOrders] Failed to reload orders:', err);
     }
   }, []);
-
-  const retryPendingOrders = useCallback(async () => {
-    for (const item of pendingWriteQueue.list('order')) {
-      try {
-        await ordersApi.save(item.payload);
-        pendingWriteQueue.remove('order', item.id);
-      } catch (err) {
-        console.warn('Pending order save will be retried later:', err);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const retry = () => {
-      if (navigator.onLine) void retryPendingOrders();
-    };
-    retry();
-    window.addEventListener('online', retry);
-    const retryTimer = window.setInterval(retry, 30000);
-    return () => {
-      window.removeEventListener('online', retry);
-      window.clearInterval(retryTimer);
-    };
-  }, [retryPendingOrders]);
 
   // ── Helpers ───────────────────────────────────────────────
   const getNextOrderId = (_existingOrders: Order[], _extra: Order[] = []): string =>
@@ -289,17 +190,15 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           count++;
         }
 
-        // Optimistic update
-        setOrders(prev => [...newOrders, ...prev]);
-
         try {
           await ordersApi.saveAll(newOrders);
         } catch (err) {
           console.error('Failed to save recurring orders to DB:', err);
-          newOrders.forEach(order => pendingWriteQueue.upsert({ kind: 'order', id: order.id, payload: order, queuedAt: new Date().toISOString() }));
-          setError('Orders are shown here but have not reached the server yet. We will keep retrying.');
-          return newOrders[0];
+          setError('Failed to save recurring orders. Please try again.');
+          return null;
         }
+
+        setOrders(prev => [...newOrders, ...prev]);
 
         // Reload from server so the client list matches the true DB state
         refreshOrders();
@@ -340,25 +239,16 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           updatedAt: new Date().toISOString(),
         };
 
-        // Optimistic update
-        setOrders(prev => [newOrder, ...prev]);
-
-        let savedOrder: Order = newOrder;
+        let savedOrder: Order;
         try {
-          const saved = await ordersApi.save(newOrder);
-          if (saved && saved.id) {
-            savedOrder = saved;
-            if (saved.id !== newOrder.id) {
-              setOrders(prev => prev.map(o => o.id === newOrder.id ? saved : o));
-            }
-          }
+          savedOrder = await ordersApi.save(newOrder);
         } catch (err) {
           console.error('Failed to save order to DB:', err);
-          pendingWriteQueue.upsert({ kind: 'order', id: newOrder.id, payload: newOrder, queuedAt: new Date().toISOString() });
-          setError('Order is shown here but has not reached the server yet. We will keep retrying.');
-          return newOrder;
+          setError('Failed to save order. Please try again.');
+          return null;
         }
 
+        setOrders(prev => [savedOrder, ...prev]);
         refreshOrders();
         triggerSync(ordersRef.current, customers);
 
@@ -399,26 +289,19 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       const previousOrder = currentOrders.find(o => o.id === id);
       if (!previousOrder) return false;
 
-      // Optimistic update — functional so we never overwrite concurrent changes
-      setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates, updatedAt } : o));
-
-      // Auto-send confirmation email on status change to 'confirmed'
-      if (updates.status === 'confirmed' && previousOrder.status !== 'confirmed') {
-        const customer = customers.find(c => c.id === previousOrder.customerId);
-        autoSendOrderEmail({ ...previousOrder, ...updates, updatedAt } as Order, customer, 'order-confirmed', 'Automation');
-      }
-
       console.log(`[updateOrder] #${id} status: ${previousOrder.status} → ${updates.status ?? '(unchanged)'}, updatedAt: ${updatedAt}`);
       ordersApi.update(id, { ...previousOrder, ...updates, updatedAt } as Order)
         .then((serverOrder) => {
           console.log(`[updateOrder] #${id} server confirmed update`);
-          setOrders(prev => prev.map(o => o.id === id ? { ...serverOrder, updatedAt: serverOrder.updatedAt || updatedAt } : o));
+          setOrders(prev => prev.map(o => o.id === id ? serverOrder : o));
+          if (updates.status === 'confirmed' && previousOrder.status !== 'confirmed') {
+            const customer = customers.find(c => c.id === previousOrder.customerId);
+            autoSendOrderEmail(serverOrder, customer, 'order-confirmed', 'Automation');
+          }
           triggerSync(ordersRef.current, customers);
         })
         .catch(err => {
           console.error(`Failed to update order #${id} in DB:`, err);
-          // Revert only the affected order, preserving any concurrent changes
-          setOrders(prev => prev.map(o => o.id === id ? previousOrder : o));
           setError('Failed to update order. Please try again.');
         });
 
@@ -437,11 +320,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       const updatedAt = new Date().toISOString();
       const idSet = new Set(ids);
       const currentOrders = ordersRef.current;
-      const previousOrders = currentOrders.filter(o => idSet.has(o.id));
-
-      setOrders(prev => prev.map(o =>
-        idSet.has(o.id) ? { ...o, status, updatedAt } : o
-      ));
       Promise.all(ids.map(id => {
         const order = currentOrders.find(o => o.id === id);
         return order
@@ -458,12 +336,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         })
         .catch(err => {
           console.error('Failed to bulk update orders:', err);
-          // Revert only the affected orders
-          const prevMap = new Map(previousOrders.map(o => [o.id, o]));
-          setOrders(prev => prev.map(o => {
-            const prevOrder = prevMap.get(o.id);
-            return prevOrder ? prevOrder : o;
-          }));
           setError('Failed to update orders. Please try again.');
         });
       return true;
@@ -602,7 +474,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         const deleteIds = new Set(toDelete.map(o => o.id));
 
         deleteIds.forEach(id => deletedIdsRef.current.add(id));
-        deleteIds.forEach(id => pendingWriteQueue.remove('order', id));
 
         // Preserve parentOrderId — never let it get wiped by form updates
         const safeUpdates = { ...updates, parentOrderId: parentId };
@@ -700,7 +571,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         const targetOrdersSnapshot = targetOrders;
 
         targetIds.forEach(id => deletedIdsRef.current.add(id));
-        targetIds.forEach(id => pendingWriteQueue.remove('order', id));
 
         setOrders(prev => prev.filter(o => !targetIds.has(o.id)));
 
@@ -791,7 +661,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       if (!orderToDelete) return false;
 
       deletedIdsRef.current.add(id);
-      pendingWriteQueue.remove('order', id);
 
       setOrders(prev => prev.filter(o => o.id !== id));
 
@@ -862,7 +731,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       const toDeleteSnapshot = toDelete;
 
       deleteIds.forEach(id => deletedIdsRef.current.add(id));
-      deleteIds.forEach(id => pendingWriteQueue.remove('order', id));
 
       setOrders(prev => prev.filter(o => !deleteIds.has(o.id)));
 
