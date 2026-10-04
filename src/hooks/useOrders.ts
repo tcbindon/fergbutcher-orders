@@ -228,27 +228,6 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   const retryPendingOrders = useCallback(async () => {
     for (const item of pendingWriteQueue.list('order')) {
       try {
-        let existing: Order | null = null;
-        try {
-          existing = await ordersApi.getOne(item.id);
-        } catch {
-          existing = null;
-        }
-
-        if (existing && existing.createdAt === item.payload.createdAt) {
-          pendingWriteQueue.remove('order', item.id);
-          continue;
-        }
-
-        if (existing) {
-          const replacement = { ...item.payload, id: crypto.randomUUID() };
-          await ordersApi.save(replacement);
-          pendingWriteQueue.remove('order', item.id);
-          ordersRef.current = ordersRef.current.map(order => order.id === item.id ? replacement : order);
-          setOrders(current => current.map(order => order.id === item.id ? replacement : order));
-          continue;
-        }
-
         await ordersApi.save(item.payload);
         pendingWriteQueue.remove('order', item.id);
       } catch (err) {
