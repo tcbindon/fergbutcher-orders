@@ -36,7 +36,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const json = await res.json();
   console.log(`[API ${options.method || 'GET'}] ${path} → status:`, res.status, 'success:', json.success, 'data length:', Array.isArray(json.data) ? json.data.length : typeof json.data);
   if (!res.ok || !json.success) {
-    throw new Error(json.error || `HTTP ${res.status}`);
+    const detail = json.error || json.message || (typeof json.data === 'string' ? json.data : '');
+    throw new Error(detail || `HTTP ${res.status}`);
   }
   return json.data as T;
 }
@@ -163,7 +164,11 @@ export const ordersApi = {
   },
 
   update: async (id: string, updates: Partial<Order>): Promise<Order> => {
-    const data = await request<Order>(`/orders?id=${id}`, { method: 'PUT', body: JSON.stringify(encodeDateForApi(updates as Order)) });
+    const payload = encodeDateForApi({ ...updates, id } as Order);
+    const data = await request<Order>(`/orders?id=${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
     return normalizeOrderId(data);
   },
 
