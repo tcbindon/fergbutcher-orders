@@ -160,7 +160,11 @@ export const ordersApi = {
 
   save: async (order: Order): Promise<Order> => {
     const data = await request<Order>('/orders', { method: 'POST', body: JSON.stringify(encodeDateForApi(omitTemporaryId(order) as Order)) });
-    return normalizeOrderId(data);
+    const merged = { ...order, ...data };
+    if (!merged.status || !VALID_STATUSES.has(merged.status)) {
+      merged.status = order.status || 'pending';
+    }
+    return normalizeOrderId(merged);
   },
 
   update: async (id: string, order: Order): Promise<Order> => {
@@ -169,7 +173,13 @@ export const ordersApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    return normalizeOrderId(data);
+    // The server's update response may omit fields like status.
+    // Merge with the sent data so nothing we just saved is lost.
+    const merged = { ...order, ...data };
+    if (!merged.status || !VALID_STATUSES.has(merged.status)) {
+      merged.status = order.status || 'pending';
+    }
+    return normalizeOrderId({ ...merged, id: String(data.id ?? id) });
   },
 
   delete: (id: string): Promise<{ id: string }> =>

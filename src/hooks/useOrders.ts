@@ -290,10 +290,13 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       if (!previousOrder) return false;
 
       console.log(`[updateOrder] #${id} status: ${previousOrder.status} → ${updates.status ?? '(unchanged)'}, updatedAt: ${updatedAt}`);
-      ordersApi.update(id, { ...previousOrder, ...updates, updatedAt } as Order)
+      const sentOrder = { ...previousOrder, ...updates, updatedAt } as Order;
+      ordersApi.update(id, sentOrder)
         .then((serverOrder) => {
-          console.log(`[updateOrder] #${id} server confirmed update`);
-          setOrders(prev => prev.map(o => o.id === id ? serverOrder : o));
+          console.log(`[updateOrder] #${id} server confirmed update, status: ${serverOrder.status}`);
+          // Merge so fields the server omits (e.g. status) fall back to what we sent.
+          const mergedOrder = { ...sentOrder, ...serverOrder, id: serverOrder.id || id };
+          setOrders(prev => prev.map(o => o.id === id ? mergedOrder : o));
           if (updates.status === 'confirmed' && previousOrder.status !== 'confirmed') {
             const customer = customers.find(c => c.id === previousOrder.customerId);
             autoSendOrderEmail(serverOrder, customer, 'order-confirmed', 'Automation');
