@@ -321,25 +321,36 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   const bulkUpdateStatus = useCallback((ids: string[], status: Order['status'], customers: Customer[] = []) => {
     try {
       const updatedAt = new Date().toISOString();
-      const idSet = new Set(ids);
       const currentOrders = ordersRef.current;
-      Promise.all(ids.map(id => {
+      const requestedOrders = ids.flatMap(id => {
         const order = currentOrders.find(o => o.id === id);
-        return order
-          ? ordersApi.update(id, { ...order, status, updatedAt })
-          : Promise.reject(new Error(`Order ${id} was not found`));
-      }))
-        .then((serverOrders) => {
-          const serverMap = new Map(serverOrders.map(o => [o.id, o]));
-          setOrders(prev => prev.map(o => {
-            const serverOrder = serverMap.get(o.id);
-            return serverOrder ? { ...serverOrder, updatedAt: serverOrder.updatedAt || updatedAt } : o;
-          }));
+        return order ? [{ id, order: { ...order, status, updatedAt } }] : [];
+      });
+      if (requestedOrders.length !== ids.length) {
+        setError('One or more orders could not be found.');
+        return false;
+      }
+
+      Promise.allSettled(requestedOrders.map(({ id, order }) => ordersApi.update(id, order)))
+        .then(results => {
+          const successfulOrders = new Map<string, Order>();
+          let failedCount = 0;
+          results.forEach((result, index) => {
+            const { id, order } = requestedOrders[index];
+            if (result.status === 'fulfilled') {
+              successfulOrders.set(id, { ...order, ...result.value, id });
+            } else {
+              failedCount++;
+              console.error(`Failed to bulk update order #${id}:`, result.reason);
+            }
+          });
+          setOrders(prev => prev.map(order => successfulOrders.get(order.id) ?? order));
+          if (failedCount > 0) {
+            setError(`${failedCount} order${failedCount === 1 ? '' : 's'} could not be updated. The others were saved.`);
+          } else {
+            setError(null);
+          }
           triggerSync(ordersRef.current, customers);
-        })
-        .catch(err => {
-          console.error('Failed to bulk update orders:', err);
-          setError('Failed to update orders. Please try again.');
         });
       return true;
     } catch (err) {
@@ -794,13 +805,13 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       return name.includes(term) ||
         phone.includes(normalised) ||
         (customer?.email && customer.email.toLowerCase().includes(term)) ||
-        o.items.some(i => i.description.toLowerCase().includes(term)) ||
+        o.items?.some(i => i.description.toLowerCase().includes(term)) ||
         o.additionalNotes?.toLowerCase().includes(term);
     });
   };
 
   const getOrderStats = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatDateLocal(new Date());
     const current = orders.filter(o => o.collectionDate >= today);
     const todaysOrders = current.filter(o => o.collectionDate === today);
     return {

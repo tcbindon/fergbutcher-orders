@@ -60,20 +60,16 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
 
         if (existing && existing.createdAt === item.payload.createdAt) {
           pendingWriteQueue.remove('customer', item.id);
+          customersRef.current = customersRef.current.map(customer => customer.id === item.id ? existing : customer);
+          setCustomers(current => sortByFirstName(current.map(customer => customer.id === item.id ? existing : customer)));
           continue;
         }
 
-        if (existing) {
-          const replacement = { ...item.payload, id: crypto.randomUUID() };
-          await customersApi.save(replacement);
-          pendingWriteQueue.remove('customer', item.id);
-          customersRef.current = customersRef.current.map(customer => customer.id === item.id ? replacement : customer);
-          setCustomers(current => sortByFirstName(current.map(customer => customer.id === item.id ? replacement : customer)));
-          continue;
-        }
-
-        await customersApi.save(item.payload);
+        const payload = existing ? { ...item.payload, id: crypto.randomUUID() } : item.payload;
+        const savedCustomer = await customersApi.save(payload);
         pendingWriteQueue.remove('customer', item.id);
+        customersRef.current = customersRef.current.map(customer => customer.id === item.id ? savedCustomer : customer);
+        setCustomers(current => sortByFirstName(current.map(customer => customer.id === item.id ? savedCustomer : customer)));
       } catch (err) {
         console.warn('Pending customer save will be retried later:', err);
       }
