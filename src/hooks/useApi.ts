@@ -170,7 +170,7 @@ export const ordersApi = {
   update: async (id: string, order: Order): Promise<Order> => {
     const { customer: _customer, ...payload } = encodeDateForApi({ ...order, id });
     const data = await request<Order>(`/orders?id=${encodeURIComponent(id)}`, {
-      method: 'POST',
+      method: 'PUT',
       body: JSON.stringify(payload),
     });
     // The server's update response may omit fields like status.
