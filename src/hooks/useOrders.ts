@@ -11,6 +11,7 @@ import { Order, Customer, EmailTemplate } from '../types';
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { ordersApi } from './useApi';
+import { pendingWriteQueue } from '../services/pendingWriteQueue';
 import { emailSettings, emailLog, sendTemplateEmail } from '../services/emailService';
 
 const parseDateLocal = (s: string) => {
@@ -135,7 +136,14 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
   // Hydrate from the server so every browser sees the same order list.
   const hydrate = useCallback((data: Order[]) => {
-    setOrders(data.filter(order => !deletedIdsRef.current.has(order.id)));
+    const serverIds = new Set(data.map(o => o.id));
+    const pendingOrders = pendingWriteQueue.list('order')
+      .map(item => item.payload)
+      .filter(order => !serverIds.has(order.id));
+    setOrders([
+      ...data.filter(order => !deletedIdsRef.current.has(order.id)),
+      ...pendingOrders,
+    ]);
     setLoading(false);
     setError(null);
   }, []);
@@ -149,6 +157,46 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       console.error('[refreshOrders] Failed to reload orders:', err);
     }
   }, []);
+
+  // Retry orders that were queued because the server was unreachable.
+  const retryPendingOrders = useCallback(async () => {
+    for (const item of pendingWriteQueue.list('order')) {
+      try {
+        let existing: Order | null = null;
+        try {
+          existing = await ordersApi.getOne(item.id);
+        } catch {
+          existing = null;
+        }
+
+        if (existing && existing.createdAt === item.payload.createdAt) {
+          const serverOrder = existing;
+          pendingWriteQueue.remove('order', item.id);
+          setOrders(prev => prev.map(o => o.id === item.id ? serverOrder : o));
+          continue;
+        }
+
+        const savedOrder = await ordersApi.save(item.payload);
+        pendingWriteQueue.remove('order', item.id);
+        setOrders(prev => prev.map(o => o.id === item.id ? savedOrder : o));
+      } catch (err) {
+        console.warn('Pending order save will be retried later:', err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const retry = () => {
+      if (navigator.onLine) void retryPendingOrders();
+    };
+    retry();
+    window.addEventListener('online', retry);
+    const retryTimer = window.setInterval(retry, 30000);
+    return () => {
+      window.removeEventListener('online', retry);
+      window.clearInterval(retryTimer);
+    };
+  }, [retryPendingOrders]);
 
   // ── Helpers ───────────────────────────────────────────────
   const getNextOrderId = (_existingOrders: Order[], _extra: Order[] = []): string =>
@@ -190,26 +238,30 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           count++;
         }
 
+        let wasQueued = false;
         try {
           await ordersApi.saveAll(newOrders);
         } catch (err) {
           console.error('Failed to save recurring orders to DB:', err);
-          setError('Failed to save recurring orders. Please try again.');
-          return null;
+          newOrders.forEach(o => pendingWriteQueue.upsert({ kind: 'order', id: o.id, payload: o, queuedAt: new Date().toISOString() }));
+          setError('These orders could not be saved to the server. They are saved on this device and will be sent automatically when the connection returns.');
+          wasQueued = true;
         }
 
         setOrders(prev => [...newOrders, ...prev]);
 
-        // Reload from server so the client list matches the true DB state
-        refreshOrders();
-        triggerSync(ordersRef.current, customers);
+        if (!wasQueued) {
+          refreshOrders();
+          triggerSync(ordersRef.current, customers);
+        }
 
         addUndoAction({
           id: `add-recurring-orders-${parentOrderId}`,
           description: `Created ${newOrders.length} recurring orders (${orderData.recurrencePattern})`,
           undo: () => {
+            newOrders.forEach(o => pendingWriteQueue.remove('order', o.id));
             setOrders(prev => prev.filter(o => !newOrders.some(n => n.id === o.id)));
-            newOrders.forEach(o => ordersApi.delete(o.id).catch(console.error));
+            if (!wasQueued) newOrders.forEach(o => ordersApi.delete(o.id).catch(console.error));
             errorLogger.info(`Undid creating ${newOrders.length} recurring orders`);
           }
         });
@@ -239,36 +291,45 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           updatedAt: new Date().toISOString(),
         };
 
-        let savedOrder: Order;
+        let savedOrder: Order = newOrder;
+        let wasQueued = false;
         try {
           savedOrder = await ordersApi.save(newOrder);
         } catch (err) {
           console.error('Failed to save order to DB:', err);
-          setError('Failed to save order. Please try again.');
-          return null;
+          pendingWriteQueue.upsert({ kind: 'order', id: newOrder.id, payload: newOrder, queuedAt: new Date().toISOString() });
+          setError('This order could not be saved to the server. It is saved on this device and will be sent automatically when the connection returns.');
+          wasQueued = true;
         }
 
         setOrders(prev => [savedOrder, ...prev]);
-        refreshOrders();
-        triggerSync(ordersRef.current, customers);
+
+        if (!wasQueued) {
+          refreshOrders();
+          triggerSync(ordersRef.current, customers);
+        }
 
         addUndoAction({
           id: `add-order-${savedOrder.id}`,
           description: `Created order #${savedOrder.id}`,
           undo: () => {
+            pendingWriteQueue.remove('order', savedOrder.id);
             setOrders(prev => prev.filter(o => o.id !== savedOrder.id));
-            ordersApi.delete(savedOrder.id).catch(console.error);
+            if (!wasQueued) ordersApi.delete(savedOrder.id).catch(console.error);
             errorLogger.info(`Undid creating order #${savedOrder.id}`);
           }
         });
 
-        errorLogger.info(`Order created: #${savedOrder.id}`);
-
-        const newCustomer = customers.find(c => c.id === savedOrder.customerId);
-        if (savedOrder.status === 'confirmed') {
-          autoSendOrderEmail(savedOrder, newCustomer, 'order-confirmed', 'Automation');
-        } else if (savedOrder.status === 'pending') {
-          autoSendOrderEmail(savedOrder, newCustomer, 'order-received', 'Automation');
+        if (wasQueued) {
+          errorLogger.info(`Order queued for retry: #${newOrder.id}`);
+        } else {
+          errorLogger.info(`Order created: #${savedOrder.id}`);
+          const newCustomer = customers.find(c => c.id === savedOrder.customerId);
+          if (savedOrder.status === 'confirmed') {
+            autoSendOrderEmail(savedOrder, newCustomer, 'order-confirmed', 'Automation');
+          } else if (savedOrder.status === 'pending') {
+            autoSendOrderEmail(savedOrder, newCustomer, 'order-received', 'Automation');
+          }
         }
 
         return savedOrder;
