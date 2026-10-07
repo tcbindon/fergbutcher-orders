@@ -367,13 +367,35 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         })
         .catch(err => {
           if (err instanceof Error && err.message === 'Order not found') {
-            ordersApi.save(sentOrder)
-              .then((recreatedOrder) => {
-                setOrders(prev => prev.map(o => o.id === id ? recreatedOrder : o));
+            ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' })
+              .then(serverOrders => {
+                const itemKey = (order: Order): string => JSON.stringify(
+                  order.items.map(item => ({ description: item.description, quantity: item.quantity, unit: item.unit }))
+                );
+                const matchingServerOrder = serverOrders.find(serverOrder =>
+                  serverOrder.createdAt === sentOrder.createdAt
+                ) ?? serverOrders.find(serverOrder =>
+                  serverOrder.customerId === sentOrder.customerId &&
+                  serverOrder.collectionDate === sentOrder.collectionDate &&
+                  serverOrder.collectionTime === sentOrder.collectionTime &&
+                  itemKey(serverOrder) === itemKey(sentOrder)
+                );
+
+                if (!matchingServerOrder) {
+                  throw new Error('Order not found');
+                }
+
+                return ordersApi.update(matchingServerOrder.id, {
+                  ...sentOrder,
+                  id: matchingServerOrder.id,
+                });
+              })
+              .then((savedOrder) => {
+                setOrders(prev => prev.map(o => o.id === id ? savedOrder : o));
                 triggerSync(ordersRef.current, customers);
               })
-              .catch(recreateError => {
-                console.error(`Failed to recreate missing order #${id}:`, recreateError);
+              .catch(resolveError => {
+                console.error(`Failed to resolve server ID for order #${id}:`, resolveError);
                 setOrders(prev => prev.map(o => o.id === id ? previousOrder : o));
                 setError('Failed to save the order. Please try again.');
               });
