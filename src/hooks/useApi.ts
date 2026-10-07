@@ -92,15 +92,6 @@ const decodeOrderDates = (orders: Order[]): Order[] => orders.map(decodeOrderDat
 const normalizeCustomerId = (c: Customer): Customer => ({ ...c, id: String(c.id) });
 const normalizeCustomerIds = (cs: Customer[]): Customer[] => cs.map(normalizeCustomerId);
 
-const isTemporaryId = (id: string): boolean =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
-
-const omitTemporaryId = <T extends { id: string }>(record: T): Omit<T, 'id'> | T => {
-  if (!isTemporaryId(record.id)) return record;
-  const { id: _id, ...withoutId } = record;
-  return withoutId;
-};
-
 export const customersApi = {
   getAll: async (): Promise<Customer[]> => {
     const data = await request<Customer[]>('/customers');
@@ -113,7 +104,7 @@ export const customersApi = {
   },
 
   save: async (customer: Customer): Promise<Customer> => {
-    const data = await request<Customer>('/customers', { method: 'POST', body: JSON.stringify(omitTemporaryId(customer)) });
+    const data = await request<Customer>('/customers', { method: 'POST', body: JSON.stringify(customer) });
     return normalizeCustomerId(data);
   },
 
@@ -173,7 +164,7 @@ export const ordersApi = {
   save: async (order: Order): Promise<Order> => {
     const data = await request<Partial<Order> | null>('/orders', {
       method: 'POST',
-      body: JSON.stringify(encodeDateForApi(omitTemporaryId(order) as Order)),
+      body: JSON.stringify(encodeDateForApi(order)),
     });
 
     let persistedOrder = data?.id
