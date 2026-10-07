@@ -366,6 +366,20 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           triggerSync(ordersRef.current, customers);
         })
         .catch(err => {
+          if (err instanceof Error && err.message === 'Order not found') {
+            ordersApi.save(sentOrder)
+              .then((recreatedOrder) => {
+                setOrders(prev => prev.map(o => o.id === id ? recreatedOrder : o));
+                triggerSync(ordersRef.current, customers);
+              })
+              .catch(recreateError => {
+                console.error(`Failed to recreate missing order #${id}:`, recreateError);
+                setOrders(prev => prev.map(o => o.id === id ? previousOrder : o));
+                setError('Failed to save the order. Please try again.');
+              });
+            return;
+          }
+
           console.error(`Failed to update order #${id} in DB:`, err);
           setOrders(prev => prev.map(o => o.id === id ? previousOrder : o));
           setError('Failed to update order. Please try again.');
