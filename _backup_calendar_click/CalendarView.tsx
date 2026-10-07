@@ -28,7 +28,6 @@ const CalendarView: React.FC = () => {
   );
   const [selectedDayForModal, setSelectedDayForModal] = useState<Date | null>(null);
   const [showDayDetailModal, setShowDayDetailModal] = useState(false);
-  const [initialOrderId, setInitialOrderId] = useState<string | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<Omit<Order, 'id' | 'createdAt' | 'updatedAt'> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -138,13 +137,6 @@ const CalendarView: React.FC = () => {
 
   const handleDayClick = (date: Date) => {
     setSelectedDayForModal(date);
-    setInitialOrderId(null);
-    setShowDayDetailModal(true);
-  };
-
-  const handleOrderClick = (date: Date, orderId: string) => {
-    setSelectedDayForModal(date);
-    setInitialOrderId(orderId);
     setShowDayDetailModal(true);
   };
 
@@ -237,10 +229,7 @@ const CalendarView: React.FC = () => {
               }`}
               onClick={() => handleDayClick(day)}
             >
-              <div
-                className={`text-lg font-semibold mb-3 ${isToday ? 'text-fergbutcher-green-600' : 'text-fergbutcher-black-900'}`}
-                onClick={(e) => { e.stopPropagation(); handleDayClick(day); }}
-              >
+              <div className={`text-lg font-semibold mb-3 ${isToday ? 'text-fergbutcher-green-600' : 'text-fergbutcher-black-900'}`}>
                 {day.getDate()}
                 <div className="text-xs font-normal text-fergbutcher-green-400">
                   {day.toLocaleDateString('en-NZ', { weekday: 'short' })}
@@ -252,8 +241,7 @@ const CalendarView: React.FC = () => {
                   return (
                     <div
                       key={order.id}
-                      className={`text-xs px-2 py-2 rounded text-white hover:ring-2 hover:ring-white/50 transition-all cursor-pointer ${getStatusDot(order.status)}`}
-                      onClick={(e) => { e.stopPropagation(); handleOrderClick(day, order.id); }}
+                      className={`text-xs px-2 py-2 rounded text-white ${getStatusDot(order.status)}`}
                     >
                       <div className="font-medium truncate flex items-center space-x-1">
                         {order.orderType === 'christmas' && <Gift className="h-3 w-3 flex-shrink-0" />}
@@ -313,7 +301,7 @@ const CalendarView: React.FC = () => {
                   <div
                     key={order.id}
                     className="bg-white border border-fergbutcher-gold-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => handleOrderClick(currentDate, order.id)}
+                    onClick={() => handleDayClick(currentDate)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
@@ -512,7 +500,6 @@ const CalendarView: React.FC = () => {
             selectedDayForModal.getDate()
           ))}
           customers={customers}
-          initialOrderId={initialOrderId}
           onUpdateOrder={(id, updates) => updateOrder(id, updates, customers)}
           onUpdateOrderAndFuture={(anchorOrder, updates, applyToFuture, custs) => updateOrderAndFuture(anchorOrder, updates, applyToFuture, custs)}
           onEdit={(order) => {

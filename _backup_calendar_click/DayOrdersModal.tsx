@@ -18,7 +18,6 @@ interface DayOrdersModalProps {
   onAddCustomer?: (customerData: Omit<Customer, 'id' | 'createdAt'>) => Promise<Customer | null>;
   onEdit?: (order: Order) => void;
   onDuplicate?: (orderId: string) => void;
-  initialOrderId?: string | null;
 }
 
 const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
@@ -30,10 +29,9 @@ const DayOrdersModal: React.FC<DayOrdersModalProps> = ({
   onUpdateOrderAndFuture,
   onAddCustomer,
   onEdit,
-  onDuplicate,
-  initialOrderId = null
+  onDuplicate
 }) => {
-  const [viewingOrderId, setViewingOrderId] = React.useState<string | null>(initialOrderId);
+  const [viewingOrderId, setViewingOrderId] = React.useState<string | null>(null);
   const [editingOrder, setEditingOrder] = React.useState<Order | null>(null);
   const [viewingCustomer, setViewingCustomer] = React.useState<Customer | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
