@@ -185,7 +185,10 @@ const CalendarView: React.FC = () => {
           }`}
           onClick={() => handleDayClick(dayDate)}
         >
-          <div className={`text-xs sm:text-sm font-medium mb-1 sm:mb-2 ${isToday ? 'text-fergbutcher-green-600 font-bold' : 'text-fergbutcher-black-900'}`}>
+          <div
+            className={`text-xs sm:text-sm font-medium mb-1 sm:mb-2 ${isToday ? 'text-fergbutcher-green-600 font-bold' : 'text-fergbutcher-black-900'}`}
+            onClick={(e) => { e.stopPropagation(); handleDayClick(dayDate); }}
+          >
             {day}
           </div>
           <div className="space-y-0.5 sm:space-y-1">
@@ -194,7 +197,8 @@ const CalendarView: React.FC = () => {
               return (
                 <div
                   key={order.id}
-                  className={`text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded text-white truncate flex items-center space-x-0.5 ${getStatusDot(order.status)}`}
+                  className={`text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded text-white truncate flex items-center space-x-0.5 hover:ring-2 hover:ring-white/50 transition-all cursor-pointer ${getStatusDot(order.status)}`}
+                  onClick={(e) => { e.stopPropagation(); handleOrderClick(dayDate, order.id); }}
                 >
                   {order.orderType === 'christmas' && <Gift className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />}
                   {order.isRecurring && <RefreshCw className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />}

@@ -352,6 +352,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
       console.log(`[updateOrder] #${id} status: ${previousOrder.status} → ${updates.status ?? '(unchanged)'}, updatedAt: ${updatedAt}`);
       const sentOrder = { ...previousOrder, ...updates, updatedAt } as Order;
+      setOrders(prev => prev.map(o => o.id === id ? sentOrder : o));
       ordersApi.update(id, sentOrder)
         .then((serverOrder) => {
           console.log(`[updateOrder] #${id} server confirmed update, status: ${serverOrder.status}`);
@@ -366,6 +367,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         })
         .catch(err => {
           console.error(`Failed to update order #${id} in DB:`, err);
+          setOrders(prev => prev.map(o => o.id === id ? previousOrder : o));
           setError('Failed to update order. Please try again.');
         });
 
