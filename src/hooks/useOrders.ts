@@ -13,6 +13,7 @@ import errorLogger from '../services/errorLogger';
 import { ordersApi } from './useApi';
 import { pendingWriteQueue } from '../services/pendingWriteQueue';
 import { emailSettings, emailLog, sendTemplateEmail } from '../services/emailService';
+import { getNextNumericId } from '../utils/idUtils';
 
 const parseDateLocal = (s: string) => {
   const [y, m, d] = s.split('-').map(Number);
@@ -176,7 +177,10 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           continue;
         }
 
-        const savedOrder = await ordersApi.save(item.payload);
+        const payload = /^\d+$/.test(item.payload.id)
+          ? item.payload
+          : { ...item.payload, id: getNextNumericId(ordersRef.current) };
+        const savedOrder = await ordersApi.save(payload);
         pendingWriteQueue.remove('order', item.id);
         setOrders(prev => prev.map(o => o.id === item.id ? savedOrder : o));
       } catch (err) {
@@ -199,8 +203,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   }, [retryPendingOrders]);
 
   // ── Helpers ───────────────────────────────────────────────
-  const getNextOrderId = (_existingOrders: Order[], _extra: Order[] = []): string =>
-    crypto.randomUUID();
+  const getNextOrderId = (existingOrders: Order[], extra: Order[] = []): string =>
+    getNextNumericId(existingOrders, extra);
 
   // Per-change Google Sheets sync is disabled — sync runs hourly or manually.
   const triggerSync = useCallback((_allOrders: Order[], _customers: Customer[]) => {}, []);
@@ -222,7 +226,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         while (currentDate <= endDate && count < 52) {
           const newOrder: Order = {
             ...orderData,
-            id: crypto.randomUUID(),
+            id: getNextOrderId(currentOrders, newOrders),
             collectionDate: formatDateLocal(currentDate),
             orderType: orderData.orderType || 'standard',
             isRecurring: true,
@@ -281,7 +285,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         // ── Single order ──────────────────────────────────
         const newOrder: Order = {
           ...orderData,
-          id: crypto.randomUUID(),
+          id: getNextOrderId(currentOrders),
           orderType: orderData.orderType || 'standard',
           isRecurring: false,
           recurrencePattern: null,

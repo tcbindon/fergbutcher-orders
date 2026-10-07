@@ -5,6 +5,7 @@ import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
 import { customersApi } from './useApi';
 import { pendingWriteQueue } from '../services/pendingWriteQueue';
+import { getNextNumericId } from '../utils/idUtils';
 
 const sortByFirstName = (arr: Customer[]) =>
   [...arr].sort((a, b) => a.firstName.localeCompare(b.firstName));
@@ -65,7 +66,9 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
           continue;
         }
 
-        const payload = existing ? { ...item.payload, id: crypto.randomUUID() } : item.payload;
+        const payload = existing || !/^\d+$/.test(item.payload.id)
+          ? { ...item.payload, id: getNextNumericId(customersRef.current) }
+          : item.payload;
         const savedCustomer = await customersApi.save(payload);
         pendingWriteQueue.remove('customer', item.id);
         customersRef.current = customersRef.current.map(customer => customer.id === item.id ? savedCustomer : customer);
@@ -92,7 +95,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
   const addCustomer = useCallback(async (customerData: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> => {
     const newCustomer: Customer = {
       ...customerData,
-      id: crypto.randomUUID(),
+      id: getNextNumericId(customersRef.current),
       createdAt: new Date().toISOString(),
     };
 
