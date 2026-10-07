@@ -144,6 +144,18 @@ export const customersApi = {
 const normalizeOrderId = (o: Order): Order => ({ ...decodeOrderDate(o), id: String(o.id), customerId: String(o.customerId) });
 const normalizeOrderIds = (os: Order[]): Order[] => os.map(normalizeOrderId);
 
+const orderItemsKey = (order: Order): string => JSON.stringify(
+  order.items.map(item => ({ description: item.description, quantity: item.quantity, unit: item.unit }))
+);
+
+const findPersistedOrder = (orders: Order[], target: Order): Order | undefined =>
+  orders.find(order => order.createdAt === target.createdAt) ?? orders.find(order =>
+    order.customerId === target.customerId &&
+    order.collectionDate === target.collectionDate &&
+    order.collectionTime === target.collectionTime &&
+    orderItemsKey(order) === orderItemsKey(target)
+  );
+
 export const ordersApi = {
   getAll: async (filters: { status?: string; type?: string; from?: string; to?: string } = {}): Promise<Order[]> => {
     const params = new URLSearchParams(
@@ -159,8 +171,25 @@ export const ordersApi = {
   },
 
   save: async (order: Order): Promise<Order> => {
-    const data = await request<Order>('/orders', { method: 'POST', body: JSON.stringify(encodeDateForApi(omitTemporaryId(order) as Order)) });
-    const merged = { ...order, ...data };
+    const data = await request<Partial<Order> | null>('/orders', {
+      method: 'POST',
+      body: JSON.stringify(encodeDateForApi(omitTemporaryId(order) as Order)),
+    });
+
+    let persistedOrder = data?.id
+      ? ({ ...order, ...data } as Order)
+      : undefined;
+
+    if (!persistedOrder) {
+      const serverOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
+      persistedOrder = findPersistedOrder(serverOrders, order);
+    }
+
+    if (!persistedOrder) {
+      throw new Error('Order was not confirmed by the server');
+    }
+
+    const merged = { ...order, ...persistedOrder };
     if (!merged.status || !VALID_STATUSES.has(merged.status)) {
       merged.status = order.status || 'pending';
     }
