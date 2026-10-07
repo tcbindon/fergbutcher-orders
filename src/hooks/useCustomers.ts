@@ -20,6 +20,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
   customersRef.current = customers;
 
   const deletedIdsRef = useRef<Set<string>>(new Set());
+  const retryInProgressRef = useRef(false);
 
   useEffect(() => {
     if (skipInitialFetch) return;
@@ -50,7 +51,11 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
   }, []);
 
   const retryPendingCustomers = useCallback(async () => {
-    for (const item of pendingWriteQueue.list('customer')) {
+    if (retryInProgressRef.current) return;
+    retryInProgressRef.current = true;
+
+    try {
+      for (const item of pendingWriteQueue.list('customer')) {
       try {
         let existing: Customer | null = null;
         try {
@@ -73,9 +78,12 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
         pendingWriteQueue.remove('customer', item.id);
         customersRef.current = customersRef.current.map(customer => customer.id === item.id ? savedCustomer : customer);
         setCustomers(current => sortByFirstName(current.map(customer => customer.id === item.id ? savedCustomer : customer)));
-      } catch (err) {
-        console.warn('Pending customer save will be retried later:', err);
+        } catch (err) {
+          console.warn('Pending customer save will be retried later:', err);
+        }
       }
+    } finally {
+      retryInProgressRef.current = false;
     }
   }, []);
 

@@ -116,6 +116,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
   // (hydrate) must not bring these back before the server confirms the
   // delete by no longer returning them.
   const deletedIdsRef = useRef<Set<string>>(new Set());
+  const retryInProgressRef = useRef(false);
 
   // ── Load all orders from DB on mount ─────────────────────
   useEffect(() => {
@@ -161,7 +162,11 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
   // Retry orders that were queued because the server was unreachable.
   const retryPendingOrders = useCallback(async () => {
-    for (const item of pendingWriteQueue.list('order')) {
+    if (retryInProgressRef.current) return;
+    retryInProgressRef.current = true;
+
+    try {
+      for (const item of pendingWriteQueue.list('order')) {
       try {
         let existing: Order | null = null;
         try {
@@ -183,9 +188,12 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         const savedOrder = await ordersApi.save(payload);
         pendingWriteQueue.remove('order', item.id);
         setOrders(prev => prev.map(o => o.id === item.id ? savedOrder : o));
-      } catch (err) {
-        console.warn('Pending order save will be retried later:', err);
+        } catch (err) {
+          console.warn('Pending order save will be retried later:', err);
+        }
       }
+    } finally {
+      retryInProgressRef.current = false;
     }
   }, []);
 
