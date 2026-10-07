@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Calendar, Clock, Package, FileText, Pencil, Copy, Mail, Send, Gift, RefreshCw, Loader2, ExternalLink, StickyNote } from 'lucide-react';
+import { User, Calendar, Clock, Package, FileText, Pencil, Copy, Mail, Send, Gift, RefreshCw, Loader2, ExternalLink } from 'lucide-react';
 import { Order, Customer } from '../types';
 import OrderTimeline from './OrderTimeline';
 import { useEmailTemplates } from '../hooks/useEmailTemplates';
@@ -191,17 +191,6 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
               )}
             </div>
           </div>
-          {customer.notes && (
-            <div className="mt-3 flex items-start space-x-3 bg-fergbutcher-yellow-50 border border-fergbutcher-yellow-200 rounded-lg p-3">
-              <div className="bg-fergbutcher-yellow-100 p-2 rounded-lg flex-shrink-0">
-                <StickyNote className="h-4 w-4 text-fergbutcher-yellow-700" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-fergbutcher-yellow-700 uppercase tracking-wide">Customer Notes</p>
-                <p className="text-sm text-fergbutcher-black-900 mt-1 whitespace-pre-wrap">{customer.notes}</p>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -264,11 +253,6 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
         </div>
       )}
 
-      {/* Staff Comments & Timeline */}
-      <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
-        <OrderTimeline order={order} />
-      </div>
-
       {/* Email Customer */}
       {customer && customer.email && (
         <div className="px-6 py-4 border-b border-fergbutcher-gold-300">
@@ -322,6 +306,10 @@ const OrderDetail: React.FC<OrderDetailProps> = ({
         </div>
       )}
 
+      {/* Unified Order Timeline (system events, staff comments, email history) */}
+      <div className="px-6 py-4 border-t border-fergbutcher-gold-300">
+        <OrderTimeline order={order} />
+      </div>
     </div>
   );
 };
