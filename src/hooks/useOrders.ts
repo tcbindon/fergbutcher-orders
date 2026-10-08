@@ -166,28 +166,22 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
     retryInProgressRef.current = true;
 
     try {
+      const waitingCustomerIds = new Set(pendingWriteQueue.list('customer').map(item => item.id));
       for (const item of pendingWriteQueue.list('order')) {
-      try {
-        let existing: Order | null = null;
+        if (waitingCustomerIds.has((item.payload as Order).customerId)) continue;
         try {
-          existing = await ordersApi.getOne(item.id);
-        } catch {
-          existing = null;
-        }
+          let existing: Order | null = null;
+          try {
+            existing = await ordersApi.getOne(item.id);
+          } catch {
+            existing = null;
+          }
 
-        if (existing && existing.createdAt === item.payload.createdAt) {
-          const serverOrder = existing;
+          const savedOrder = existing && existing.createdAt === item.payload.createdAt
+            ? existing
+            : await ordersApi.create(item.payload as Order);
           pendingWriteQueue.remove('order', item.id);
-          setOrders(prev => prev.map(o => o.id === item.id ? serverOrder : o));
-          continue;
-        }
-
-        const payload = /^\d+$/.test(item.payload.id)
-          ? item.payload
-          : { ...item.payload, id: getNextNumericId(ordersRef.current) };
-        const savedOrder = await ordersApi.save(payload);
-        pendingWriteQueue.remove('order', item.id);
-        setOrders(prev => prev.map(o => o.id === item.id ? savedOrder : o));
+          setOrders(prev => prev.map(o => o.id === item.id ? savedOrder : o));
         } catch (err) {
           console.warn('Pending order save will be retried later:', err);
         }
@@ -197,18 +191,20 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
     }
   }, []);
 
-  useEffect(() => {
-    const retry = () => {
-      if (navigator.onLine) void retryPendingOrders();
-    };
-    retry();
-    window.addEventListener('online', retry);
-    const retryTimer = window.setInterval(retry, 30000);
-    return () => {
-      window.removeEventListener('online', retry);
-      window.clearInterval(retryTimer);
-    };
-  }, [retryPendingOrders]);
+  // Point orders at a customer's new server number after it was saved.
+  const relinkCustomer = useCallback(async (oldCustomerId: string, newCustomerId: string) => {
+    const affected = ordersRef.current.filter(o =>
+      o.customerId === oldCustomerId && !pendingWriteQueue.list('order').some(item => item.id === o.id)
+    );
+    setOrders(prev => prev.map(o => o.customerId === oldCustomerId ? { ...o, customerId: newCustomerId } : o));
+    for (const order of affected) {
+      try {
+        await ordersApi.update(order.id, { ...order, customerId: newCustomerId });
+      } catch (err) {
+        console.error(`Failed to relink order #${order.id} to customer #${newCustomerId}:`, err);
+      }
+    }
+  }, []);
 
   // ── Helpers ───────────────────────────────────────────────
   const getNextOrderId = (existingOrders: Order[], extra: Order[] = []): string =>
@@ -252,7 +248,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
         let wasQueued = false;
         try {
-          await ordersApi.saveAll(newOrders);
+          const createdOrders = await ordersApi.createAll(newOrders);
+          newOrders.splice(0, newOrders.length, ...createdOrders);
         } catch (err) {
           console.error('Failed to save recurring orders to DB:', err);
           newOrders.forEach(o => pendingWriteQueue.upsert({ kind: 'order', id: o.id, payload: o, queuedAt: new Date().toISOString() }));
@@ -306,7 +303,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         let savedOrder: Order = newOrder;
         let wasQueued = false;
         try {
-          savedOrder = await ordersApi.save(newOrder);
+          savedOrder = await ordersApi.create(newOrder);
         } catch (err) {
           console.error('Failed to save order to DB:', err);
           pendingWriteQueue.upsert({ kind: 'order', id: newOrder.id, payload: newOrder, queuedAt: new Date().toISOString() });
@@ -540,9 +537,13 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
             parentOrderId: parentId,
             updatedAt,
           }),
-          generatedOrders.length > 0 ? ordersApi.saveAll(generatedOrders) : Promise.resolve(),
+          generatedOrders.length > 0 ? ordersApi.createAll(generatedOrders) : Promise.resolve([] as Order[]),
         ])
-          .then(() => triggerSync(ordersRef.current, customers))
+          .then(([, createdOrders]) => {
+            const createdById = new Map(generatedOrders.map((o, i) => [o.id, createdOrders[i]]));
+            setOrders(prev => prev.map(o => createdById.get(o.id) ?? o));
+            triggerSync(ordersRef.current, customers);
+          })
           .catch(err => {
             console.error('Failed to create recurring series:', err);
             // Revert: remove generated orders, restore original
@@ -629,7 +630,7 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
             : { ...o, recurrenceEndDate: newEndDate, updatedAt };
           dbOps.push(ordersApi.update(o.id, patch));
         });
-        if (generatedOrders.length > 0) dbOps.push(ordersApi.saveAll(generatedOrders));
+        if (generatedOrders.length > 0) dbOps.push(ordersApi.createAll(generatedOrders));
 
         Promise.all(dbOps)
           .then(() => {
@@ -978,6 +979,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
     error,
     clearError: () => setError(null),
     hydrate,
+    retryPendingOrders,
+    relinkCustomer,
     addOrder,
     updateOrder,
     bulkUpdateStatus,

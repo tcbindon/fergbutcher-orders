@@ -11,6 +11,7 @@ import CollectionDatePromptModal, { isDateRequiredStatus } from './CollectionDat
 import RecurringScopeModal from './RecurringScopeModal';
 import PrintResults from './PrintResults';
 import Modal from './Modal';
+import UnlinkedOrdersModal from './UnlinkedOrdersModal';
 import { collapsePendingRecurring, countPendingInSeries } from '../utils/recurringUtils';
 import { getStatusBadge, getStatusIcon as statusIcon } from '../utils/statusColors';
 import { Order, Customer } from '../types';
@@ -99,6 +100,11 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
   const [dateFrom, setDateFrom] = useState(() => initialCollectionDate || todayLocal());
   const [dateTo, setDateTo] = useState(() => initialCollectionDate || addDaysLocal(6));
   const [showPrintResults, setShowPrintResults] = useState(false);
+  const [showUnlinkedOrders, setShowUnlinkedOrders] = useState(false);
+  const customerIds = new Set(customers.map(c => c.id));
+  const unlinkedOrders = customersLoading || customers.length === 0
+    ? []
+    : orders.filter(o => !customerIds.has(o.customerId));
   const [datePrompt, setDatePrompt] = useState<{
     orderIds: string[];
     desiredStatus: Order['status'];
@@ -359,6 +365,23 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
             <AlertTriangle className="h-5 w-5 text-red-600" />
             <p className="text-red-700">{ordersError || customersError}</p>
           </div>
+        </div>
+      )}
+
+      {unlinkedOrders.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2 text-amber-800 text-sm">
+            <User className="h-4 w-4 flex-shrink-0" />
+            <span>
+              {unlinkedOrders.length} order{unlinkedOrders.length === 1 ? ' is' : 's are'} missing customer details.
+            </span>
+          </div>
+          <button
+            onClick={() => setShowUnlinkedOrders(true)}
+            className="bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-amber-700 transition-colors self-start sm:self-auto"
+          >
+            Review and relink
+          </button>
         </div>
       )}
 
@@ -713,6 +736,12 @@ const Orders: React.FC<OrdersProps> = ({ initialStatusFilter, initialCollectionD
       )}
 
       {/* View Order Details Modal */}
+      <UnlinkedOrdersModal
+        open={showUnlinkedOrders}
+        onClose={() => setShowUnlinkedOrders(false)}
+        unlinkedOrders={unlinkedOrders}
+      />
+
       <Modal open={!!viewingOrder} onClose={() => setViewingOrderId(null)} title="Order Details">
         {viewingOrder && (
           <OrderDetail

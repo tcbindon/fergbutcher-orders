@@ -50,34 +50,32 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     setError(null);
   }, []);
 
-  const retryPendingCustomers = useCallback(async () => {
-    if (retryInProgressRef.current) return;
+  const retryPendingCustomers = useCallback(async (): Promise<Map<string, string>> => {
+    const relinkedIds = new Map<string, string>();
+    if (retryInProgressRef.current) return relinkedIds;
     retryInProgressRef.current = true;
 
     try {
       for (const item of pendingWriteQueue.list('customer')) {
-      try {
-        let existing: Customer | null = null;
         try {
-          existing = await customersApi.getOne(item.id);
-        } catch {
-          existing = null;
-        }
+          let existing: Customer | null = null;
+          try {
+            existing = await customersApi.getOne(item.id);
+          } catch {
+            existing = null;
+          }
 
-        if (existing && existing.createdAt === item.payload.createdAt) {
+          const savedCustomer = existing && existing.createdAt === item.payload.createdAt
+            ? existing
+            : await customersApi.create(item.payload);
+
           pendingWriteQueue.remove('customer', item.id);
-          customersRef.current = customersRef.current.map(customer => customer.id === item.id ? existing : customer);
-          setCustomers(current => sortByFirstName(current.map(customer => customer.id === item.id ? existing : customer)));
-          continue;
-        }
-
-        const payload = existing || !/^\d+$/.test(item.payload.id)
-          ? { ...item.payload, id: getNextNumericId(customersRef.current) }
-          : item.payload;
-        const savedCustomer = await customersApi.save(payload);
-        pendingWriteQueue.remove('customer', item.id);
-        customersRef.current = customersRef.current.map(customer => customer.id === item.id ? savedCustomer : customer);
-        setCustomers(current => sortByFirstName(current.map(customer => customer.id === item.id ? savedCustomer : customer)));
+          if (savedCustomer.id !== item.id) {
+            pendingWriteQueue.relinkCustomer(item.id, savedCustomer.id);
+            relinkedIds.set(item.id, savedCustomer.id);
+          }
+          customersRef.current = customersRef.current.map(customer => customer.id === item.id ? savedCustomer : customer);
+          setCustomers(current => sortByFirstName(current.map(customer => customer.id === item.id ? savedCustomer : customer)));
         } catch (err) {
           console.warn('Pending customer save will be retried later:', err);
         }
@@ -85,20 +83,8 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     } finally {
       retryInProgressRef.current = false;
     }
+    return relinkedIds;
   }, []);
-
-  useEffect(() => {
-    const retry = () => {
-      if (navigator.onLine) void retryPendingCustomers();
-    };
-    retry();
-    window.addEventListener('online', retry);
-    const retryTimer = window.setInterval(retry, 30000);
-    return () => {
-      window.removeEventListener('online', retry);
-      window.clearInterval(retryTimer);
-    };
-  }, [retryPendingCustomers]);
 
   const addCustomer = useCallback(async (customerData: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> => {
     const newCustomer: Customer = {
@@ -111,8 +97,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     setCustomers(prev => sortByFirstName([...prev, newCustomer]));
 
     try {
-      const serverCustomer = await customersApi.save(newCustomer);
-      const savedCustomer = serverCustomer && serverCustomer.id ? serverCustomer : newCustomer;
+      const savedCustomer = await customersApi.create(newCustomer);
 
       if (savedCustomer.id !== newCustomer.id) {
         setCustomers(prev => sortByFirstName(
@@ -242,6 +227,7 @@ export const useCustomers = (opts: { skipInitialFetch?: boolean } = {}) => {
     loading,
     error,
     hydrate,
+    retryPendingCustomers,
     addCustomer,
     updateCustomer,
     deleteCustomer,

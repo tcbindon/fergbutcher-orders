@@ -34,6 +34,14 @@ export const pendingWriteQueue = {
     writeQueue(readQueue().filter(item => !(item.kind === kind && item.id === id)));
   },
 
+  relinkCustomer(oldCustomerId: string, newCustomerId: string) {
+    writeQueue(readQueue().map(item =>
+      item.kind === 'order' && item.payload.customerId === oldCustomerId
+        ? { ...item, payload: { ...item.payload, customerId: newCustomerId } }
+        : item
+    ));
+  },
+
   count() {
     return readQueue().length;
   },

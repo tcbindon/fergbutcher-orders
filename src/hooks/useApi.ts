@@ -43,6 +43,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 import type { Customer, Order, StaffNote } from '../types';
+import { getNextNumericId } from '../utils/idUtils';
 
 // ── COMBINED FETCH (single round trip) ──────────────────────
 export const combinedApi = {
@@ -129,6 +130,13 @@ export const customersApi = {
     for (const c of customers) results.push(await customersApi.save(c));
     return results;
   },
+
+  // The server needs a numeric id but doesn't assign one, so read the live
+  // list right before sending to avoid reusing a number another device took.
+  create: async (customer: Customer): Promise<Customer> => {
+    const serverCustomers = await customersApi.getAll();
+    return customersApi.save({ ...customer, id: getNextNumericId(serverCustomers) });
+  },
 };
 
 // ── ORDERS ───────────────────────────────────────────────────
@@ -209,6 +217,20 @@ export const ordersApi = {
     const results: Order[] = [];
     for (const o of orders) results.push(await ordersApi.save(o));
     return results;
+  },
+
+  createAll: async (orders: Order[]): Promise<Order[]> => {
+    const serverOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
+    const results: Order[] = [];
+    for (const o of orders) {
+      results.push(await ordersApi.save({ ...o, id: getNextNumericId(serverOrders, results) }));
+    }
+    return results;
+  },
+
+  create: async (order: Order): Promise<Order> => {
+    const [created] = await ordersApi.createAll([order]);
+    return created;
   },
 };
 

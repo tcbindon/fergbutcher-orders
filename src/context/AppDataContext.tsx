@@ -9,8 +9,8 @@ type CustomersHook = ReturnType<typeof useCustomers>;
 type StaffNotesHook = ReturnType<typeof useStaffNotes>;
 
 interface AppDataContextValue
-  extends Omit<OrdersHook, 'loading' | 'error' | 'clearError' | 'hydrate'>,
-          Omit<CustomersHook, 'loading' | 'error' | 'hydrate'>,
+  extends Omit<OrdersHook, 'loading' | 'error' | 'clearError' | 'hydrate' | 'retryPendingOrders' | 'relinkCustomer'>,
+          Omit<CustomersHook, 'loading' | 'error' | 'hydrate' | 'retryPendingCustomers'>,
           Omit<StaffNotesHook, 'loading' | 'error' | 'hydrate'> {
   ordersLoading: boolean;
   ordersError: string | null;
@@ -66,6 +66,31 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const refreshTimer = window.setInterval(() => { void refreshData(); }, 120000);
     return () => window.clearInterval(refreshTimer);
   }, [refreshData]);
+
+  const { retryPendingCustomers } = customers;
+  const { retryPendingOrders, relinkCustomer } = orders;
+
+  // Customers go first so queued orders can be pointed at their saved number.
+  const retryPendingWrites = useCallback(async () => {
+    if (!hasLoadedOnce.current || !navigator.onLine) return;
+    const relinkedIds = await retryPendingCustomers();
+    for (const [oldId, newId] of relinkedIds) await relinkCustomer(oldId, newId);
+    await retryPendingOrders();
+  }, [retryPendingCustomers, retryPendingOrders, relinkCustomer]);
+
+  useEffect(() => {
+    if (lastRefresh) void retryPendingWrites();
+  }, [lastRefresh, retryPendingWrites]);
+
+  useEffect(() => {
+    const retry = () => { void retryPendingWrites(); };
+    window.addEventListener('online', retry);
+    const retryTimer = window.setInterval(retry, 30000);
+    return () => {
+      window.removeEventListener('online', retry);
+      window.clearInterval(retryTimer);
+    };
+  }, [retryPendingWrites]);
 
   const value: AppDataContextValue = useMemo(() => ({
     // Orders
