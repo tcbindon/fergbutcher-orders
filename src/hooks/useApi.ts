@@ -147,11 +147,22 @@ const orderItemsKey = (order: Order): string => JSON.stringify(
   order.items.map(item => ({ description: item.description, quantity: item.quantity, unit: item.unit }))
 );
 
-const findPersistedOrder = (orders: Order[], target: Order): Order | undefined =>
-  orders.find(order => order.createdAt === target.createdAt) ?? orders.find(order =>
+// The server may store timestamps in a different format (e.g. "2026-10-08 10:15:49").
+const normalizeMoment = (value: string | undefined): string =>
+  (value ?? '').replace('T', ' ').replace(/(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/, '').slice(0, 19);
+
+const isSameMoment = (a: string | undefined, b: string | undefined): boolean => {
+  if (!a || !b) return false;
+  if (normalizeMoment(a) === normalizeMoment(b)) return true;
+  const diff = Math.abs(Date.parse(a) - Date.parse(b));
+  return Number.isFinite(diff) && diff < 1000;
+};
+
+export const findPersistedOrder = (orders: Order[], target: Order): Order | undefined =>
+  orders.find(order => isSameMoment(order.createdAt, target.createdAt)) ?? orders.find(order =>
     order.customerId === target.customerId &&
     order.collectionDate === target.collectionDate &&
-    order.collectionTime === target.collectionTime &&
+    (order.collectionTime ?? '') === (target.collectionTime ?? '') &&
     orderItemsKey(order) === orderItemsKey(target)
   );
 
@@ -180,14 +191,15 @@ export const ordersApi = {
       : undefined;
 
     if (!persistedOrder) {
-      const serverOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
-      persistedOrder = findPersistedOrder(serverOrders, order);
+      try {
+        const serverOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
+        persistedOrder = findPersistedOrder(serverOrders, order);
+      } catch {
+        persistedOrder = undefined;
+      }
     }
 
-    if (!persistedOrder) {
-      throw new Error('Order was not confirmed by the server');
-    }
-
+    // The server accepted the save; resending it would create a duplicate.
     const merged = { ...order, ...persistedOrder };
     if (!merged.status || !VALID_STATUSES.has(merged.status)) {
       merged.status = order.status || 'pending';

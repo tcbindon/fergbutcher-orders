@@ -10,7 +10,7 @@ import { Order, Customer, EmailTemplate } from '../types';
 
 import { useUndo } from './useUndo';
 import errorLogger from '../services/errorLogger';
-import { ordersApi } from './useApi';
+import { ordersApi, findPersistedOrder } from './useApi';
 import { pendingWriteQueue } from '../services/pendingWriteQueue';
 import { emailSettings, emailLog, sendTemplateEmail } from '../services/emailService';
 import { getNextNumericId } from '../utils/idUtils';
@@ -167,17 +167,14 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
 
     try {
       const waitingCustomerIds = new Set(pendingWriteQueue.list('customer').map(item => item.id));
-      for (const item of pendingWriteQueue.list('order')) {
+      const queuedOrders = pendingWriteQueue.list('order');
+      if (queuedOrders.length === 0) return;
+      const serverOrders = await ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' });
+      for (const item of queuedOrders) {
         if (waitingCustomerIds.has((item.payload as Order).customerId)) continue;
         try {
-          let existing: Order | null = null;
-          try {
-            existing = await ordersApi.getOne(item.id);
-          } catch {
-            existing = null;
-          }
-
-          const savedOrder = existing && existing.createdAt === item.payload.createdAt
+          const existing = findPersistedOrder(serverOrders, item.payload as Order);
+          const savedOrder = existing
             ? existing
             : await ordersApi.create(item.payload as Order);
           pendingWriteQueue.remove('order', item.id);
@@ -362,6 +359,13 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
       console.log(`[updateOrder] #${id} status: ${previousOrder.status} → ${updates.status ?? '(unchanged)'}, updatedAt: ${updatedAt}`);
       const sentOrder = { ...previousOrder, ...updates, updatedAt } as Order;
       setOrders(prev => prev.map(o => o.id === id ? sentOrder : o));
+
+      // Not on the server yet: change the waiting copy so it is sent with the update.
+      if (pendingWriteQueue.updateQueuedOrder(sentOrder)) {
+        console.log(`[updateOrder] #${id} is waiting to be sent; updated the queued copy`);
+        return true;
+      }
+
       ordersApi.update(id, sentOrder)
         .then((serverOrder) => {
           console.log(`[updateOrder] #${id} server confirmed update, status: ${serverOrder.status}`);
@@ -378,21 +382,13 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
           if (err instanceof Error && err.message === 'Order not found') {
             ordersApi.getAll({ from: '1900-01-01', to: '2100-12-31' })
               .then(serverOrders => {
-                const itemKey = (order: Order): string => JSON.stringify(
-                  order.items.map(item => ({ description: item.description, quantity: item.quantity, unit: item.unit }))
-                );
-                const matchingServerOrder = serverOrders.find(serverOrder =>
-                  serverOrder.createdAt === sentOrder.createdAt
-                ) ?? serverOrders.find(serverOrder =>
-                  serverOrder.customerId === sentOrder.customerId &&
-                  serverOrder.collectionDate === sentOrder.collectionDate &&
-                  serverOrder.collectionTime === sentOrder.collectionTime &&
-                  itemKey(serverOrder) === itemKey(sentOrder)
-                );
+                // Match against the server's existing copy, i.e. before this edit changed it.
+                const matchingServerOrder = findPersistedOrder(serverOrders, previousOrder);
 
                 if (!matchingServerOrder) {
-                  throw new Error('Order not found');
+                  throw new Error(`Order #${id} does not exist on the server and no matching order was found`);
                 }
+                console.log(`[updateOrder] #${id} matched server order #${matchingServerOrder.id}`);
 
                 return ordersApi.update(matchingServerOrder.id, {
                   ...sentOrder,
@@ -400,7 +396,8 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
                 });
               })
               .then((savedOrder) => {
-                setOrders(prev => prev.map(o => o.id === id ? savedOrder : o));
+                const mergedOrder = { ...sentOrder, ...savedOrder };
+                setOrders(prev => prev.map(o => o.id === id ? mergedOrder : o));
                 triggerSync(ordersRef.current, customers);
               })
               .catch(resolveError => {
@@ -439,7 +436,9 @@ export const useOrders = (opts: { skipInitialFetch?: boolean } = {}) => {
         return false;
       }
 
-      Promise.allSettled(requestedOrders.map(({ id, order }) => ordersApi.update(id, order)))
+      Promise.allSettled(requestedOrders.map(({ id, order }) =>
+        pendingWriteQueue.updateQueuedOrder(order) ? Promise.resolve(order) : ordersApi.update(id, order)
+      ))
         .then(results => {
           const successfulOrders = new Map<string, Order>();
           let failedCount = 0;

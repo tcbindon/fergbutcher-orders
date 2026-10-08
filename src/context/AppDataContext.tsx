@@ -73,9 +73,13 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Customers go first so queued orders can be pointed at their saved number.
   const retryPendingWrites = useCallback(async () => {
     if (!hasLoadedOnce.current || !navigator.onLine) return;
-    const relinkedIds = await retryPendingCustomers();
-    for (const [oldId, newId] of relinkedIds) await relinkCustomer(oldId, newId);
-    await retryPendingOrders();
+    try {
+      const relinkedIds = await retryPendingCustomers();
+      for (const [oldId, newId] of relinkedIds) await relinkCustomer(oldId, newId);
+      await retryPendingOrders();
+    } catch (err) {
+      console.warn('Pending saves will be retried later:', err);
+    }
   }, [retryPendingCustomers, retryPendingOrders, relinkCustomer]);
 
   useEffect(() => {
